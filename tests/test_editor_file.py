@@ -4,15 +4,27 @@ import pytest
 
 import synthetic
 from fm27_editor import editor_file
+from fm27_editor.binary import FormatError
 from fm27_editor.editor_file import EditorFileError, load_editor_file, save_editor_file
 
 
-def editor_file_bytes(new_value: int = 53_000) -> bytes:
+def described(name: str) -> bytes:
+    return synthetic.details(name, description="Bigger", author="Nobody", owner=b"\x09" * 8)
+
+
+def editor_file_bytes(new_value: int = 53_000, *, details: bytes | None = None) -> bytes:
+    details = described("Club Tweaks") if details is None else details
     return synthetic.container(
         "Club Tweaks",
         [("Club Tweaks", ".dbc", synthetic.change_list(synthetic.capacity_change(new_value)))],
-        folder=("_data", [("details", ".aom", b"details")]),
+        folder=("_data", [("details", ".aom", details)]),
     )
+
+
+def details_of(file) -> bytes:
+    (folder,) = file.container.root.folders
+    (member,) = folder.members
+    return member.data
 
 
 @pytest.fixture
@@ -55,6 +67,42 @@ def test_a_file_with_an_added_change_saves_with_the_new_count(source, tmp_path):
     count = next(item.value for item in saved.changes.general if item.tag == "dchc")
     assert count == (2).to_bytes(8, "little")
     assert saved.changes.changes == edited.changes.changes
+
+
+def test_a_copy_is_described_by_its_own_name_and_keeps_the_rest(source, tmp_path):
+    save_editor_file(load_editor_file(source), tmp_path / "A copy.fmf")
+
+    assert details_of(load_editor_file(tmp_path / "A copy.fmf")) == described("A copy")
+
+
+def test_a_file_the_editor_would_not_list_is_not_saved(source, tmp_path):
+    edited = load_editor_file(source)
+    edited.container.root.folders.clear()
+
+    with pytest.raises(EditorFileError, match="details"):
+        save_editor_file(edited, tmp_path / "hidden.fmf")
+
+    assert list(tmp_path.iterdir()) == [source]
+
+
+@pytest.mark.parametrize(
+    "details",
+    [
+        b"something else",
+        described("Club Tweaks").replace(b"LEAGUE_DATA_UPDATE", b"TACTICS_OR_OTHERS_"),
+        described("Club Tweaks").replace(b"\x04\x00", b"\x05\x00", 1),
+        described("Club Tweaks")[:20],
+    ],
+    ids=["not details", "another kind of file", "another layout", "cut short"],
+)
+def test_details_that_are_not_an_editor_files_are_refused(tmp_path, details):
+    path = tmp_path / "odd.fmf"
+    path.write_bytes(editor_file_bytes(details=details))
+
+    with pytest.raises(FormatError):
+        save_editor_file(load_editor_file(path), tmp_path / "copy.fmf")
+
+    assert list(tmp_path.iterdir()) == [path]
 
 
 def test_source_file_is_not_changed_by_loading_or_saving(source, tmp_path):

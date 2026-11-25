@@ -11,8 +11,12 @@ from fm27_editor.change_list import (
     with_current_count,
 )
 from fm27_editor.container import Container, Folder, Member, read_container, write_container
+from fm27_editor.details import renamed_details
 
 CHANGE_LIST_EXTENSION = ".dbc"
+DETAILS_FOLDER = "_data"
+DETAILS_NAME = "details"
+DETAILS_EXTENSION = ".aom"
 
 
 class EditorFileError(FormatError):
@@ -61,16 +65,36 @@ def _change_list_member(container: Container) -> Member:
 
 
 def _container_to_save(file: EditorFile, name: str) -> Container:
-    """The container with the changes applied and the file's own name inside.
-
-    The Editor opened a rewritten file whose internal name matched its file name.
-    """
+    """The container with the changes applied and the file's own name inside."""
     root = file.container.root
     change_list = replace(
         _change_list_member(file.container), name=name, data=serialise_change_list(file.changes)
     )
     members = [change_list if m.extension == CHANGE_LIST_EXTENSION else m for m in root.members]
-    return Container(file.container.storage, Folder(name, members, root.folders))
+    folders = _folders_with_renamed_details(root.folders, name)
+    return Container(file.container.storage, Folder(name, members, folders))
+
+
+def _folders_with_renamed_details(folders: list[Folder], name: str) -> list[Folder]:
+    if not any(_is_details(folder, member) for folder in folders for member in folder.members):
+        raise EditorFileError("this file has no details, so the Editor would not list it")
+    return [
+        replace(
+            folder,
+            members=[
+                replace(member, data=renamed_details(member.data, name))
+                if _is_details(folder, member)
+                else member
+                for member in folder.members
+            ],
+        )
+        for folder in folders
+    ]
+
+
+def _is_details(folder: Folder, member: Member) -> bool:
+    found = (folder.name, member.name, member.extension)
+    return found == (DETAILS_FOLDER, DETAILS_NAME, DETAILS_EXTENSION)
 
 
 def _check_reads_back(content: bytes, container: Container, changes: ChangeList) -> None:
