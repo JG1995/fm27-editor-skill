@@ -31,10 +31,11 @@ Attributes, positions, and personality go by their usual names, such as `finishi
 Know these before you write a query:
 
 - **`kind`** is `player`, `staff`, `both`, `official`, or `retired`. Only `player` and `staff` can be changed.
-- **`pa` below 0 is a range, not a number.** Most young players have one: -8 is 130-160, and -85 is 140-170. `fm27 fields player PPAR` lists them all. Adding to a range makes no sense. When a request is about potential, count the people with a range and those with a number, and ask the user what to do with the ranges.
+- **`pa` below 0 is a range, not a number.** Most young players have one: -8 is 130-160, and -85 is 140-170. `fm27 fields player PPAB` lists them all. You cannot add to a range. When a request is about potential, count the people with a range and those with a number, and ask what to do with the ranges before you preview them. Offer to leave them, to move each up or down a range, or to replace each by a number. Say how any limit the user gave applies, because the top of a range can be above it.
 - **`NULL` means not known**, or left for the game to fill in. It is not 0. Only players have attributes, positions, and personality here, and many of those are `NULL`.
-- **Men and women are together, and no column tells them apart.** About 3,500 club names belong to more than one club, such as a men's and a women's team. Choose a club by `uid`, and tell the user when a request by nation or age covers both.
-- **`birth_date`** is text such as `2008-04-25`, and `1900-01-01` means unknown. For an age, count from a date, such as `birth_date > date('now', '-21 years')` for under 21, and say which date you used.
+- **Men and women are together, and no column tells them apart.** About 3,500 club names belong to more than one club, such as a men's and a women's team. Choose a club by `uid`. Tell the user when a request by nation or age covers both, and that you cannot limit it to one of them, except by naming clubs.
+- **`birth_date`** is text such as `2008-04-25`, and `1900-01-01` means unknown. Count an age from the day the new game starts, not from today: ask when that is if the user has not said. In a request, write the date out, such as `birth_date > '2005-07-01'`. A query with `date('now')` finds other people tomorrow, and the approval code no longer fits.
+- **`nation`** is the one main nationality. Others are not here.
 - **Names** are spelled with their accents and often written in full. Search with `LIKE`, show the candidates when there are several, and let the user choose.
 - Some people in the Editor are not in the lookup. Not finding someone does not mean that they do not exist.
 
@@ -42,8 +43,8 @@ Know these before you write a query:
 
 1. **Find** who it is about. Report how many people match and anything unclear, such as ranges or both genders.
 2. **Write the request** as a JSON file in a temporary folder.
-3. **Preview:** `fm27 preview REQUEST.json [--examples 10]`. Read it critically. Values that go down, very large counts, and old values that are unknown are often a mistake in the query.
-4. **Show the user** the counts by field and direction, several examples, what is left out, and every new person. Wait for a yes. If anything changes, preview again and ask again.
+3. **Preview:** `fm27 preview REQUEST.json [--examples 10]`. Read it critically. Values that go down, very large counts, old values that are unknown, and the warning about ability above potential are often a mistake in the query.
+4. **Show the user** the counts by field and direction, several examples, warnings, what is left out, and every new person. Wait for a yes. If anything changes, preview again and ask again.
 5. **Write:** `fm27 write REQUEST.json "NEW FILE.fmf" --approved CODE`. Save it in the user's `editor data` folder. If you do not know where that is, ask. If the name is taken, choose another name.
 6. **Report** the file, the number of changes, and that it was read back and compared. Say that it still has to be checked in the Editor, and that it takes effect only in a new game.
 
@@ -63,6 +64,7 @@ A request has any of these parts. The uids here are made up:
 ```
 
 - **`query`** returns `uid` and one column for each field to set. The column's value is the new value.
+- **Potential is set with `pa` alone,** as a number or a range.
 - **Leave out people whose new value would be wrong.** `min(pa + 5, 180)` would lower someone who has 185, so limit the query to `pa BETWEEN 1 AND 179`.
 - **Whole numbers only.** Use `CAST(round(...) AS INTEGER)`.
 - **A missing value is an error.** Add `AND finishing IS NOT NULL` when you calculate from it.
