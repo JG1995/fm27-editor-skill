@@ -27,7 +27,10 @@ Where the stack allows it, enforce each rule with a check in the lint or test co
 ## Commands
 Record the exact commands here as soon as they exist, and correct them when the toolchain changes: install, run, test (the whole suite and a single file), typecheck, and lint.
 
-None yet.
+* Install: needs Python 3.14 and `cryptography` (`python3 -m pip install cryptography pytest`); Ruff is the linter.
+* Test: `python3 -m pytest`, or one file with `python3 -m pytest tests/test_container.py`.
+* Lint and format: `ruff check .` and `ruff format .`.
+* Run and typecheck: none yet.
 
 ## Conventions
 * Always follow TDD.

@@ -12,3 +12,8 @@
 
 # Claude Code project folder (settings, rules, worktrees): kept local, not tracked
 .claude/
+
+# Python caches
+__pycache__/
+.pytest_cache/
+.ruff_cache/

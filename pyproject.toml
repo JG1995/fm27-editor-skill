@@ -1,0 +1,20 @@
+[project]
+name = "fm27-editor"
+version = "0.0.0"
+requires-python = ">=3.14"
+dependencies = ["cryptography>=46"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["skill/scripts"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py314"
+src = ["skill/scripts", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM", "C901", "PLR0915"]
+
+[tool.ruff.lint.mccabe]
+max-complexity = 12
