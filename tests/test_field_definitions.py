@@ -81,6 +81,30 @@ def test_the_kind_of_record_a_field_points_to_is_read(tmp_path):
     assert field.points_to == "nation"
 
 
+def test_a_list_has_the_fields_of_its_items_in_order(tmp_path):
+    items = synthetic.list_items(
+        synthetic.field_definition("Zyer", "Year", "integer", synthetic.number_range(1800, 2100)),
+        synthetic.field_definition("Znat", "Nation", *synthetic.reference("nation")),
+        synthetic.field_definition(
+            "Zmod", "Mood", "enum", '<flags id="enum_values" value="mood" />'
+        ),
+    )
+
+    field = read_one(tmp_path, "Zlst", "Past", "list", items)
+
+    assert [(item.code, item.type, item.highest) for item in field.items] == [
+        ("Zyer", "integer", 2100),
+        ("Znat", "database_record_unique_id", None),
+        ("Zmod", "enum", None),
+    ]
+    assert field.items[1].points_to == "nation"
+    assert field.items[2].choices == {0: "Calm", 2: "Cross", -1: "Unknown"}
+
+
+def test_a_field_that_is_no_list_has_no_items(tmp_path):
+    assert read_one(tmp_path, "Zjmp", "Jump", "string").items == ()
+
+
 def test_client_and_language_fields_are_marked(tmp_path):
     folder = editor_folder(
         tmp_path,

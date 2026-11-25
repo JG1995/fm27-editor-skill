@@ -9,7 +9,7 @@ from typing import Any
 from fm27_editor.change_list import ChangeList, Kind, ListItem, Property
 from fm27_editor.change_reading import EditError, existing_record
 from fm27_editor.nation_rules import NationRules, choices_of
-from fm27_editor.record_changes import date_bytes, number, reference
+from fm27_editor.record_changes import ID_TAG, date_bytes, number, reference
 from fm27_editor.record_rules import NewReference
 from fm27_editor.rule_definitions import Rule, RuleDefinitions
 from fm27_editor.rule_shapes import CODES, CUP_GROUP, DAYS, DIVISION_GROUP, MONTHS, NATION_GROUP
@@ -20,7 +20,6 @@ RULES_TAG = "rlgr"
 # competitions, or versus competitions.
 OTHER_RULES_TAGS = {"cnrl", "inrl", "vrrl"}
 ADVANCED_RULES_TAG = "fles"
-ID_TAG = "id  "
 # Rules without a value that the Editor stores as nothing; others are left out.
 STORED_AS_NOTHING = {"number_teams"}
 

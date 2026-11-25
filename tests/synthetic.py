@@ -428,6 +428,11 @@ def number_range(lowest: int, highest: int) -> str:
     )
 
 
+def list_items(*fields: str) -> str:
+    """What each item of a list field consists of."""
+    return f'<record id="list_item"><list id="fields">{"".join(fields)}</list></record>'
+
+
 def flag(name: str) -> str:
     return f'<boolean id="{name}" value="true" />'
 

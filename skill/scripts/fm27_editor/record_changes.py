@@ -34,6 +34,7 @@ SECOND_ID_NUMBERS = 2**30
 NEW_UIDS = range(100_000_000, 2_000_000_000)
 HIGHEST_UID = 2**31 - 1  # no real file refers to a higher one
 INTEGER_KINDS = [(Kind.INT8, 1), (Kind.INT16, 2), (Kind.INT32, 4), (Kind.INT64, 8)]
+ID_TAG = "id  "
 REFERENCE = "database_record_unique_id"
 WRITTEN_TYPES = {"string", "attribute", "integer", "enum", "boolean", "date", "colour", REFERENCE}
 REFERENCE_TAGS = {
@@ -81,13 +82,13 @@ def add_record(table: Table, person_type: int | None, record: bytes, ids: NewIds
     else:
         record_type = Property("dcty", Kind.CODE, "\x00\x00\x00" + chr(person_type))
     described = [
-        Property("id  ", Kind.CODE, "nwvl"),
+        Property(ID_TAG, Kind.CODE, "nwvl"),
         number("dtty", table),
         record_type,
         Property("duni", Kind.ID, record),
     ]
     new_value = Property("nwvl", Kind.NESTED, described)
-    return _change(
+    return make_change(
         Table.DATABASE, existing_record(1), ADD_RECORD, new_value, ids, is_client_field=True
     )
 
@@ -95,7 +96,7 @@ def add_record(table: Table, person_type: int | None, record: bytes, ids: NewIds
 def field_change(
     table: Table, record: bytes, field: Field, value: FieldValue, ids: NewIds
 ) -> Change:
-    return _change(
+    return make_change(
         table,
         record,
         field.code,
@@ -104,6 +105,33 @@ def field_change(
         is_client_field=field.is_client_field,
         is_language_field=field.is_language_field,
     )
+
+
+def make_change(
+    table: Table,
+    record: bytes,
+    code: str,
+    new_value: Property,
+    ids: NewIds,
+    *,
+    is_client_field: bool = False,
+    is_language_field: bool = False,
+) -> Change:
+    change = [
+        number("dtty", table),
+        Property("duni", Kind.ID, record),
+        Property("prty", Kind.CODE, code),
+        new_value,
+        number("vers", EDITOR_DATA_VERSION),
+        number("rdui", ids.below(RANDOM_NUMBERS)),
+    ]
+    if is_client_field:
+        change.append(Property("ISCF", Kind.BOOL, b"\x01"))
+    if is_language_field:
+        change.append(Property("ISLF", Kind.BOOL, b"\x01"))
+    if is_client_field:
+        change.append(number("DBCI", ids.below(CLIENT_NUMBERS)))
+    return change
 
 
 def refusal(field: Field) -> str | None:
@@ -132,7 +160,7 @@ def stored_value(field: Field, value: FieldValue) -> Property:
 def reference(tag: str, points_to: str, record: bytes) -> list[Property]:
     """What a property called `tag` holds to point to a record."""
     return [
-        Property("id  ", Kind.CODE, tag),
+        Property(ID_TAG, Kind.CODE, tag),
         Property(REFERENCE_TAGS[points_to], Kind.ID, record),
         number("DBID", uid_of(record)),
     ]
@@ -169,33 +197,6 @@ def number(tag: str, value: int) -> Property:
 def date_bytes(day: datetime.date) -> bytes:
     """Year, day of the year counted from 1, and an empty time of day."""
     return struct.pack("<I", day.year << 17 | day.timetuple().tm_yday << 8)
-
-
-def _change(
-    table: Table,
-    record: bytes,
-    code: str,
-    new_value: Property,
-    ids: NewIds,
-    *,
-    is_client_field: bool = False,
-    is_language_field: bool = False,
-) -> Change:
-    change = [
-        number("dtty", table),
-        Property("duni", Kind.ID, record),
-        Property("prty", Kind.CODE, code),
-        new_value,
-        number("vers", EDITOR_DATA_VERSION),
-        number("rdui", ids.below(RANDOM_NUMBERS)),
-    ]
-    if is_client_field:
-        change.append(Property("ISCF", Kind.BOOL, b"\x01"))
-    if is_language_field:
-        change.append(Property("ISLF", Kind.BOOL, b"\x01"))
-    if is_client_field:
-        change.append(number("DBCI", ids.below(CLIENT_NUMBERS)))
-    return change
 
 
 def _stored(field: Field, value: FieldValue) -> tuple[Kind, Value]:

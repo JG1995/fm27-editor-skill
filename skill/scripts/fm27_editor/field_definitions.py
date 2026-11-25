@@ -37,6 +37,8 @@ class Field:
     is_client_field: bool
     is_language_field: bool
     is_editable: bool
+    items: tuple[Field, ...] = ()
+    """The fields that each item of a list has."""
 
 
 def read_fields(editor_dir: Path, record_kind: str) -> dict[str, Field]:
@@ -98,7 +100,14 @@ def _field(element: Element, shared: dict[str, dict[int, str] | None]) -> Field 
         is_client_field=is_set(element, "is_client_field"),
         is_language_field=is_set(element, "is_language_field"),
         is_editable=not any(is_set(element, mark) for mark in NOT_OFFERED),
+        items=_items(element, shared),
     )
+
+
+def _items(element: Element, shared: dict[str, dict[int, str] | None]) -> tuple[Field, ...]:
+    entries = element.findall("record[@id='list_item']/list[@id='fields']/record")
+    found = (_field(entry, shared) for entry in entries)
+    return tuple(field for field in found if field is not None)
 
 
 def _is_same(first: Field, second: Field) -> bool:
