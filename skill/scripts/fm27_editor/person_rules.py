@@ -3,6 +3,7 @@
 A value must be one the Editor's definitions allow, and what it refers to must be in the lookup.
 """
 
+import datetime
 import sqlite3
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -57,13 +58,15 @@ class PersonRules:
     def settings(self, kind: PersonKind, values: Mapping[str, FieldValue]) -> list[Setting]:
         """The checked settings for these values.
 
-        Facts the lookup has are given by its names; any other field is given by its code.
+        Facts the lookup has are given by its names; any other field is given by its code. A date
+        may be given as text, the way the lookup holds it, and yes or no as 1 or 0.
         """
         chosen: dict[str, Setting] = {}
-        for name, value in values.items():
+        for name, given in values.items():
             field = self._field(kind, name)
             if field.code in chosen:
                 raise EditError(f"{field.name} ({field.code}) is given twice")
+            value = _typed(field, given)
             self._check(kind, field, value)
             chosen[field.code] = Setting(field, value)
         return list(chosen.values())
@@ -113,3 +116,16 @@ class PersonRules:
         ranges = self.fields(kind).get(POTENTIAL_RANGE)
         if value < 0 and (ranges is None or value not in (ranges.choices or {})):
             raise EditError(f"{value} is not one of the Editor's potential ranges")
+
+
+def _typed(field: Field, given: FieldValue) -> FieldValue:
+    if field.type == "boolean" and isinstance(given, int) and given in (0, 1):
+        return bool(given)
+    if field.type == "date" and isinstance(given, str):
+        try:
+            return datetime.date.fromisoformat(given)
+        except ValueError as error:
+            raise EditError(
+                f"{field.name} ({field.code}) needs a date such as 2008-04-25, not {given!r}"
+            ) from error
+    return given
