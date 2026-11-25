@@ -53,6 +53,25 @@ def read_fields(editor_dir: Path, record_kind: str) -> dict[str, Field]:
     return fields
 
 
+def read_field_names(editor_dir: Path, record_kind: str) -> dict[str, str]:
+    """The names of the fields of one kind of record; the first one where a code has several."""
+    names = {}
+    folder = _folder(_format_folder(editor_dir), DATABASE_FOLDER)
+    for element in _field_elements(_parse(folder, record_kind)):
+        code = _value(element, "field")
+        if code is not None:
+            names.setdefault(code, _name(element))
+    return names
+
+
+def read_shared_choices(editor_dir: Path, name: str) -> dict[int, str]:
+    """Choices that several fields use, such as the kinds of records, by number."""
+    choices = _shared_choices(_parse(_format_folder(editor_dir), SHARED_CHOICES)).get(name)
+    if choices is None:
+        raise FieldDefinitionError(f"{SHARED_CHOICES}.xml has no numbered choices {name}")
+    return choices
+
+
 def _format_folder(editor_dir: Path) -> Folder:
     path = editor_dir / DEFINITIONS_FILE
     if not path.is_file():

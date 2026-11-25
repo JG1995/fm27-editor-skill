@@ -60,6 +60,11 @@ NON_PLAYER = synthetic.definition_file(
     ),
 )
 
+STADIUM = synthetic.definition_file(
+    "stad", synthetic.field_definition("Secy", "Seating Capacity", "integer")
+)
+TABLES = synthetic.enum_file(dbts={1: "Person", 21: "Stadium", 99: "Moon"})
+
 
 def write_editor(folder: Path, people=None) -> Path:
     write_definitions(folder)
@@ -69,8 +74,8 @@ def write_editor(folder: Path, people=None) -> Path:
 def write_definitions(folder: Path, person: bytes = PERSON) -> Path:
     path = folder / "shared" / "data" / "editor.fmf"
     path.parent.mkdir(parents=True, exist_ok=True)
-    files = {"person": person, "player": PLAYER, "non player": NON_PLAYER}
-    path.write_bytes(synthetic.definitions_container(files, synthetic.enum_file()))
+    files = {"person": person, "player": PLAYER, "non player": NON_PLAYER, "stadium": STADIUM}
+    path.write_bytes(synthetic.definitions_container(files, TABLES))
     return folder
 
 

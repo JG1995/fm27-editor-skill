@@ -1,7 +1,12 @@
 import pytest
 
 import synthetic
-from fm27_editor.field_definitions import FieldDefinitionError, read_fields
+from fm27_editor.field_definitions import (
+    FieldDefinitionError,
+    read_field_names,
+    read_fields,
+    read_shared_choices,
+)
 
 ENUMS = synthetic.enum_file(mood={0: "Calm", 2: "Cross", -1: "Unknown"})
 
@@ -157,3 +162,27 @@ def test_a_definitions_file_of_another_version_is_reported_by_name(tmp_path):
 
     with pytest.raises(FieldDefinitionError, match="editor.fmf: .*version 9"):
         read_fields(tmp_path, "person")
+
+
+def test_names_are_read_even_where_a_code_is_defined_twice(tmp_path):
+    folder = editor_folder(
+        tmp_path,
+        synthetic.field_definition("Ztwo", "First", "string"),
+        synthetic.field_definition("Ztwo", "Second", "string"),
+        synthetic.field_definition("Zone", "Single", "string"),
+    )
+
+    assert read_field_names(folder, "person") == {"Ztwo": "First", "Zone": "Single"}
+
+
+def test_shared_choices_are_read_by_name(tmp_path):
+    assert read_shared_choices(editor_folder(tmp_path), "mood") == {
+        0: "Calm",
+        2: "Cross",
+        -1: "Unknown",
+    }
+
+
+def test_shared_choices_that_do_not_exist_are_reported(tmp_path):
+    with pytest.raises(FieldDefinitionError, match="weather"):
+        read_shared_choices(editor_folder(tmp_path), "weather")
