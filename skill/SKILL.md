@@ -22,9 +22,12 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 
 | Table | Columns |
 | --- | --- |
-| `people` | `uid`, `kind`, `name`, `full_name`, `birth_date`, `nation`, `nation_uid`, `club`, `club_uid`, `ca`, `pa`, attributes, positions, personality |
-| `club` | `uid`, `name`, `short_name` |
+| `people` | `uid`, `kind`, `name`, `full_name`, `birth_date`, `nation`, `nation_uid`, `club`, `club_uid`, `club_gender`, `division`, `division_uid`, `ca`, `pa`, attributes, positions, personality |
+| `clubs` | `uid`, `name`, `short_name`, `gender`, `is_extinct`, `nation`, `nation_uid`, `based_nation_uid`, `city`, `city_uid`, `stadium`, `stadium_uid`, `reputation`, `division`, `division_uid`, `last_division_uid`, `last_position` |
+| `competitions` | `uid`, `name`, `short_name`, `gender`, `level`, `nation`, `nation_uid`, `parent`, `parent_uid`, `clubs` (how many have it as their division) |
 | `nation` | `uid`, `name` |
+| `city` | `uid`, `name`, `nation_uid` |
+| `stadium` | `uid`, `name`, `city_uid` |
 
 Attributes, positions, and personality go by their usual names, such as `finishing`, `off_the_ball`, `left_foot`, `position_st`, and `professionalism`. `fm27 fields player` lists them.
 
@@ -33,9 +36,10 @@ Know these before you write a query:
 - **`kind`** is `player`, `staff`, `both`, `official`, or `retired`. Only `player` and `staff` can be changed.
 - **`pa` below 0 is a range, not a number.** Most young players have one. `fm27 fields player PPAB` lists what each stands for. You cannot add to a range. When a request is about potential, count the people with a range and those with a number, and ask what to do with the ranges before you preview them. Offer to leave them, to move each up or down a range, or to replace each by a number. Say how any limit the user gave applies, because the top of a range can be above it.
 - **`NULL` means not known**, or left for the game to fill in. It is not 0. Only players have attributes, positions, and personality here, and many of those are `NULL`.
-- **Men and women are together, and no column tells them apart.** About 3,500 club names belong to more than one club, such as a men's and a women's team. Choose a club by `uid`. Tell the user when a request by nation or age covers both, and that you cannot limit it to one of them, except by naming clubs.
+- **Men and women are together.** People have no gender of their own here, only the gender of their club in `club_gender`, which is `male`, `female`, or `NULL` without a club. When the user means one of them, limit the query by it and say how many people without a club that leaves out. Otherwise tell the user that the request covers both.
+- **Club names repeat,** mostly as a men's and a women's club. Choose a club by `uid`, and check `gender` and `division`. Clubs with `is_extinct` 1 no longer play.
 - **`birth_date`** is text such as `2008-04-25`, and `1900-01-01` means unknown. Count an age from the day the new game starts, not from today: ask when that is if the user has not said. In a request, write the date out, such as `birth_date > '2005-07-01'`. A query with `date('now')` finds other people tomorrow, and the approval code no longer fits.
-- **`nation`** is the one main nationality. Others are not here.
+- **`nation`** of a person is the one main nationality. Others are not here. Of a club, it is the nation whose leagues it plays in; where it lies is `based_nation_uid`.
 - **Names** are spelled with their accents and often written in full. Search with `LIKE`, show the candidates when there are several, and let the user choose.
 - Some people in the Editor are not in the lookup. Not finding someone does not mean that they do not exist.
 
