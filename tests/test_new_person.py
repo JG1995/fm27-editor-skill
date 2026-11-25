@@ -1,5 +1,7 @@
+import contextlib
 import datetime
 import random
+import sqlite3
 
 import pytest
 
@@ -21,15 +23,42 @@ PERSON = synthetic.definition_file(
         "database_record_unique_id",
         '<flags id="database_table_type" value="nation" />',
     ),
+    synthetic.field_definition(
+        "Pcti",
+        "Club",
+        "database_record_unique_id",
+        '<flags id="database_table_type" value="team" />',
+    ),
+    synthetic.field_definition(
+        "Pcbi",
+        "City Of Birth",
+        "database_record_unique_id",
+        '<flags id="database_table_type" value="city" />',
+    ),
+    synthetic.field_definition("Page", "Age", "integer", synthetic.number_range(0, 99)),
     synthetic.field_definition("Phes", "Height", "integer", synthetic.number_range(0, 210)),
 )
 PLAYER = synthetic.definition_file(
     "play",
-    synthetic.field_definition("PCAB", "Current Ability", "integer"),
+    synthetic.field_definition(
+        "PCAB", "Current Ability", "integer", synthetic.number_range(0, 200)
+    ),
+    synthetic.field_definition(
+        "PPAB", "Potential Ability", "integer", synthetic.number_range(-100, 200)
+    ),
+    synthetic.field_definition(
+        "PPAR",
+        "Potential Ability Range",
+        "enum",
+        '<list id="enum_values"><record enum="-8" /><record enum="-95" /></list>',
+    ),
     synthetic.field_definition("PDfn", "Finishing", "attribute"),
 )
 NON_PLAYER = synthetic.definition_file(
-    "nnpl", synthetic.field_definition("Ncra", "Current Ability", "integer")
+    "nnpl",
+    synthetic.field_definition(
+        "Ncra", "Current Ability", "integer", synthetic.number_range(0, 200)
+    ),
 )
 BASICS = {
     "Pfna": "Testy",
@@ -48,9 +77,22 @@ def editor(tmp_path):
     return tmp_path
 
 
+def lookup():
+    connection = sqlite3.connect(":memory:")
+    connection.execute("CREATE TABLE nation(uid INTEGER PRIMARY KEY, name TEXT)")
+    connection.execute("CREATE TABLE club(uid INTEGER PRIMARY KEY, name TEXT)")
+    connection.execute("INSERT INTO nation VALUES (9001, 'Testland')")
+    connection.execute("INSERT INTO club VALUES (9101, 'Test Town')")
+    return contextlib.closing(connection)
+
+
 def make(editor, kind=PersonKind.PLAYER, **values):
-    ids = NewIds(ChangeList(), random.Random(1))
-    return new_person(kind, BASICS | values, person_fields(editor, kind), ids)
+    return create(kind, BASICS | values, person_fields(editor, kind))
+
+
+def create(kind, values, fields):
+    with lookup() as database:
+        return new_person(kind, values, fields, NewIds(ChangeList(), random.Random(1)), database)
 
 
 def tagged(change):
@@ -102,10 +144,43 @@ def test_fields_the_lookup_does_not_name_are_given_by_code(editor):
 @pytest.mark.parametrize("name", list(BASICS))
 def test_a_person_needs_a_name_a_birth_date_and_a_nation(editor, name):
     values = {key: value for key, value in BASICS.items() if key != name}
-    ids = NewIds(ChangeList(), random.Random(1))
 
     with pytest.raises(EditError, match="needs"):
-        new_person(PersonKind.PLAYER, values, person_fields(editor, PersonKind.PLAYER), ids)
+        create(PersonKind.PLAYER, values, person_fields(editor, PersonKind.PLAYER))
+
+
+def test_an_editor_without_a_required_field_is_reported(editor):
+    fields = person_fields(editor, PersonKind.PLAYER)
+    del fields["Pdob"]
+    values = {key: value for key, value in BASICS.items() if key != "birth_date"}
+
+    with pytest.raises(EditError, match="Pdob"):
+        create(PersonKind.PLAYER, values, fields)
+
+
+@pytest.mark.parametrize("name", ["nation_uid", "club_uid"])
+def test_a_nation_or_club_that_does_not_exist_is_refused(editor, name):
+    with pytest.raises(EditError, match="4242"):
+        make(editor, **{name: 4242})
+
+
+def test_a_club_that_exists_is_set(editor):
+    assert "Pcti" in values_by_code(make(editor, club_uid=9101))
+
+
+def test_a_record_the_lookup_cannot_confirm_is_refused(editor):
+    with pytest.raises(EditError, match="city"):
+        make(editor, Pcbi=5)
+
+
+@pytest.mark.parametrize("pa", [-8, -95, 0, 150])
+def test_a_potential_may_be_a_number_or_one_of_the_editors_ranges(editor, pa):
+    assert "PPAB" in values_by_code(make(editor, pa=pa))
+
+
+def test_a_negative_potential_that_is_no_range_is_refused(editor):
+    with pytest.raises(EditError, match="-50"):
+        make(editor, pa=-50)
 
 
 def test_an_unknown_field_is_refused(editor):
@@ -123,9 +198,10 @@ def test_a_player_field_is_refused_for_staff(editor):
         make(editor, PersonKind.STAFF, finishing=17)
 
 
-def test_the_person_type_cannot_contradict_the_kind(editor):
-    with pytest.raises(EditError, match="Ptyp"):
-        make(editor, Ptyp=1)
+@pytest.mark.parametrize("code", ["Ptyp", "Page"])
+def test_what_the_editor_works_out_itself_cannot_be_set(editor, code):
+    with pytest.raises(EditError, match=code):
+        make(editor, **{code: 1})
 
 
 @pytest.mark.parametrize("kind", [PersonKind.BOTH, PersonKind.OFFICIAL, PersonKind.RETIRED])

@@ -16,8 +16,9 @@ class DetailsError(FormatError):
     """The details do not describe an editor file."""
 
 
-def new_details(name: str) -> bytes:
-    return DETAILS_TAG + text_bytes(EDITOR_DATA) + text_bytes(name) + NOBODYS
+def new_details() -> bytes:
+    """Details without a name, which saving fills in."""
+    return DETAILS_TAG + text_bytes(EDITOR_DATA) + text_bytes("") + NOBODYS
 
 
 def renamed_details(content: bytes, name: str) -> bytes:
