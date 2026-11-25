@@ -209,11 +209,12 @@ def person_record(
     attributes: dict[int, int] | None = None,
     personality: bytes = b"\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11",
     decoy: bool = False,
+    kind: int = 2,
 ) -> bytes:
     """A person: fixed fields from the start, then name, birth date, nation, personality, ids."""
     record = bytearray(b"\x00" * 110)
     struct.pack_into("<I", record, 0, index)
-    record[4] = 2
+    record[4] = kind
     for offset, value in (attributes or {}).items():
         record[offset] = value
     record += b"\x03\x01" + struct.pack("<II", *nation) if decoy else b""
