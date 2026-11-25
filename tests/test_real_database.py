@@ -8,9 +8,8 @@ from pathlib import Path
 import pytest
 
 from fm27_editor.base_database import open_database
-from fm27_editor.people import PersonKind
-from fm27_editor.person_codes import person_codes
-from fm27_editor.person_rules import PersonRules
+from fm27_editor.record_kinds import PLAYER, STAFF
+from fm27_editor.record_rules import RecordRules
 
 EDITOR = os.environ.get("FM27_EDITOR_DIR", "")
 needs_editor = pytest.mark.skipif(
@@ -46,11 +45,11 @@ EDITOR_NAMES = {
 
 
 @needs_editor
-@pytest.mark.parametrize("kind", [PersonKind.PLAYER, PersonKind.STAFF])
+@pytest.mark.parametrize("kind", [PLAYER, STAFF])
 def test_every_code_names_the_same_fact_in_the_installed_editor(kind):
-    fields = PersonRules(Path(EDITOR), sqlite3.connect(":memory:")).fields(kind)
+    fields = RecordRules(Path(EDITOR), sqlite3.connect(":memory:")).fields(kind)
 
-    for name, code in person_codes(kind).items():
+    for name, code in kind.codes.items():
         worded = re.sub("[^a-z]+", "_", fields[code].name.lower()).strip("_")
         assert worded == EDITOR_NAMES.get(name, name)
         assert fields[code].is_editable
@@ -60,12 +59,8 @@ def test_every_code_names_the_same_fact_in_the_installed_editor(kind):
 def test_the_codes_that_the_instructions_name_can_be_written():
     text = (Path(__file__).parents[1] / "skill" / "SKILL.md").read_text(encoding="utf-8")
     named = set(re.findall(r"[`\"]([PN][A-Za-z]{2}[a-z])[`\"]", text))
-    rules = PersonRules(Path(EDITOR), sqlite3.connect(":memory:"))
-    writable = {
-        field.code
-        for kind in (PersonKind.PLAYER, PersonKind.STAFF)
-        for field in rules.writable_fields(kind)
-    }
+    rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
+    writable = {field.code for kind in (PLAYER, STAFF) for field in rules.writable_fields(kind)}
 
     assert len(named) > 5
     assert named <= writable

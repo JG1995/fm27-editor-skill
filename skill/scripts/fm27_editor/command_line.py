@@ -12,11 +12,10 @@ from fm27_editor.base_database import open_database
 from fm27_editor.binary import FormatError
 from fm27_editor.editor_file import load_editor_file, save_editor_file
 from fm27_editor.explain import explain_lines
-from fm27_editor.people import PersonKind
-from fm27_editor.person_codes import names_by_code
-from fm27_editor.person_rules import SETTABLE_KINDS, PersonRules
 from fm27_editor.plan import Plan, build_file, make_plan
 from fm27_editor.preview import preview_lines
+from fm27_editor.record_kinds import KINDS, kind_named
+from fm27_editor.record_rules import RecordRules
 from fm27_editor.request import read_request, run_query
 from fm27_editor.words import accepted, counted
 
@@ -48,7 +47,7 @@ def _parser() -> argparse.ArgumentParser:
     find.set_defaults(command=_find)
 
     fields = commands.add_parser("fields", help="list the fields that can be set on a person")
-    fields.add_argument("kind", choices=[kind.name.lower() for kind in SETTABLE_KINDS])
+    fields.add_argument("kind", choices=list(KINDS))
     fields.add_argument("text", nargs="?", default="", help="part of a name or code")
     fields.set_defaults(command=_fields)
 
@@ -99,11 +98,11 @@ def _cell(value: object) -> str:
 
 
 def _fields(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str]:
-    kind = PersonKind[options.kind.upper()]
-    names = names_by_code(kind)
+    kind = kind_named(options.kind)
     lines = []
-    for field in PersonRules(options.editor, lookup).writable_fields(kind):
-        called = f"{names[field.code]} ({field.code})" if field.code in names else field.code
+    for field in RecordRules(options.editor, lookup).writable_fields(kind):
+        name = kind.names.get(field.code)
+        called = field.code if name is None else f"{name} ({field.code})"
         lines.append(f"{called}: {field.name}, {accepted(field)}")
     matching = [line for line in lines if options.text.lower() in line.lower()]
     return matching or [f"No field matches {options.text!r}"]
@@ -127,4 +126,4 @@ def _write(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str]
 
 def _plan(options: argparse.Namespace, lookup: sqlite3.Connection) -> Plan:
     request = read_request(options.request)
-    return make_plan(request, PersonRules(options.editor, lookup), lookup)
+    return make_plan(request, RecordRules(options.editor, lookup), lookup)

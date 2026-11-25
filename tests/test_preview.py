@@ -2,9 +2,9 @@ import pytest
 
 from fictional_editor import STAFF_KIND, write_editor
 from fm27_editor.base_database import open_database
-from fm27_editor.person_rules import PersonRules
 from fm27_editor.plan import make_plan
 from fm27_editor.preview import preview_lines
+from fm27_editor.record_rules import RecordRules
 
 TEAM = [
     (0, 100, "Alfa Striker", 2004, 120, (51, 9002), (1, 9101)),
@@ -18,7 +18,7 @@ TEAM = [
 def lines_for(tmp_path):
     editor = write_editor(tmp_path / "editor", TEAM)
     lookup = open_database(editor, tmp_path / "cache.sqlite")
-    rules = PersonRules(editor, lookup)
+    rules = RecordRules(editor, lookup)
 
     def lines(examples=10, **request):
         return preview_lines(make_plan(request, rules, lookup), lookup, examples)

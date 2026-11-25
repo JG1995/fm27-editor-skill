@@ -3,8 +3,9 @@
 import sqlite3
 from collections.abc import Iterable
 
-from fm27_editor.person_rules import Setting, is_range
-from fm27_editor.plan import Edit, KnownPerson, Plan, approval_code
+from fm27_editor.plan import Edit, KnownRecord, Plan, approval_code
+from fm27_editor.potential import is_range
+from fm27_editor.record_rules import Setting
 from fm27_editor.words import counted, shown
 
 
@@ -32,7 +33,7 @@ def _starting_lines(plan: Plan) -> list[str]:
 def _edit_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list[str]:
     if not plan.edits:
         return []
-    people = len({edit.person.uid for edit in plan.edits})
+    people = len({edit.record.uid for edit in plan.edits})
     changes = counted(len(plan.edits), "change", "changes")
     lines = [f"Edits: {changes} to {counted(people, 'person', 'people')}"]
     lines += [_field_line(edits) for edits in _by_field(plan.edits)]
@@ -94,12 +95,16 @@ def _example_line(edit: Edit, lookup: sqlite3.Connection) -> str:
     field = edit.setting.field
     old = "unknown" if edit.old is None else shown(field, edit.old, lookup)
     new = shown(field, edit.setting.value, lookup)
-    return f"  {_described(edit.person)}: {field.name} {old} -> {new}"
+    return f"  {_described(edit.record)}: {field.name} {old} -> {new}"
 
 
-def _described(person: KnownPerson) -> str:
-    known = [f"born {person.birth_date}", person.nation, person.club]
-    return f"{person.name} ({person.uid}), {', '.join(part for part in known if part)}"
+def _described(record: KnownRecord) -> str:
+    said = {
+        column: words.format(record.facts[column])
+        for column, words in record.kind.group.details.items()
+        if record.facts[column] is not None
+    }
+    return ", ".join([f"{record.name} ({record.uid})", *said.values()])
 
 
 def _addition_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list[str]:
@@ -108,7 +113,7 @@ def _addition_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> li
     lines = [f"New people: {len(plan.additions):,}"]
     for addition in plan.additions[:examples]:
         settings = "; ".join(_setting(setting, lookup) for setting in addition.settings)
-        lines.append(f"  {addition.kind.name.lower()}: {settings}")
+        lines.append(f"  {addition.kind.name}: {settings}")
     if len(plan.additions) > examples:
         lines.append(f"  and {len(plan.additions) - examples:,} more")
     return lines

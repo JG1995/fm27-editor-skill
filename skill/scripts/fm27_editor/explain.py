@@ -22,8 +22,9 @@ from fm27_editor.field_definitions import (
     read_field_names,
     read_shared_choices,
 )
-from fm27_editor.person_rules import LOOKUP_TABLES, NAME_CODES
+from fm27_editor.person_codes import NAME_CODES
 from fm27_editor.record_changes import REFERENCE_TAGS
+from fm27_editor.record_rules import LOOKUP_TABLES
 from fm27_editor.words import counted, named
 
 KINDS_OF_RECORD = "dbts"
