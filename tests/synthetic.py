@@ -46,13 +46,14 @@ def container(
     files: list[tuple[str, str, bytes]],
     *,
     storage: int = 3,
-    folder: tuple[str, list[tuple[str, str, bytes]]] | None = None,
+    folder: tuple | None = None,
     size_prefix: bool = False,
     declared_unpacked: int | None = None,
     encrypted: bool = True,
     magic: bytes | None = None,
     version: int = 8,
 ) -> bytes:
+    """A container with one optional folder: (name, files) or (name, files, inner folder)."""
     region = b""
 
     def record(name: str, extension: str, data: bytes) -> bytes:
@@ -66,14 +67,14 @@ def container(
         region += stored
         return entry
 
-    index = text(root) + struct.pack("<I", len(files))
-    index += b"".join(record(*item) for item in files)
-    if folder is None:
-        index += struct.pack("<I", 0)
-    else:
-        folder_name, folder_files = folder
-        index += struct.pack("<I", 1) + text(folder_name) + struct.pack("<I", len(folder_files))
-        index += b"".join(record(*item) for item in folder_files) + struct.pack("<I", 0)
+    def folder_record(name: str, files: list, inner: tuple | None = None) -> bytes:
+        entry = text(name) + struct.pack("<I", len(files))
+        entry += b"".join(record(*item) for item in files)
+        if inner is None:
+            return entry + struct.pack("<I", 0)
+        return entry + struct.pack("<I", 1) + folder_record(*inner)
+
+    index = folder_record(root, files, folder)
     frame = zstd_frame(index)
     if size_prefix:
         frame = struct.pack("<I", len(frame)) + frame
@@ -218,3 +219,53 @@ def person_record(
 
 def people_stream(records: list[bytes], count: int) -> bytes:
     return b"\x00\x00" + struct.pack("<I", count) + b"".join(records)
+
+
+# --- field definitions ---------------------------------------------------------------------
+
+
+def field_definition(code: str, name: str, kind: str, *extra: str) -> str:
+    return (
+        f'<record><flags id="field" value="{code}" />'
+        f'<translation id="name" translation_id="1" type="use" value="{name}" />'
+        f'<flags id="type" value="{kind}" />{"".join(extra)}</record>'
+    )
+
+
+def number_range(lowest: int, highest: int) -> str:
+    return (
+        f'<integer id="min_value" value="{lowest}" /><integer id="max_value" value="{highest}" />'
+    )
+
+
+def flag(name: str) -> str:
+    return f'<boolean id="{name}" value="true" />'
+
+
+def definition_file(group: str, *fields: str) -> bytes:
+    listed = "".join(fields)
+    return (
+        f'<record><!-- fields --><record id="{group}"><list id="fields">{listed}</list></record>'
+        "</record>"
+    ).encode()
+
+
+def enum_file(**choices: dict[int, str]) -> bytes:
+    records = "".join(
+        f'<record id="{name}"><list id="enum_values">'
+        + "".join(
+            f'<record enum="{number}"><translation id="name" value="{label}" /></record>'
+            for number, label in values.items()
+        )
+        + "</list></record>"
+        for name, values in choices.items()
+    )
+    return f"<record>{records}</record>".encode()
+
+
+def definitions_container(files: dict[str, bytes], enums: bytes) -> bytes:
+    """editor.fmf: format/db enums.xml, and one file per kind of record in format/database."""
+    database = ("database", [(name, ".xml", data) for name, data in files.items()])
+    return container(
+        "editor", [], folder=("format", [("db enums", ".xml", enums)], database), encrypted=False
+    )
