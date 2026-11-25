@@ -1,6 +1,6 @@
 ---
 name: fm27-editor
-description: Read, search, and change Football Manager 27 Pre-game Editor data without operating the Editor. Use when the user wants to find players, staff, clubs, or competitions in the FM27 database, change them (one or thousands), create new ones, including league and cup rules for a new competition, or know what an FM27 editor data file (.fmf) does. Not for save games, the in-game editor, tactics, shortlists, or other FM editions.
+description: Read, search, and change Football Manager 27 Pre-game Editor data without operating the Editor. Use when the user wants to find players, staff, clubs, competitions, or awards in the FM27 database, change them (one or thousands), create new ones, including league and cup rules for a new competition, rewrite the past winners of an award, or know what an FM27 editor data file (.fmf) does. Not for save games, the in-game editor, tactics, shortlists, or other FM editions.
 ---
 
 # FM27 Editor
@@ -25,6 +25,8 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 | `people` | `uid`, `kind`, `name`, `full_name`, `birth_date`, `nation`, `nation_uid`, `club`, `club_uid`, `club_gender`, `division`, `division_uid`, `ca`, `pa`, attributes, positions, personality |
 | `clubs` | `uid`, `name`, `short_name`, `gender`, `is_extinct`, `nation`, `nation_uid`, `based_nation_uid`, `city`, `city_uid`, `stadium`, `stadium_uid`, `reputation`, `division`, `division_uid`, `last_division_uid`, `last_position` |
 | `competitions` | `uid`, `name`, `short_name`, `gender`, `level`, `nation`, `nation_uid`, `parent`, `parent_uid`, `clubs` (how many have it as their division) |
+| `awards` | `uid`, `name`, `short_name`, `gender`, `nation`, `nation_uid`, `competition`, `competition_uid`, `previous_winner`, `years` (how many are in its history) |
+| `award_history` | `award_uid`, `award`, `year`, `place` (1 to 3), `person_uid`, `name`, `team`, `team_uid`, `points`, `age`, `nation`, `nation_uid`, `not_held`, `no_data` |
 | `nation` | `uid`, `name` |
 | `city` | `uid`, `name`, `nation_uid` |
 | `stadium` | `uid`, `name`, `city_uid` |
@@ -48,7 +50,7 @@ Know these before you write a query:
 1. **Find** what it is about. Report how many records match and anything unclear, such as ranges or both genders.
 2. **Write the request** as a JSON file in a temporary folder.
 3. **Preview:** `fm27 preview REQUEST.json [--examples 10]`. Read it critically. Values that go down, very large counts, old values that are unknown, and warnings are often a mistake in the request.
-4. **Show the user** the counts by field and direction, several examples, warnings, what is left out, every new record, and the rules. Wait for a yes. If anything changes, preview again and ask again.
+4. **Show the user** the counts by field and direction, several examples, warnings, what is left out, every new record, every year of a history that changes, and the rules. Wait for a yes. If anything changes, preview again and ask again.
 5. **Write:** `fm27 write REQUEST.json "NEW FILE.fmf" --approved CODE`. Save it in the user's `editor data` folder. If you do not know where that is, ask. If the name is taken, choose another name.
 6. **Report** the file, the number of changes, and that it was read back and compared. Say that it still has to be checked in the Editor, for rules with its validation, and that it takes effect only in a new game.
 
@@ -66,11 +68,12 @@ A request has any of these parts. The uids here are made up:
     {"kind": "player", "set": {"Pfna": "Aldo", "Psna": "Testmann", "birth_date": "2008-03-14", "nation_uid": 12345, "club_uid": 67890, "ca": 120, "pa": -85, "position_st": 20}}
   ],
   "nation_rules": {},
+  "award_history": [],
   "start_from": "/path/to/existing.fmf"
 }
 ```
 
-- **`of`** is `people`, `clubs`, or `competitions`. A club and a person can have the same uid.
+- **`of`** is `people`, `clubs`, `competitions`, or `awards`. A club and a person can have the same uid.
 - **`query`** returns `uid` and one column for each field to set. The column's value is the new value.
 - **`as`** names a new record. Later ones and edits refer to it with `@` and that name.
 - **Potential is set with `pa` alone,** as a number or a range.
@@ -81,9 +84,9 @@ A request has any of these parts. The uids here are made up:
 
 ## Fields
 
-`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
+`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
 
-Not possible yet: wages and other money, jobs, formations, second nations, languages, playing history, favourites, injuries, bans, kits other than their colours, reserve teams, stadiums, awards, and changing nations. If a request needs one of these, say so before doing the rest.
+Not possible yet: wages and other money, jobs, formations, second nations, languages, playing history, favourites, injuries, bans, kits other than their colours, reserve teams, stadiums, new awards, and changing nations. If a request needs one of these, say so before doing the rest.
 
 ## Create people
 
@@ -131,9 +134,32 @@ A competition without rules exists, but is not played. For it to be played, the 
 - **Dates** lie in the season that a new game starts in. Ask when that is if the user has not said. Put cup rounds on days without league matches.
 - **Women's competitions** cannot have rules yet, and neither can playoffs, prize money, or groups. Offer to add them in the Editor afterwards.
 
+## Awards and past winners
+
+The settings of an award are edits of `awards`. `previous_winner` says whether someone can win it again: 1 never, 2 rarely, 3 yes. `fm27 fields award` lists the others, such as voting, ages, and the number of places.
+
+`award_history` says who won. Each entry is one year of one award. Years that are not named stay as they are.
+
+```json
+[
+  {"award": 24680, "year": 1973, "places": [{"keep": 2}, {"name": "Testo Oldmann", "team_uid": 67890, "nation_uid": 12345, "points": 22, "age": 30}, {"person_uid": 1234567, "points": 16}]},
+  {"award": 24680, "year": 2020, "not_held": true}
+]
+```
+
+- **`places`** stand from first to third, and replace all three of that year.
+- **`keep`** takes who has that place in the same year of the database, with everything known about them. Other parts beside it replace theirs.
+- **Give `person_uid`** for everyone the lookup has. Search `award_history` by name as well, because it knows people that `people` does not.
+- **`team_uid`** is a club, or a nation for its national team. Take both from that time, not from today.
+- **`points`** are votes, goals, or whatever the award counts. Never make them up: say which source they come from, and which are worked out.
+- **`age`** is the age on the day of the award.
+- A year that stands in a history twice cannot be changed, no year can be removed, and no award can be created.
+
+A file starts a new game with this history. What the game awards itself after the start date must not be in it.
+
 ## Explain a file
 
-`fm27 explain FILE.fmf [--find TEXT] [--limit 20]` counts the changes by kind of record and field, and shows some of them. With `--find`, it shows only changes that mention a person, a field, or a value. Use it to answer what a file does to someone. Changes inside lists are only named, not spelled out.
+`fm27 explain FILE.fmf [--find TEXT] [--limit 20]` counts the changes by kind of record and field, and shows some of them. With `--find`, it shows only changes that mention a person, a field, or a value. Use it to answer what a file does to someone. A list, such as a history, is only counted; with `--find`, its items that match are spelled out.
 
 ## When something fails
 
