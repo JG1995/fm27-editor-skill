@@ -100,6 +100,8 @@ STAFF = {"ca": "Ncra", "pa": "Npta"}
 
 CODES = {PersonKind.PLAYER: COMMON | PLAYER, PersonKind.STAFF: COMMON | STAFF}
 
+POTENTIALS = {PLAYER["pa"], STAFF["pa"]}
+
 
 def person_codes(kind: PersonKind) -> dict[str, str]:
     """Codes by the lookup's names."""

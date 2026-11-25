@@ -20,7 +20,13 @@ from fm27_editor.people import PersonKind
 from fm27_editor.person_changes import edit_person, new_person
 from fm27_editor.person_codes import person_codes
 from fm27_editor.person_rules import PersonRules, Setting
-from fm27_editor.record_changes import EditError, NewIds, existing_record, stored_value
+from fm27_editor.record_changes import (
+    HIGHEST_UID,
+    EditError,
+    NewIds,
+    existing_record,
+    stored_value,
+)
 
 REQUEST_KEYS = {"start_from", "edits", "new_people"}
 QUERY_KEYS = {"query"}
@@ -43,6 +49,8 @@ class KnownPerson:
     birth_date: str
     nation: str | None
     club: str | None
+    ca: int | None
+    pa: int | None
 
 
 @dataclass(frozen=True)
@@ -75,6 +83,8 @@ class Plan:
     """Requested values that people have already, which are left out."""
     replaced: int
     """Edits of a field that the starting file changes as well."""
+    above_potential: int
+    """People who would have more ability than potential."""
 
 
 def make_plan(request: Request, rules: PersonRules, lookup: sqlite3.Connection) -> Plan:
@@ -87,7 +97,8 @@ def make_plan(request: Request, rules: PersonRules, lookup: sqlite3.Connection) 
     if not edits and not additions:
         raise EditError("the request changes nothing")
     already_so = len(planned) - len(edits)
-    return Plan(start, edits, additions, already_so, _replaced(start, edits))
+    above = _above_potential(edits, additions)
+    return Plan(start, edits, additions, already_so, _replaced(start, edits), above)
 
 
 def build_file(plan: Plan, today: datetime.date) -> EditorFile:
@@ -221,12 +232,12 @@ def _known(uid: Any, lookup: sqlite3.Connection) -> tuple[KnownPerson, dict[str,
     cursor = lookup.cursor()
     cursor.row_factory = sqlite3.Row
     row = None
-    if type(uid) is int:
+    if type(uid) is int and 0 < uid <= HIGHEST_UID:
         row = cursor.execute("SELECT * FROM people WHERE uid = ?", (uid,)).fetchone()
     if row is None:
         raise EditError(f"the lookup has no person with uid {uid!r}")
     kind = PersonKind[row["kind"].upper()]
-    described = (row["name"], row["birth_date"], row["nation"], row["club"])
+    described = [row[name] for name in ("name", "birth_date", "nation", "club", "ca", "pa")]
     return KnownPerson(row["uid"], kind, *described), dict(row)
 
 
@@ -244,6 +255,27 @@ def _check_values(person: KnownPerson, values: Values) -> None:
 def _as_the_lookup_says(setting: Setting) -> str | int:
     value = setting.value
     return value.isoformat() if isinstance(value, datetime.date) else value
+
+
+def _above_potential(edits: list[Edit], additions: list[Addition]) -> int:
+    edited: dict[KnownPerson, list[Setting]] = {}
+    for edit in edits:
+        edited.setdefault(edit.person, []).append(edit.setting)
+    outcomes = [
+        _outcome(person.kind, settings, {"ca": person.ca, "pa": person.pa})
+        for person, settings in edited.items()
+    ]
+    outcomes += [_outcome(new.kind, new.settings, {}) for new in additions]
+    return sum(ca is not None and pa is not None and 0 < pa < ca for ca, pa in outcomes)
+
+
+def _outcome(
+    kind: PersonKind, settings: list[Setting], now: Mapping[str, int | None]
+) -> tuple[int | None, int | None]:
+    """Ability and potential as they would be; a potential below 0 stands for a range."""
+    codes = person_codes(kind)
+    set_to = {setting.field.code: setting.value for setting in settings}
+    return tuple(set_to.get(codes[name], now.get(name)) for name in ("ca", "pa"))
 
 
 def _replaced(start: StartingFile | None, edits: list[Edit]) -> int:

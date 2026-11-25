@@ -93,10 +93,17 @@ def test_fields_can_be_searched_by_name_or_code(run):
     assert by_name == by_code == ["ca (Ncra): Current Ability, 0 to 200"]
 
 
-def test_a_field_with_choices_lists_them(run):
-    _, lines, _ = run("fields", "player", "PPAR")
+def test_potential_lists_the_ranges_it_may_be(run):
+    _, lines, _ = run("fields", "player", "PPAB")
 
-    assert lines == ["PPAR: Potential Ability Range, one of -8, -95"]
+    assert lines == ["pa (PPAB): Potential Ability, 0 to 200, or a range: -8 130-160, -95 160-190"]
+    assert run("fields", "player", "PPAR")[1] == ["No field matches 'PPAR'"]
+
+
+def test_a_field_with_choices_lists_them(run):
+    _, lines, _ = run("fields", "player", "Zmod")
+
+    assert lines == ["Zmod: Mood, one of 0 Calm, 2 Cross"]
 
 
 def test_preview_writes_nothing(run, request_file, tmp_path):
@@ -183,6 +190,23 @@ def test_a_request_that_cannot_be_used_is_an_error(run, request_file, content):
 
     assert (status, lines) == (1, [])
     assert error.startswith("error: ")
+
+
+def test_a_name_given_twice_in_a_request_is_an_error(run, request_file):
+    request_file.write_text('{"edits": [{"uid": 100, "set": {"finishing": 3, "finishing": 4}}]}')
+
+    status, _, error = run("preview", request_file)
+
+    assert status == 1
+    assert "finishing" in error
+
+
+@pytest.mark.parametrize("limit", ["0", "-1", "many"])
+def test_limits_are_one_or_more(run, request_file, limit):
+    with pytest.raises(SystemExit):
+        run("find", "SELECT 1", "--limit", limit)
+    with pytest.raises(SystemExit):
+        run("preview", request_file, "--examples", limit)
 
 
 def test_a_file_that_does_not_exist_is_an_error(run, tmp_path):

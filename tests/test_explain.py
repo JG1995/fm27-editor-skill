@@ -141,6 +141,41 @@ def test_a_change_that_does_not_say_what_it_changes_is_reported(lines_for):
         )
 
 
+@pytest.mark.parametrize(
+    "new",
+    [
+        synthetic.prop("nwvl", 0x03, b"\x01"),
+        synthetic.prop("nwvl", 0x0A, synthetic.props(synthetic.prop("dtty", 0x11, b"\x01"))),
+    ],
+    ids=["not a record", "no ID"],
+)
+def test_an_added_record_of_unknown_shape_is_reported(lines_for, new):
+    with pytest.raises(ExplainError, match="adds a record"):
+        lines_for(synthetic.record_change(55, 1, "ADDR", new))
+
+
+def test_a_name_without_a_record_is_reported(lines_for):
+    with pytest.raises(ExplainError, match="duni"):
+        lines_for(
+            synthetic.change(
+                synthetic.prop("dtty", 0x11, b"\x01"),
+                synthetic.prop("prty", 0x02, b"anfP"),
+                text("Testy"),
+            )
+        )
+
+
+def test_a_new_person_without_a_name_goes_by_number(lines_for):
+    nameless = synthetic.change(
+        synthetic.prop("dtty", 0x11, b"\x01"),
+        synthetic.prop("duni", 0x0F, struct.pack("<II", 7001, 77)),
+        synthetic.prop("prty", 0x02, b"anfP"),
+        synthetic.prop("nwvl", 0x00),
+    )
+
+    assert "  7001 (new): First Name = nothing" in lines_for(nameless)
+
+
 def test_a_search_without_a_match_says_so(lines_for):
     lines = lines_for(synthetic.record_change(PERSON, 100, "PDfn", text("17")), find="zzz")
 

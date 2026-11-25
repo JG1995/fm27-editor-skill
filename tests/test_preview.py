@@ -46,6 +46,54 @@ def test_an_example_shows_who_it_is_and_the_old_and_new_value(lines_for):
     )
 
 
+@pytest.mark.parametrize("pa", [-95, -8])
+def test_a_potential_range_is_neither_up_nor_down(lines_for, pa):
+    lines = lines_for(edits=[{"query": f"SELECT uid, {pa} AS pa FROM people WHERE uid = 100"}])
+
+    assert "  Potential Ability (PPAB): 1 person, 1 to or from a range" in lines
+
+
+def test_a_potential_range_is_shown_as_what_it_stands_for(lines_for):
+    lines = lines_for(edits=[{"uid": 100, "set": {"pa": -8}}])
+
+    assert lines[-2].endswith("Potential Ability 140 -> 130-160 (-8)")
+
+
+def test_ranges_are_kept_apart_from_numbers(lines_for):
+    query = "SELECT uid, CASE uid WHEN 100 THEN -8 ELSE 150 END AS pa FROM people WHERE uid < 102"
+
+    lines = lines_for(edits=[{"query": query}])
+
+    assert (
+        "  Potential Ability (PPAB): 2 people, 1 up, 1 to or from a range, new values 150 to 150"
+        in lines
+    )
+
+
+@pytest.mark.parametrize(
+    "values", [{"ca": 141}, {"pa": 119}, {"ca": 100, "pa": 99}], ids=["ca", "pa", "both"]
+)
+def test_ability_above_potential_is_pointed_out(lines_for, values):
+    lines = lines_for(edits=[{"uid": 100, "set": values}])
+
+    assert "Warning: 1 person would have more ability than potential" in lines
+
+
+@pytest.mark.parametrize("values", [{"ca": 140}, {"ca": 150, "pa": 150}, {"pa": -8}])
+def test_ability_up_to_potential_is_not(lines_for, values):
+    lines = lines_for(edits=[{"uid": 100, "set": values}])
+
+    assert not [line for line in lines if line.startswith("Warning")]
+
+
+def test_new_people_with_more_ability_than_potential_are_pointed_out(lines_for):
+    values = {"Pfna": "Testy", "Psna": "New", "birth_date": "2008-04-25", "nation_uid": 9001}
+
+    lines = lines_for(new_people=[{"kind": "player", "set": values | {"ca": 100, "pa": 90}}])
+
+    assert "Warning: 1 person would have more ability than potential" in lines
+
+
 def test_an_old_value_the_lookup_does_not_know_is_not_made_up(lines_for):
     lines = lines_for(edits=[{"uid": 100, "set": {"Phes": 190}}])
 

@@ -5,6 +5,7 @@ import sqlite3
 from collections.abc import Iterable
 
 from fm27_editor.field_definitions import Field
+from fm27_editor.person_codes import POTENTIALS
 from fm27_editor.person_rules import LOOKUP_TABLES, Setting
 from fm27_editor.plan import Edit, KnownPerson, Plan, approval_code
 
@@ -14,6 +15,7 @@ def preview_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list
         *_starting_lines(plan),
         *_edit_lines(plan, lookup, examples),
         *_addition_lines(plan, lookup, examples),
+        *_warning_lines(plan),
         f"Approval code: {approval_code(plan)}",
     ]
 
@@ -60,17 +62,30 @@ def _field_line(edits: list[Edit]) -> str:
     parts = [counted(len(edits), "person", "people")]
     if field.type in ("integer", "attribute"):
         parts += _direction(edits)
-        values = [edit.setting.value for edit in edits]
-        parts.append(f"new values {min(values)} to {max(values)}")
+        numbers = [edit.setting.value for edit in edits if not _has_range(edit)]
+        if numbers:
+            parts.append(f"new values {min(numbers)} to {max(numbers)}")
     return f"  {field.name} ({field.code}): {', '.join(parts)}"
 
 
 def _direction(edits: list[Edit]) -> list[str]:
-    unknown = sum(edit.old is None for edit in edits)
-    known = [(edit.old, edit.setting.value) for edit in edits if edit.old is not None]
+    ranges = sum(map(_has_range, edits))
+    numbers = [edit for edit in edits if not _has_range(edit)]
+    known = [(edit.old, edit.setting.value) for edit in numbers if edit.old is not None]
     up = sum(new > old for old, new in known)
-    counts = [(up, "up"), (len(known) - up, "down"), (unknown, "from an unknown value")]
+    counts = [
+        (up, "up"),
+        (len(known) - up, "down"),
+        (ranges, "to or from a range"),
+        (len(numbers) - len(known), "from an unknown value"),
+    ]
     return [f"{count:,} {what}" for count, what in counts if count]
+
+
+def _has_range(edit: Edit) -> bool:
+    """Whether the old or new value is a potential that stands for a range."""
+    values = (edit.old, edit.setting.value)
+    return edit.setting.field.code in POTENTIALS and any(v is not None and v < 0 for v in values)
 
 
 def _spread(edits: list[Edit], count: int) -> list[Edit]:
@@ -104,6 +119,13 @@ def _addition_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> li
     if len(plan.additions) > examples:
         lines.append(f"  and {len(plan.additions) - examples:,} more")
     return lines
+
+
+def _warning_lines(plan: Plan) -> list[str]:
+    if not plan.above_potential:
+        return []
+    people = counted(plan.above_potential, "person", "people")
+    return [f"Warning: {people} would have more ability than potential"]
 
 
 def _setting(setting: Setting, lookup: sqlite3.Connection) -> str:

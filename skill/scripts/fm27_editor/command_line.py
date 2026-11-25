@@ -52,7 +52,7 @@ def _parser() -> argparse.ArgumentParser:
 
     find = commands.add_parser("find", help="run an SQL query over the lookup")
     find.add_argument("query")
-    find.add_argument("--limit", type=int, default=40)
+    find.add_argument("--limit", type=_one_or_more, default=40)
     find.set_defaults(command=_find)
 
     fields = commands.add_parser("fields", help="list the fields that can be set on a person")
@@ -63,12 +63,12 @@ def _parser() -> argparse.ArgumentParser:
     explain = commands.add_parser("explain", help="say what an editor file does")
     explain.add_argument("file", type=Path)
     explain.add_argument("--find", default="", help="show only changes that mention this")
-    explain.add_argument("--limit", type=int, default=20)
+    explain.add_argument("--limit", type=_one_or_more, default=20)
     explain.set_defaults(command=_explain)
 
     preview = commands.add_parser("preview", help="show what a request would write")
     preview.add_argument("request", type=Path)
-    preview.add_argument("--examples", type=int, default=10)
+    preview.add_argument("--examples", type=_one_or_more, default=10)
     preview.set_defaults(command=_preview)
 
     write = commands.add_parser("write", help="write a new file for an approved request")
@@ -77,6 +77,13 @@ def _parser() -> argparse.ArgumentParser:
     write.add_argument("--approved", required=True, metavar="CODE", help="from the preview")
     write.set_defaults(command=_write)
     return parser
+
+
+def _one_or_more(text: str) -> int:
+    number = int(text)
+    if number < 1:
+        raise argparse.ArgumentTypeError("must be 1 or more")
+    return number
 
 
 def _editor_dir() -> Path:
@@ -109,7 +116,8 @@ def _fields(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str
     names = {code: name for name, code in person_codes(kind).items()}
     fields = PersonRules(options.editor, lookup).writable_fields(kind)
     lines = [_field_line(field, names.get(field.code)) for field in fields]
-    return [line for line in lines if options.text.lower() in line.lower()]
+    matching = [line for line in lines if options.text.lower() in line.lower()]
+    return matching or [f"No field matches {options.text!r}"]
 
 
 def _field_line(field: Field, name: str | None) -> str:
@@ -122,20 +130,26 @@ def _accepted(field: Field) -> str:
         case "attribute":
             return f"{LOWEST_ATTRIBUTE} to {HIGHEST_ATTRIBUTE}"
         case "integer":
-            return f"{field.lowest} to {field.highest}"
+            return _accepted_numbers(field)
         case "boolean":
             return "true or false"
         case "date":
             return "a date such as 2008-04-25"
         case "enum":
-            return f"one of {', '.join(_choice(*item) for item in field.choices.items())}"
+            return f"one of {_listed(field.choices)}"
         case _ if field.type == REFERENCE:
             return f"the uid of a {field.points_to}"
     return "a text"
 
 
-def _choice(number: int, name: str) -> str:
-    return f"{number} {name}".strip()
+def _accepted_numbers(field: Field) -> str:
+    if not field.choices:
+        return f"{field.lowest} to {field.highest}"
+    return f"0 to {field.highest}, or a range: {_listed(field.choices)}"
+
+
+def _listed(choices: dict[int, str]) -> str:
+    return ", ".join(f"{number} {name}".strip() for number, name in choices.items())
 
 
 def _explain(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str]:
@@ -170,6 +184,14 @@ def _plan(options: argparse.Namespace, lookup: sqlite3.Connection) -> Plan:
 
 def _request(path: Path) -> dict[str, Any]:
     try:
-        return json.loads(path.read_text(encoding="utf-8"))
+        return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_named_once)
     except (json.JSONDecodeError, UnicodeDecodeError) as error:
         raise EditError(f"{path.name} is not a request: {error}") from error
+
+
+def _named_once(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    names = [name for name, _ in pairs]
+    repeated = {name for name in names if names.count(name) > 1}
+    if repeated:
+        raise EditError(f"the request gives {', '.join(sorted(repeated))} twice in one place")
+    return dict(pairs)

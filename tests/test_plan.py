@@ -96,6 +96,7 @@ def test_people_are_described_the_way_the_lookup_knows_them(plan_for):
         (by_hand(4242, finishing=3), "4242"),
         (by_hand("100", finishing=3), "'100'"),
         (by_hand(True, finishing=3), "True"),
+        (by_hand(10**20, finishing=3), "100000000000000000000"),
         ({"uid": 100, "set": 5}, "set"),
         ({"query": 5}, "query"),
         ({"query": "SELECT uid, 5 AS pa FROM people; SELECT 1"}, "one statement"),

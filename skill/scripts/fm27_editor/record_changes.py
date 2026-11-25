@@ -191,8 +191,8 @@ def _stored_number(value: int) -> tuple[Kind, Value]:
 
 
 def _checked_text(field: Field, value: FieldValue) -> str:
-    if not isinstance(value, str) or not value.strip():
-        raise _refused(field, f"needs a text, not {value!r}")
+    if not isinstance(value, str) or not value.strip() or not value.isprintable():
+        raise _refused(field, f"needs a text of one line, not {value!r}")
     return value
 
 

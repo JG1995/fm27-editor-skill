@@ -49,9 +49,11 @@ PLAYER = synthetic.definition_file(
         "PPAR",
         "Potential Ability Range",
         "enum",
-        '<list id="enum_values"><record enum="-8" /><record enum="-95" /></list>',
+        '<list id="enum_values"><record enum="-8"><string id="name" value="130-160" /></record>'
+        '<record enum="-95"><string id="name" value="160-190" /></record></list>',
     ),
     synthetic.field_definition("PDfn", "Finishing", "attribute"),
+    synthetic.field_definition("Zmod", "Mood", "enum", '<flags id="enum_values" value="mood" />'),
 )
 NON_PLAYER = synthetic.definition_file(
     "nnpl",
@@ -63,7 +65,9 @@ NON_PLAYER = synthetic.definition_file(
 STADIUM = synthetic.definition_file(
     "stad", synthetic.field_definition("Secy", "Seating Capacity", "integer")
 )
-TABLES = synthetic.enum_file(dbts={1: "Person", 21: "Stadium", 99: "Moon"})
+SHARED_CHOICES = synthetic.enum_file(
+    dbts={1: "Person", 21: "Stadium", 99: "Moon"}, mood={0: "Calm", 2: "Cross"}
+)
 
 
 def write_editor(folder: Path, people=None) -> Path:
@@ -75,7 +79,7 @@ def write_definitions(folder: Path, person: bytes = PERSON) -> Path:
     path = folder / "shared" / "data" / "editor.fmf"
     path.parent.mkdir(parents=True, exist_ok=True)
     files = {"person": person, "player": PLAYER, "non player": NON_PLAYER, "stadium": STADIUM}
-    path.write_bytes(synthetic.definitions_container(files, TABLES))
+    path.write_bytes(synthetic.definitions_container(files, SHARED_CHOICES))
     return folder
 
 
