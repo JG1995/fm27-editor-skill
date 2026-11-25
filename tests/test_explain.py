@@ -85,7 +85,7 @@ def test_examples_name_the_person_the_field_and_the_value(lines_for):
         (reference("Nnat", 9002), "Norwegia (9002)"),
         (reference("Ttea", 9101), "Fictional City (9101)"),
         (reference("city", 12), "12"),
-        (synthetic.prop("nwvl", 0x0B, struct.pack("<I", 0)), "a whole list"),
+        (synthetic.prop("nwvl", 0x0B, struct.pack("<I", 0)), "a list of 0"),
         (
             synthetic.prop("nwvl", 0x0A, synthetic.props(synthetic.prop("lsop", 0x11, b"\x00"))),
             "a change to a list",
@@ -103,6 +103,49 @@ def test_changes_to_awards_name_the_award(lines_for):
 
     assert "Award: 1 change to 1 record" in lines
     assert "  Example Player of the Year (9501): Allow Previous Winner = 1" in lines
+
+
+def past_winner(year, name, person=None, points=None):
+    winner = synthetic.prop("AH1p", 0x00)
+    if person is not None:
+        ids = synthetic.prop("Pers", 0x0F, struct.pack("<II", person, person))
+        winner = synthetic.prop("AH1p", 0x0A, synthetic.props(ids))
+    return b"\x01\x0a" + synthetic.props(
+        synthetic.prop("AHye", 0x12, struct.pack("<h", year)),
+        winner,
+        synthetic.prop("AH1n", 0x1A, synthetic.text(name)),
+        synthetic.prop("AH1i", 0x00)
+        if points is None
+        else synthetic.prop("AH1i", 0x11, struct.pack("<b", points)),
+        synthetic.prop("Ahnt", 0x03, b"\x00"),
+    )
+
+
+def history(*items):
+    body = struct.pack("<I", len(items)) + b"".join(items)
+    return synthetic.record_change(AWARD, 9501, "AWsh", synthetic.prop("nwvl", 0x0B, body))
+
+
+def test_a_list_says_how_long_it_is(lines_for):
+    lines = lines_for(history(past_winner(2023, "Old Master"), past_winner(2024, "")))
+
+    assert "  Example Player of the Year (9501): History = a list of 2" in lines
+
+
+def test_a_search_finds_what_stands_in_a_list(lines_for):
+    lines = lines_for(
+        history(
+            past_winner(2023, "Old Master", points=30),
+            past_winner(2024, "Alfa", person=100, points=47),
+        ),
+        find="alfa",
+    )
+
+    assert lines[-2:] == [
+        "Changes, 1 of 1:",
+        "  Example Player of the Year (9501): History: Year 2024, Placed Alfa Striker (100), "
+        "Placed Name Alfa, Info 47",
+    ]
 
 
 def test_new_people_are_counted_and_named_by_the_file_itself(lines_for):

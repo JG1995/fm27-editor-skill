@@ -178,6 +178,58 @@ def test_awards_are_counted_and_described(lines_for):
     ) in lines
 
 
+NEW_2024 = {
+    "award": 9501,
+    "year": 2024,
+    "places": [
+        {"person_uid": 101, "team_uid": 9102, "nation_uid": 9001, "points": 50, "age": 16},
+        {"keep": 1},
+    ],
+}
+
+
+def test_a_history_is_shown_with_what_was_there_before(lines_for):
+    lines = lines_for(award_history=[NEW_2024])
+
+    at = lines.index(
+        "History of Example Player of the Year (9501), Englandia, male, Example League: "
+        "1 of 3 years changes, 1 with another winner; the others stay as they are"
+    )
+    assert lines[at + 1 : at + 3] == [
+        "  2024: 1 Bravo Keeper (101), Example United, Englandia, 50 points, age 16; "
+        "2 Alfa Striker (100), Fictional City, Norwegia, 47 points, age 20",
+        "    was: 1 Alfa Striker (100), Fictional City, Norwegia, 47 points, age 20; "
+        "2 Old Master (no person), Example United, Englandia, 22 points; "
+        "3 Cup Hero (no person), Englandia, Englandia, 9 points, age 33",
+    ]
+
+
+def test_years_without_winners_and_new_years_say_so(lines_for):
+    lines = lines_for(
+        award_history=[
+            {"award": 9501, "year": 2023, "not_held": True},
+            {"award": 9501, "year": 2025, "places": [{"name": "New Star"}]},
+        ]
+    )
+
+    assert "  2023: not held" in lines
+    assert "  2025: 1 New Star (no person)" in lines
+    assert "    was: not in the history" in lines
+
+
+def test_the_years_of_a_history_are_spread_over_the_examples(lines_for):
+    years = [
+        {"award": 9502, "year": year, "places": [{"name": f"Star {year}"}]}
+        for year in range(2001, 2010)
+    ]
+
+    lines = lines_for(examples=3, award_history=years)
+
+    shown = [line.strip().split(":")[0] for line in lines if line.startswith("  20")]
+    assert shown == ["2001", "2005", "2009"]
+    assert "  and 6 more years" in lines
+
+
 def test_new_records_are_shown_with_their_names_in_the_request(lines_for):
     league = {"name": "Test League", "short_name": "League", "nation_uid": 9001, "dbty": 0}
     rovers = {
