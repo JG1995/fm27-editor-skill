@@ -9,6 +9,7 @@ from fm27_editor.binary import FormatError
 from fm27_editor.container import ContainerError, Folder, read_container
 
 TRANSLATOR_NOTE = "[COMMENT"
+DEFINITION_ENDING = ".xml"
 
 
 class FieldDefinitionError(FormatError):
@@ -28,7 +29,9 @@ class DefinitionFolder:
 
     @property
     def names(self) -> list[str]:
-        return [member.name for member in self.folder.members]
+        """Definitions only; the Editor's folders also hold notes for its developers."""
+        members = self.folder.members
+        return [member.name for member in members if member.extension == DEFINITION_ENDING]
 
     def subfolder(self, name: str) -> DefinitionFolder:
         for folder in self.folder.folders:

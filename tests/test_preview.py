@@ -4,7 +4,6 @@ from fictional_editor import STAFF_KIND, write_editor
 from fm27_editor.base_database import open_database
 from fm27_editor.plan import make_plan
 from fm27_editor.preview import preview_lines
-from fm27_editor.record_rules import RecordRules
 
 TEAM = [
     (0, 100, "Alfa Striker", 2004, 120, (51, 9002), (1, 9101)),
@@ -18,10 +17,9 @@ TEAM = [
 def lines_for(tmp_path):
     editor = write_editor(tmp_path / "editor", TEAM)
     lookup = open_database(editor, tmp_path / "cache.sqlite")
-    rules = RecordRules(editor, lookup)
 
     def lines(examples=10, **request):
-        return preview_lines(make_plan(request, rules, lookup), lookup, examples)
+        return preview_lines(make_plan(request, editor, lookup), lookup, examples)
 
     yield lines
     lookup.close()
@@ -197,6 +195,58 @@ def test_new_records_are_shown_with_their_names_in_the_request(lines_for):
     assert (
         "  club: Name Test Rovers; Short Name Rovers; Nation Englandia (9001); "
         "Division @D1; Foreground Colour #480024" in lines
+    )
+
+
+def test_rules_are_shown_in_full(lines_for):
+    rules = {
+        "nation": 9001,
+        "season_update_day": {"day_of_month": 20, "month": "jun"},
+        "start_date": "2026-08-01",
+        "end_date": "2027-05-31",
+        "transfer_windows": [{"start_date": "2026-07-01", "end_date": "2026-08-31"}],
+        "league_comps": [
+            {
+                "competition": 9201,
+                "minimum_number_teams": 2,
+                "maximum_number_teams": 2,
+                "start_date": "2026-08-15",
+                "end_date": "2027-05-15",
+                "child_competitions": [{"competition": 9203}],
+            }
+        ],
+        "cup_comps": [
+            {
+                "competition": 9204,
+                "type": "main_cup",
+                "teams": [{"competition": 9201, "number_teams": 2}],
+                "rounds": [{"number_matches": 1, "number_extra_teams": 2, "date": "2027-05-22"}],
+            }
+        ],
+    }
+
+    lines = lines_for(nation_rules=rules)
+
+    start = lines.index("Nation rules: Englandia (9001)")
+    assert lines[start + 1 : start + 5] == [
+        "  season_update_day: day_of_month 20, month jun",
+        "  start_date: 2026-08-01",
+        "  end_date: 2027-05-31",
+        "  bosman_number_days: 183",
+    ]
+    assert (
+        "  transfer_windows 1: start_date (day_of_month 1, month jul, year 2026), "
+        "end_date (day_of_month 31, month aug, year 2026), window_type normal" in lines
+    )
+    division = next(line for line in lines if line.startswith("  Division 1: "))
+    assert "competition Example League (9201), minimum_number_teams 2" in division
+    assert "sort_rules goal_difference and goals_for" in division
+    assert "use_game_rules" not in division
+    assert "child_competitions Example League North (9203)" in division
+    cup = next(line for line in lines if line.startswith("  Cup 1: "))
+    assert "type main_cup" in cup and "competition Example Cup (9204)" in cup
+    assert "  Cup 1, round 1: number_matches 1, number_extra_teams 2, number_legs 1" in "\n".join(
+        lines
     )
 
 

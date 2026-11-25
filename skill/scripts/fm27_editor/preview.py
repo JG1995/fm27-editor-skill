@@ -3,10 +3,12 @@
 import sqlite3
 from collections.abc import Iterable
 
-from fm27_editor.plan import Addition, Edit, KnownRecord, Plan, approval_code
+from fm27_editor.plan import Plan, approval_code
+from fm27_editor.planned import Addition, Edit, KnownRecord
 from fm27_editor.potential import is_range
 from fm27_editor.record_kinds import GROUPS, RecordGroup
 from fm27_editor.record_rules import NEW_MARK, Setting
+from fm27_editor.rule_words import rule_lines
 from fm27_editor.words import counted, shown
 
 
@@ -15,6 +17,7 @@ def preview_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list
         *_starting_lines(plan),
         *_edit_lines(plan, lookup, examples),
         *_addition_lines(plan, lookup, examples),
+        *([] if plan.rules is None else rule_lines(plan.rules, lookup)),
         *_warning_lines(plan),
         f"Approval code: {approval_code(plan)}",
     ]
@@ -137,10 +140,11 @@ def _addition_line(addition: Addition, lookup: sqlite3.Connection) -> str:
 
 
 def _warning_lines(plan: Plan) -> list[str]:
-    if not plan.above_potential:
-        return []
-    people = counted(plan.above_potential, "person", "people")
-    return [f"Warning: {people} would have more ability than potential"]
+    warnings = list(plan.warnings)
+    if plan.above_potential:
+        people = counted(plan.above_potential, "person", "people")
+        warnings.append(f"{people} would have more ability than potential")
+    return [f"Warning: {warning}" for warning in warnings]
 
 
 def _setting(setting: Setting, lookup: sqlite3.Connection) -> str:

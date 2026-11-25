@@ -8,18 +8,22 @@ import datetime
 import hashlib
 import sqlite3
 from collections.abc import Iterable, Iterator, Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-from fm27_editor.change_reading import Change, existing_record, read_change
+from fm27_editor.change_list import ChangeList
+from fm27_editor.change_reading import existing_record, read_change
 from fm27_editor.editor_file import EditorFile, load_editor_file
+from fm27_editor.nation_rules import NationRules
 from fm27_editor.new_file import new_editor_file
+from fm27_editor.planned import Addition, Edit, KnownRecord
 from fm27_editor.potential import ABILITY, POTENTIAL, has_more_ability_than_potential
 from fm27_editor.record_changes import HIGHEST_UID, NewIds, stored_value
 from fm27_editor.record_kinds import RecordGroup, RecordKind, kind_of
 from fm27_editor.record_rules import NEW_MARK, NewReference, RecordRules, Setting
 from fm27_editor.request import (
+    RULES_KEY,
     RequestError,
     WantedEdit,
     WantedRecord,
@@ -27,38 +31,12 @@ from fm27_editor.request import (
     wanted_edits,
     wanted_records,
 )
+from fm27_editor.rule_changes import add_rules, has_rules
+from fm27_editor.rule_definitions import RuleDefinitions
+from fm27_editor.rule_plan import plan_rules, rule_warnings
 from fm27_editor.setting_changes import edit_record, new_record
 
 CODE_LENGTH = 12
-
-
-@dataclass(frozen=True)
-class KnownRecord:
-    """A record as the lookup describes it."""
-
-    uid: int
-    kind: RecordKind
-    facts: Mapping[str, Any]
-
-    @property
-    def name(self) -> str:
-        return self.facts["name"]
-
-
-@dataclass(frozen=True)
-class Edit:
-    record: KnownRecord
-    setting: Setting
-    old: str | int | None
-    """What the lookup says now; nothing when it does not know."""
-
-
-@dataclass(frozen=True)
-class Addition:
-    kind: RecordKind
-    name: str | None
-    """What the request calls it, for other records to refer to."""
-    settings: list[Setting]
 
 
 @dataclass(frozen=True)
@@ -79,20 +57,39 @@ class Plan:
     """Edits of a field that the starting file changes as well."""
     above_potential: int
     """People who would have more ability than potential."""
+    rules: NationRules | None
+    warnings: list[str]
 
 
-def make_plan(request: Any, rules: RecordRules, lookup: sqlite3.Connection) -> Plan:
+def make_plan(request: Any, editor_dir: Path, lookup: sqlite3.Connection) -> Plan:
     check_request(request)
+    rules = RecordRules(editor_dir, lookup)
     start = _starting_file(request.get("start_from"))
     additions = _additions(wanted_records(request), rules)
     new = {addition.name: addition.kind for addition in additions if addition.name is not None}
     planned = list(_planned(wanted_edits(request, lookup), new, rules, lookup))
     edits = [edit for edit in planned if edit.old != edit.setting.as_the_lookup_says]
-    if not edits and not additions:
+    nation_rules = None
+    if RULES_KEY in request:
+        if start is not None and has_rules(start.file.changes):
+            raise RequestError(
+                f"{start.path.name} has rules already; a file has rules for one nation"
+            )
+        nation_rules = plan_rules(request[RULES_KEY], additions, rules, RuleDefinitions(editor_dir))
+    if not edits and not additions and nation_rules is None:
         raise RequestError("the request changes nothing")
-    already_so = len(planned) - len(edits)
-    above = _above_potential(edits, additions)
-    return Plan(start, edits, additions, already_so, _replaced(start, edits), above)
+    return Plan(
+        start,
+        edits,
+        additions,
+        already_so=len(planned) - len(edits),
+        replaced=_replaced(start, edits),
+        above_potential=_above_potential(edits, additions),
+        rules=nation_rules,
+        warnings=[]
+        if nation_rules is None
+        else rule_warnings(nation_rules, edits, additions, lookup),
+    )
 
 
 def approval_code(plan: Plan) -> str:
@@ -102,6 +99,7 @@ def approval_code(plan: Plan) -> str:
         parts.append(f"{addition.kind.name} {addition.name}")
         parts += [_written(setting) for setting in addition.settings]
     parts += [f"{_address(edit.record)} {_written(edit.setting)}" for edit in plan.edits]
+    parts.append("" if plan.rules is None else repr(plan.rules.values))
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:CODE_LENGTH]
 
 
@@ -116,21 +114,22 @@ def build_file(plan: Plan, approved: str, today: datetime.date) -> EditorFile:
             f"this plan ({code}) is not the one that was approved ({approved}); preview it again"
         )
     file = new_editor_file(today) if plan.start is None else _copy(plan.start.file)
-    file.changes.changes += _changes(plan, NewIds(file.changes))
+    _add_changes(file.changes, plan)
     return file
 
 
-def _changes(plan: Plan, ids: NewIds) -> list[Change]:
+def _add_changes(file: ChangeList, plan: Plan) -> None:
     """New records first, in the order of the request, because what follows may refer to them."""
-    changes, new = [], {}
+    ids, new = NewIds(file), {}
     for addition in plan.additions:
         record = ids.record()
         if addition.name is not None:
             new[addition.name] = record
-        changes += new_record(addition.kind, record, addition.settings, new, ids)
+        file.changes += new_record(addition.kind, record, addition.settings, new, ids)
     for edit in plan.edits:
-        changes += edit_record(edit.record.kind, edit.record.uid, [edit.setting], new, ids)
-    return changes
+        file.changes += edit_record(edit.record.kind, edit.record.uid, [edit.setting], new, ids)
+    if plan.rules is not None:
+        add_rules(file, plan.rules, new)
 
 
 def _address(record: KnownRecord) -> tuple[int, int]:
@@ -239,5 +238,6 @@ def _replaced(start: StartingFile | None, edits: list[Edit]) -> int:
 
 
 def _copy(file: EditorFile) -> EditorFile:
-    changes = replace(file.changes, changes=list(file.changes.changes))
+    given = file.changes
+    changes = ChangeList(list(given.general), list(given.editor), list(given.changes))
     return EditorFile(file.container, changes)

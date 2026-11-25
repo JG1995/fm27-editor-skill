@@ -3,6 +3,7 @@
 from pathlib import Path
 
 import synthetic
+from fictional_rules import write_rules
 
 PEOPLE = [
     (0, 100, "Alfa Striker", 2004, 120, (51, 9002), (1, 9101)),
@@ -68,6 +69,12 @@ NON_PLAYER = synthetic.definition_file(
     ),
 )
 
+GENDERS = (
+    "enum",
+    '<list id="enum_values">'
+    '<record enum="male" enum_id="0"><string id="name" value="Male" /></record>'
+    '<record enum="female" enum_id="1"><string id="name" value="Female" /></record></list>',
+)
 CLUB = synthetic.definition_file(
     "club",
     synthetic.field_definition("dbnm", "Name", "string"),
@@ -78,6 +85,7 @@ CLUB = synthetic.definition_file(
     synthetic.field_definition("Csti", "Stadium", *synthetic.reference("stadium")),
     synthetic.field_definition("Crep", "Reputation", "integer", synthetic.number_range(0, 10_000)),
     synthetic.field_definition("ttcl", "Foreground Colour", "colour"),
+    synthetic.field_definition("PLgn", "Player Gender", *GENDERS),
     synthetic.field_definition("Snam", "Stadium Name", "string"),
     synthetic.field_definition("CHAa", "Highest", "integer", synthetic.number_range(0, 100)),
 )
@@ -89,6 +97,7 @@ COMPETITION = synthetic.definition_file(
     synthetic.field_definition("cpcm", "Parent Competition", *synthetic.reference("competition")),
     synthetic.field_definition("dbty", "Type", "enum", '<flags id="enum_values" value="cdbt" />'),
     synthetic.field_definition("levl", "Level", "integer", synthetic.number_range(1, 20)),
+    synthetic.field_definition("PLgn", "Player Gender", *GENDERS),
 )
 
 STADIUM = synthetic.definition_file(
@@ -103,6 +112,7 @@ SHARED_CHOICES = synthetic.enum_file(
 
 def write_editor(folder: Path, people=None) -> Path:
     write_definitions(folder)
+    write_rules(folder)
     return write_database(folder, people)
 
 

@@ -1,3 +1,4 @@
+import datetime
 import struct
 
 import pytest
@@ -8,6 +9,7 @@ from fm27_editor.base_database import open_database
 from fm27_editor.change_reading import EditError
 from fm27_editor.editor_file import load_editor_file
 from fm27_editor.explain import explain_lines
+from fm27_editor.plan import approval_code, build_file, make_plan
 
 PERSON, CLUB, STADIUM, COMPETITION = 1, 3, 21, 25
 
@@ -124,6 +126,32 @@ def test_a_new_club_is_named_and_so_is_the_new_competition_it_plays_in(lines_for
     assert "  Test League (new): Name = Test League" in lines
     assert "  Test Rovers (new): Division = Test League (new)" in lines
     assert "  Fictional City (9101): Division = Example League North (9203)" in lines
+
+
+def test_rules_for_a_nation_are_mentioned(tmp_path):
+    editor = write_editor(tmp_path / "editor")
+    with open_database(editor, tmp_path / "cache.sqlite") as lookup:
+        rules = {
+            "nation": 9001,
+            "season_update_day": {"day_of_month": 20, "month": "jun"},
+            "start_date": "2026-08-01",
+            "end_date": "2027-05-31",
+            "league_comps": [
+                {
+                    "competition": 9201,
+                    "minimum_number_teams": 2,
+                    "maximum_number_teams": 2,
+                    "start_date": "2026-08-15",
+                    "end_date": "2027-05-15",
+                }
+            ],
+        }
+        plan = make_plan({"nation_rules": rules}, editor, lookup)
+        file = build_file(plan, approval_code(plan), datetime.date(2026, 11, 12))
+
+        lines = explain_lines(file, editor, lookup, find="", examples=10)
+
+    assert "Rules for Englandia (9001): 1 division, 0 cups" in lines
 
 
 def test_removed_records_are_counted(lines_for):
