@@ -2,35 +2,151 @@ import pytest
 
 import synthetic
 from fm27_editor.binary import FormatError
-from fm27_editor.places import parse_clubs, parse_nations
+from fm27_editor.places import (
+    Club,
+    Competition,
+    Gender,
+    PlacesError,
+    Team,
+    parse_cities,
+    parse_clubs,
+    parse_competitions,
+    parse_stadiums,
+    parse_teams,
+)
 
 
-def test_reads_club_names_including_the_first_club():
-    clubs = parse_clubs(
-        synthetic.club_table([(9101, "Fictional City", "Fic City"), (9102, "Example", "Ex")])
+def test_reads_where_a_club_plays():
+    table = synthetic.record_table(
+        [
+            (
+                9101,
+                synthetic.club_record("Fictional City", "Fic", nation=2, based_nation=3, city=4),
+            ),
+            (9102, synthetic.club_record("Example Women", "Ex", nation=2, female=True)),
+        ]
     )
 
-    assert clubs == {9101: ("Fictional City", "Fic City"), 9102: ("Example", "Ex")}
+    assert parse_clubs(table) == [
+        Club(9101, nation=2, based_nation=3, city=4, gender=Gender.MALE, is_extinct=False),
+        Club(9102, nation=2, based_nation=None, city=None, gender=Gender.FEMALE, is_extinct=False),
+    ]
 
 
-def test_a_club_record_of_many_kilobytes_is_read():
-    table = synthetic.club_table([(9101, "Fictional City", "Fic City")])
-    padded = table[:12] + b"\x07" * 5_000 + table[12:]
+def test_an_extinct_club_keeps_the_nation_it_played_in():
+    table = synthetic.record_table(
+        [(9103, synthetic.club_record("Gone Town", "Gone", extinct_nation=2))]
+    )
 
-    assert parse_clubs(padded) == {9101: ("Fictional City", "Fic City")}
+    (club,) = parse_clubs(table)
+
+    assert (club.nation, club.is_extinct) == (2, True)
+
+
+def test_records_that_are_not_clubs_are_left_out():
+    table = synthetic.record_table(
+        [
+            (9101, synthetic.club_record("Fictional City", "Fic", nation=2)),
+            (2_000_000_000, synthetic.club_record("", "", kind=12)),
+        ]
+    )
+
+    assert [club.uid for club in parse_clubs(table)] == [9101]
+
+
+def test_a_club_of_another_shape_is_an_error():
+    record = synthetic.club_record("Fictional City", "Fic", nation=2) + b"\x09"
+
+    with pytest.raises(PlacesError, match="9101"):
+        parse_clubs(synthetic.record_table([(9101, record)]))
+
+
+def test_reads_the_standing_of_club_teams_and_leaves_out_national_teams():
+    table = synthetic.record_table(
+        [
+            (5, synthetic.team_record(reputation=9000, kind=b"\x0b\x01")),
+            (
+                9101,
+                synthetic.team_record(
+                    last_position=3, reputation=8150, division=7, last_division=8, stadium=9
+                ),
+            ),
+            (9102, synthetic.team_record()),
+        ]
+    )
+
+    assert parse_teams(table) == [
+        Team(9101, reputation=8150, division=7, last_division=8, last_position=3, stadium=9),
+        Team(9102, reputation=0, division=None, last_division=None, last_position=0, stadium=None),
+    ]
+
+
+def test_reads_competitions():
+    client = synthetic.record_table(
+        [
+            (9201, synthetic.competition_record(nation=2, level=1)),
+            (9202, synthetic.competition_record(nation=2, parent=0)),
+        ]
+    )
+    server = synthetic.record_table(
+        [
+            (9201, synthetic.competition_server_record()),
+            (9202, synthetic.competition_server_record(female=True)),
+        ]
+    )
+
+    assert parse_competitions(client, server) == [
+        Competition(9201, nation=2, parent=None, level=1, gender=Gender.MALE),
+        Competition(9202, nation=2, parent=0, level=None, gender=Gender.FEMALE),
+    ]
+
+
+def test_competition_tables_that_disagree_are_an_error():
+    client = synthetic.record_table([(9201, synthetic.competition_record())])
+    server = synthetic.record_table([(9202, synthetic.competition_server_record())])
+
+    with pytest.raises(PlacesError):
+        parse_competitions(client, server)
+
+
+def test_a_gender_other_than_two_is_an_error():
+    client = synthetic.record_table([(9201, synthetic.competition_record())])
+    server = synthetic.record_table([(9201, b"\x07" * 179)])
+
+    with pytest.raises(PlacesError, match="gender"):
+        parse_competitions(client, server)
+
+
+def test_reads_the_nation_of_a_city_and_the_city_of_a_stadium():
+    cities = synthetic.record_table(
+        [(9301, synthetic.city_record(2)), (9302, synthetic.city_record())]
+    )
+    stadiums = synthetic.record_table([(9401, synthetic.stadium_record(1))])
+
+    assert parse_cities(cities) == {9301: 2, 9302: None}
+    assert parse_stadiums(stadiums) == {9401: 1}
+
+
+@pytest.mark.parametrize("parse", [parse_clubs, parse_teams, parse_cities, parse_stadiums])
+@pytest.mark.parametrize(
+    "content",
+    [b"", b"\x03\x01tad.", b"\x00" * 40],
+    ids=["empty", "short", "no tag"],
+)
+def test_broken_tables_raise_a_format_error(parse, content):
+    with pytest.raises(FormatError):
+        parse(content)
 
 
 @pytest.mark.parametrize(
-    "content", [b"", b"\x03\x01tad.", b"\x00" * 40], ids=["empty", "short", "no tag"]
+    ("parse", "start"),
+    [
+        (parse_clubs, b"\x00"),
+        (parse_teams, b"\x0a\x00"),
+        (parse_cities, b""),
+        (parse_stadiums, b""),
+    ],
 )
-def test_broken_place_tables_raise_a_format_error(content):
+def test_a_record_that_is_too_short_is_an_error(parse, start):
     with pytest.raises(FormatError):
-        parse_clubs(content)
-    with pytest.raises(FormatError):
-        parse_nations(content, {9001})
-
-
-def test_nation_names_are_found_for_the_ids_asked_for():
-    table = synthetic.nation_names({9001: "Englandia", 9002: "Norwegia"})
-
-    assert parse_nations(table, {9002, 4}) == {9002: "Norwegia"}
+        parse(synthetic.record_table([(9101, start + b"\x09")]))

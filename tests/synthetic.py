@@ -11,6 +11,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
 KEY = b"0123456789abcdef"
 IV = b"fedcba9876543210"
+NO_INDEX = 0xFFFFFFFF
 
 
 def text(value: str) -> bytes:
@@ -172,20 +173,117 @@ def string_table(entries: dict[int, str]) -> bytes:
     return table
 
 
-def club_table(clubs: list[tuple[int, str, str]]) -> bytes:
-    """Clubs as (uid, name, short name); each ends in its index and its uid twice."""
-    table = b"\x03\x01tad.\xa0\x0f" + struct.pack("<I", len(clubs))
-    for index, (uid, name, short_name) in enumerate(clubs):
-        table += b"\x07" * 17 + text(name) + text(short_name) + b"\x00\x00\x00"
-        table += struct.pack("<III", index, uid, uid)
+def record_table(records: list[tuple[int, bytes]]) -> bytes:
+    """Records as (uid, data); each ends in its index and its uid twice."""
+    table = b"\x03\x01tad.\xa0\x0f" + struct.pack("<I", len(records)) + b"\x00"
+    for index, (uid, data) in enumerate(records):
+        table += data + struct.pack("<III", index, uid, uid)
     return table + struct.pack("<IBI", 0, 1, 2_000_000_000)
 
 
+def club_record(
+    name: str,
+    short_name: str,
+    *,
+    nation: int = NO_INDEX,
+    extinct_nation: int = NO_INDEX,
+    based_nation: int = NO_INDEX,
+    city: int = NO_INDEX,
+    female: bool = False,
+    kind: int = 0,
+) -> bytes:
+    """Nations and city are indexes into their tables; an extinct club has the second nation."""
+    head = struct.pack("<BIIII", kind, nation, extinct_nation, based_nation, based_nation)
+    head += struct.pack("<I", city) + b"\x00\x0a\x00\x00\x00\x00"
+    return head + text(name) + text(short_name) + b"\x00\x00" + bytes([female])
+
+
+def team_record(
+    *,
+    last_position: int = 0,
+    reputation: int = 0,
+    division: int = NO_INDEX,
+    last_division: int = NO_INDEX,
+    stadium: int = NO_INDEX,
+    kind: bytes = b"\x0a\x00",
+) -> bytes:
+    """Divisions and stadium are indexes into their tables; a squad of two follows them."""
+    head = kind + struct.pack("<BH", last_position, reputation)
+    head += struct.pack("<IIII", division, last_division, NO_INDEX, stadium)
+    return head + b"\x37\x0d\x00\x00" + struct.pack("<HII", 2, 5, 6) + b"\xff\xff\x00"
+
+
+def competition_record(
+    *, nation: int = NO_INDEX, parent: int = NO_INDEX, level: int | None = None
+) -> bytes:
+    """Nation and parent are indexes into their tables."""
+    record = bytearray(range(1, 116))  # no repeats, which could read as an ID
+    record[16] = 100 if level is None else level - 1
+    struct.pack_into("<I", record, 57, nation)
+    struct.pack_into("<I", record, 65, parent)
+    return bytes(record)
+
+
+def competition_server_record(*, female: bool = False) -> bytes:
+    return bytes(range(1, 121)) + bytes([female]) + bytes(range(1, 59))
+
+
+def city_record(nation: int = NO_INDEX) -> bytes:
+    return b"\x00" * 2 + b"\x42" * 9 + struct.pack("<I", nation) + bytes(range(1, 17))
+
+
+def stadium_record(city: int = NO_INDEX) -> bytes:
+    return b"\x00\x02\x00\x00" + struct.pack("<I", city) + bytes(range(1, 19))
+
+
+def name_table(rows: list[bytes]) -> bytes:
+    return b"\x03\x01tad.\xa9\x0e" + struct.pack("<I", len(rows)) + b"".join(rows)
+
+
 def nation_names(nations: dict[int, str]) -> bytes:
-    table = b"\x03\x01tad.\xa9\x0e" + struct.pack("<I", len(nations)) + b"\x05\x00\x00\x00"
-    for uid, name in nations.items():
-        table += struct.pack("<I", uid) + text(name) + b"\xff" + text(name) + b"\xff" + b"\x09"
-    return table
+    return name_table(
+        [
+            struct.pack("<I", uid) + text(name) + b"\xff" + text(name) + b"\xff"
+            + text(name[:3].upper()) + text(f"{name}n") + b"\x00"
+            for uid, name in nations.items()
+        ]
+    )  # fmt: skip
+
+
+def club_names(clubs: dict[int, tuple[str, str]]) -> bytes:
+    return name_table(
+        [
+            struct.pack("<I", uid) + text(name) + b"\xff" + text(short_name) + b"\xff"
+            + text("SIX") + text("THR") + text("ALT") + b"\xff" + text("The Nicknames")
+            + b"\x00\x00\x7e\x00" + text("")
+            for uid, (name, short_name) in clubs.items()
+        ]
+    )  # fmt: skip
+
+
+def competition_names(competitions: dict[int, tuple[str, str]]) -> bytes:
+    return name_table(
+        [
+            struct.pack("<I", uid) + text(name) + b"\xff" + text(short_name) + b"\xff"
+            + text("THR") + b"\x00"
+            for uid, (name, short_name) in competitions.items()
+        ]
+    )  # fmt: skip
+
+
+def city_names(cities: dict[int, str]) -> bytes:
+    return name_table(
+        [struct.pack("<I", uid) + text(name) + b"\x00\x00" for uid, name in cities.items()]
+    )
+
+
+def stadium_names(stadiums: dict[int, str]) -> bytes:
+    return name_table(
+        [
+            struct.pack("<I", uid) + text(name) + text("Old Name") + b"\xff\xff\x00"
+            for uid, name in stadiums.items()
+        ]
+    )
 
 
 def basic_person(

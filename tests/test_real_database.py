@@ -86,3 +86,33 @@ def test_the_installed_editor_database_reads_as_plausible_people(tmp_path):
     assert with_nation > people * 0.95
     assert with_club > people * 0.8
     assert (over_twenty, ability_above_potential) == (0, 0)
+
+
+@needs_editor
+def test_the_installed_editor_database_reads_as_plausible_clubs(tmp_path):
+    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
+        clubs, named, with_nation = db.execute(
+            "SELECT count(*), count(name), count(nation) FROM clubs"
+        ).fetchone()
+        mixed = db.execute(
+            "SELECT count(*) FROM (SELECT 1 FROM club WHERE division_uid IS NOT NULL"
+            " GROUP BY division_uid HAVING count(DISTINCT gender) > 1)"
+        ).fetchone()[0]
+        unlike_their_division = db.execute(
+            "SELECT count(*) FROM club JOIN competition ON competition.uid = division_uid"
+            " WHERE club.gender <> competition.gender"
+        ).fetchone()[0]
+        extinct_in_a_division = db.execute(
+            "SELECT count(*) FROM club WHERE is_extinct AND division_uid IS NOT NULL"
+        ).fetchone()[0]
+        unlikely = db.execute(
+            "SELECT count(*) FROM club WHERE reputation > 10000 OR last_position > 100"
+        ).fetchone()[0]
+        competitions = db.execute("SELECT count(*), count(name) FROM competitions").fetchone()
+
+    assert clubs > 90_000
+    assert clubs == named
+    assert with_nation > clubs * 0.95
+    assert (mixed, unlike_their_division, extinct_in_a_division, unlikely) == (0, 0, 0, 0)
+    assert competitions[0] > 8_000
+    assert competitions[0] == competitions[1]
