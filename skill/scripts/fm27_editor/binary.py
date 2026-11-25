@@ -1,6 +1,7 @@
 """Bounds-checked reading of little-endian binary data."""
 
 import struct
+from compression import zstd
 
 ZSTD_MAGIC = b"\x28\xb5\x2f\xfd"
 
@@ -47,3 +48,20 @@ class Reader:
 def text_bytes(value: str) -> bytes:
     raw = value.encode()
     return struct.pack("<I", len(raw)) + raw
+
+
+def unpack_frame(
+    content: bytes, what: str, error: type[FormatError], size_limit: int | None = None
+) -> bytes:
+    """Unpack a zstd frame; some files put a u32 frame size in front of it."""
+    start = 0 if content[:4] == ZSTD_MAGIC else 4
+    if content[start : start + 4] != ZSTD_MAGIC:
+        raise error(f"{what} is not compressed data")
+    try:
+        limit = -1 if size_limit is None else size_limit + 1
+        data = zstd.ZstdDecompressor().decompress(content[start:], limit)
+    except zstd.ZstdError as cause:
+        raise error(f"{what} cannot be decompressed") from cause
+    if size_limit is not None and len(data) > size_limit:
+        raise error(f"{what} is larger than {size_limit} bytes")
+    return data

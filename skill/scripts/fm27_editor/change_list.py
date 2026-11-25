@@ -12,7 +12,7 @@ from compression import zstd
 from dataclasses import dataclass, field
 from enum import IntEnum
 
-from fm27_editor.binary import ZSTD_MAGIC, FormatError, Reader, text_bytes
+from fm27_editor.binary import FormatError, Reader, text_bytes, unpack_frame
 
 LIST_TAG = b"\x03\x01cbd.\x06\x00\x00"
 CHANGE_COUNT_TAG = "dchc"
@@ -103,18 +103,10 @@ def serialise_change_list(changes: ChangeList) -> bytes:
 
 
 def read_body(content: bytes) -> bytes:
-    """The uncompressed body; some files put a u32 frame size in front of the frame."""
+    """The uncompressed body."""
     if content[: len(LIST_TAG)] != LIST_TAG:
         raise ChangeListError("not an editor change list")
-    frame = content[len(LIST_TAG) :]
-    if frame[:4] != ZSTD_MAGIC:
-        frame = frame[4:]
-    if frame[:4] != ZSTD_MAGIC:
-        raise ChangeListError("the change list is not compressed data")
-    try:
-        return zstd.decompress(frame)
-    except zstd.ZstdError as error:
-        raise ChangeListError("the change list cannot be decompressed") from error
+    return unpack_frame(content[len(LIST_TAG) :], "the change list", ChangeListError)
 
 
 def change_list_body(changes: ChangeList) -> bytes:
