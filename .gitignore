@@ -17,3 +17,10 @@
 __pycache__/
 .pytest_cache/
 .ruff_cache/
+
+# Editor files, the Editor database, and the lookup cache are never committed
+*.fmf
+*.dbc
+*.dat
+*.sqlite
+*.sqlite.*.partial
