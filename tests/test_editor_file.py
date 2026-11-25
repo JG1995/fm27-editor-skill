@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 import synthetic
@@ -80,3 +82,48 @@ def test_an_fmf_without_a_change_list_is_reported(tmp_path):
 
     with pytest.raises(EditorFileError, match="change list"):
         load_editor_file(path)
+
+
+def test_a_file_with_two_change_lists_is_refused(tmp_path):
+    path = tmp_path / "two.fmf"
+    change_list = synthetic.change_list(synthetic.capacity_change(1))
+    path.write_bytes(
+        synthetic.container("Two", [("Two", ".dbc", change_list), ("Other", ".dbc", change_list)])
+    )
+
+    with pytest.raises(EditorFileError, match="more than one change list"):
+        load_editor_file(path)
+
+
+def test_an_interrupted_write_leaves_no_file_behind(source, tmp_path, monkeypatch):
+    edited = load_editor_file(source)
+    set_new_value(edited, 53_123)
+    real_open = Path.open
+
+    class DiskFull:
+        def __init__(self, path):
+            self.path = path
+
+        def __enter__(self):
+            self.handle = real_open(self.path, "xb")
+            return self
+
+        def write(self, content):
+            self.handle.write(content[:20])
+            raise OSError("disk full")
+
+        def __exit__(self, *_):
+            self.handle.close()
+
+    monkeypatch.setattr(
+        Path,
+        "open",
+        lambda self, mode="r", *a, **k: (
+            DiskFull(self) if mode == "xb" else real_open(self, mode, *a, **k)
+        ),
+    )
+
+    with pytest.raises(OSError, match="disk full"):
+        save_editor_file(edited, tmp_path / "broken.fmf")
+
+    assert list(tmp_path.iterdir()) == [source]

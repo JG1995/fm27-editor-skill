@@ -29,7 +29,7 @@ def save_editor_file(file: EditorFile, path: Path) -> None:
     """Write `file` as a new file at `path`.
 
     The bytes are decoded again and compared first, so a file that does not read back as intended
-    never reaches the disk.
+    never reaches the disk. A write that fails partway removes what it wrote.
     """
     if path.exists():
         raise EditorFileError(f"{path.name} already exists")
@@ -41,13 +41,18 @@ def save_editor_file(file: EditorFile, path: Path) -> None:
             target.write(content)
     except FileExistsError as error:
         raise EditorFileError(f"{path.name} already exists") from error
+    except OSError:
+        path.unlink(missing_ok=True)
+        raise
 
 
 def _change_list_member(container: Container) -> Member:
-    for member in container.root.members:
-        if member.extension == CHANGE_LIST_EXTENSION:
-            return member
-    raise EditorFileError("this .fmf has no change list, so it is not an editor file")
+    found = [m for m in container.root.members if m.extension == CHANGE_LIST_EXTENSION]
+    if not found:
+        raise EditorFileError("this .fmf has no change list, so it is not an editor file")
+    if len(found) > 1:
+        raise EditorFileError("this .fmf has more than one change list, which is not supported")
+    return found[0]
 
 
 def _container_to_save(file: EditorFile, name: str) -> Container:
