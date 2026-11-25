@@ -25,6 +25,8 @@ SECOND_ID_NUMBERS = 2**30
 NEW_UIDS = range(100_000_000, 2_000_000_000)
 HIGHEST_UID = 2**31 - 1  # no real file refers to a higher one
 INTEGER_KINDS = [(Kind.INT8, 1), (Kind.INT16, 2), (Kind.INT32, 4), (Kind.INT64, 8)]
+REFERENCE = "database_record_unique_id"
+WRITTEN_TYPES = {"string", "attribute", "integer", "enum", "boolean", "date", REFERENCE}
 REFERENCE_TAGS = {
     "nation": "Nnat",
     "team": "Ttea",
@@ -99,10 +101,26 @@ def field_change(
     )
 
 
+def refusal(field: Field) -> str | None:
+    """Why no value of this field can be written, if that is so."""
+    if not field.is_editable:
+        return "cannot be edited in the Editor"
+    if field.type not in WRITTEN_TYPES:
+        return f"has type {field.type}, which cannot be written yet"
+    if field.type == "enum" and field.choices is None:
+        return "has choices that the Editor's definitions do not list"
+    if field.type == "integer" and (field.lowest is None or field.highest is None):
+        return "has no range in the Editor's definitions"
+    if field.type == REFERENCE and field.points_to not in REFERENCE_TAGS:
+        return f"points to a {field.points_to}, which cannot be written yet"
+    return None
+
+
 def stored_value(field: Field, value: FieldValue) -> Property:
     """The new value as a change holds it, if the Editor would accept it."""
-    if not field.is_editable:
-        raise _refused(field, "cannot be edited in the Editor")
+    reason = refusal(field)
+    if reason is not None:
+        raise _refused(field, reason)
     return Property("nwvl", *_stored(field, value))
 
 
@@ -155,7 +173,7 @@ def _stored(field: Field, value: FieldValue) -> tuple[Kind, Value]:
                 _checked_number(field, value, LOWEST_ATTRIBUTE, HIGHEST_ATTRIBUTE)
             )
         case "integer":
-            return _stored_number(_checked_in_range(field, value))
+            return _stored_number(_checked_number(field, value, field.lowest, field.highest))
         case "enum":
             return _stored_number(_checked_choice(field, value))
         case "boolean" if isinstance(value, bool):
@@ -164,9 +182,7 @@ def _stored(field: Field, value: FieldValue) -> tuple[Kind, Value]:
             return Kind.DATE, date_bytes(value)
         case "database_record_unique_id":
             return Kind.NESTED, _reference(field, value)
-        case "boolean" | "date":
-            raise _refused(field, f"is a {field.type}, not {value!r}")
-    raise _refused(field, f"has type {field.type}, which cannot be written yet")
+    raise _refused(field, f"is a {field.type}, not {value!r}")
 
 
 def _stored_number(value: int) -> tuple[Kind, Value]:
@@ -178,12 +194,6 @@ def _checked_text(field: Field, value: FieldValue) -> str:
     if not isinstance(value, str) or not value.strip():
         raise _refused(field, f"needs a text, not {value!r}")
     return value
-
-
-def _checked_in_range(field: Field, value: FieldValue) -> int:
-    if field.lowest is None or field.highest is None:
-        raise _refused(field, "has no range in the Editor's definitions")
-    return _checked_number(field, value, field.lowest, field.highest)
 
 
 def _checked_number(field: Field, value: FieldValue, lowest: int, highest: int) -> int:
@@ -199,8 +209,6 @@ def _check_whole(field: Field, value: FieldValue) -> None:
 
 
 def _checked_choice(field: Field, value: FieldValue) -> int:
-    if field.choices is None:
-        raise _refused(field, "has choices that the Editor's definitions do not list")
     _check_whole(field, value)
     if value not in field.choices:
         options = ", ".join(f"{key} {name}" for key, name in sorted(field.choices.items()))
@@ -209,13 +217,10 @@ def _checked_choice(field: Field, value: FieldValue) -> int:
 
 
 def _reference(field: Field, value: FieldValue) -> list[Property]:
-    tag = REFERENCE_TAGS.get(field.points_to or "")
-    if tag is None:
-        raise _refused(field, f"points to a {field.points_to}, which cannot be written yet")
     uid = _checked_number(field, value, 1, HIGHEST_UID)
     return [
         Property("id  ", Kind.CODE, "nwvl"),
-        Property(tag, Kind.ID, existing_record(uid)),
+        Property(REFERENCE_TAGS[field.points_to], Kind.ID, existing_record(uid)),
         number("DBID", uid),
     ]
 
