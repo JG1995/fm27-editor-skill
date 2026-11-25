@@ -29,6 +29,7 @@ Record the exact commands here as soon as they exist, and correct them when the 
 
 * Install: needs Python 3.14 and `cryptography` (`python3 -m pip install cryptography pytest`); Ruff is the linter.
 * Test: `python3 -m pytest`, or one file with `python3 -m pytest tests/test_container.py`.
+* Test against your own editor files (never committed): `FM27_EDITOR_FILES="<folder>" python3 -m pytest tests/test_real_files.py`.
 * Lint and format: `ruff check .` and `ruff format .`.
 * Run and typecheck: none yet.
 
