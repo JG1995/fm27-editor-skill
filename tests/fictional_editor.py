@@ -136,6 +136,33 @@ PREVIOUS_WINNER = (
     '<record enum="1"><string id="name" value="Never" /></record>'
     '<record enum="3"><string id="name" value="Yes" /></record></list>',
 )
+AWARD_HISTORY = synthetic.list_items(
+    synthetic.field_definition("AHye", "Year", "integer", synthetic.number_range(1800, 2100)),
+    *(
+        definition
+        for number in (1, 2, 3)
+        for definition in (
+            synthetic.field_definition(f"AH{number}p", "Placed", *synthetic.reference("person")),
+            synthetic.field_definition(f"AH{number}n", "Placed Name", "string"),
+            synthetic.field_definition(f"AH{number}t", "Team", *synthetic.reference("team")),
+            synthetic.field_definition(
+                f"AH{number}i", "Info", "integer", synthetic.number_range(1, 5000)
+            ),
+            synthetic.field_definition(
+                f"A{number}i2", "Info 2", "integer", synthetic.number_range(1, 5000)
+            ),
+            synthetic.field_definition(
+                f"A{number}ag", "Age", "integer", synthetic.number_range(14, 120)
+            ),
+            synthetic.field_definition(f"AH{number}c", "Nation", *synthetic.reference("nation")),
+            synthetic.field_definition(
+                f"AHp{number}", "Position", "enum", '<flags id="enum_values" value="posm" />'
+            ),
+        )
+    ),
+    synthetic.field_definition("AHnd", "No Data For Year", "boolean"),
+    synthetic.field_definition("Ahnt", "Did Not Take Place", "boolean"),
+)
 AWARD = synthetic.definition_file(
     "awar",
     synthetic.field_definition("dbnm", "Name", "string"),
@@ -148,6 +175,7 @@ AWARD = synthetic.definition_file(
     synthetic.field_definition(
         "AWap", "Allow Previous Winner", *PREVIOUS_WINNER, synthetic.flag("is_client_field")
     ),
+    synthetic.field_definition("AWsh", "History", "list", AWARD_HISTORY),
 )
 
 STADIUM = synthetic.definition_file(
@@ -157,6 +185,7 @@ SHARED_CHOICES = synthetic.enum_file(
     dbts={0: "Award", 1: "Person", 3: "Club", 21: "Stadium", 25: "Competition", 99: "Moon"},
     mood={0: "Calm", 2: "Cross"},
     cdbt={0: "Top Division", 2: "Main Cup"},
+    posm={64: "Wing-Back Left"},
 )
 
 
