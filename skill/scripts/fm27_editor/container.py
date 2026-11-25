@@ -1,7 +1,8 @@
 """The .fmf wrapper: named members in a small folder tree.
 
 A version 8 file is a 26-byte header, the stored members, and a compressed index that describes
-them. Each member carries its own AES-128 key and IV in front of its data.
+them. In editor files each member carries its own AES-128 key and IV in front of its data. The base
+database uses the same wrapper without encryption; those files are only ever read.
 """
 
 import os
@@ -15,6 +16,7 @@ from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 from fm27_editor.binary import FormatError, Reader, text_bytes, unpack_frame
 
 MAGIC = b"\x02\x01afe."
+PLAIN_MAGIC = b"\x02\x01fmf."
 INDEX_TAG = b"\x02\x01fmf.\x08\x00\x00"
 FORMAT_VERSION = 8
 HEADER_SIZE = 26
@@ -59,14 +61,27 @@ class Folder:
 class Container:
     storage: Storage
     root: Folder
+    encrypted: bool = True
 
 
 def read_container(content: bytes) -> Container:
     index = _read_index(content)
-    return Container(index.storage, _load_folder(index.root, index))
+    return Container(index.storage, _load_folder(index.root, index), index.encrypted)
+
+
+def read_members(content: bytes, names: set[str]) -> dict[str, bytes]:
+    """The data of the named members in the root folder, without unpacking the others."""
+    index = _read_index(content)
+    return {
+        record.name: _load_member(record, index).data
+        for record in index.root.records
+        if record.name in names
+    }
 
 
 def write_container(container: Container) -> bytes:
+    if not container.encrypted:
+        raise ContainerError("unencrypted containers are only read, never written")
     region = bytearray()
     index = _write_folder(container.root, container.storage, region)
     index_at = HEADER_SIZE + len(region)
@@ -76,8 +91,8 @@ def write_container(container: Container) -> bytes:
     return header + bytes(region) + INDEX_TAG + _compress(index)
 
 
-def _read_header(content: bytes) -> tuple[Storage, int]:
-    if len(content) < HEADER_SIZE or content[:6] != MAGIC:
+def _read_header(content: bytes) -> tuple[Storage, int, bool]:
+    if len(content) < HEADER_SIZE or content[:6] not in (MAGIC, PLAIN_MAGIC):
         raise ContainerError("not an FM editor file")
     version = struct.unpack_from("<H", content, 6)[0]
     if version != FORMAT_VERSION:
@@ -89,7 +104,7 @@ def _read_header(content: bytes) -> tuple[Storage, int]:
     index_at = struct.unpack_from("<Q", content, INDEX_POINTER_AT)[0] + INDEX_POINTER_AT
     if content[index_at : index_at + len(INDEX_TAG)] != INDEX_TAG:
         raise ContainerError("the index is not where the header says")
-    return storage, index_at
+    return storage, index_at, content[:6] == MAGIC
 
 
 @dataclass
@@ -115,12 +130,13 @@ class _FolderRecord:
 @dataclass
 class _Index:
     storage: Storage
+    encrypted: bool
     region: bytes
     root: _FolderRecord
 
 
 def _read_index(content: bytes) -> _Index:
-    storage, index_at = _read_header(content)
+    storage, index_at, encrypted = _read_header(content)
     index = unpack_frame(
         content[index_at + len(INDEX_TAG) :], "index", ContainerError, MAX_INDEX_SIZE
     )
@@ -128,7 +144,7 @@ def _read_index(content: bytes) -> _Index:
     root = _read_folder_record(reader)
     if not reader.at_end:
         raise ContainerError(f"{len(index) - reader.position} unexpected bytes end the index")
-    return _Index(storage, content[HEADER_SIZE:index_at], root)
+    return _Index(storage, encrypted, content[HEADER_SIZE:index_at], root)
 
 
 def _read_folder_record(reader: Reader) -> _FolderRecord:
@@ -155,7 +171,8 @@ def _load_member(record: _Record, index: _Index) -> Member:
     stored = index.region[record.offset : record.offset + record.stored_size]
     if len(stored) != record.stored_size:
         raise ContainerError(f"{what} does not lie inside the file")
-    stored = _decrypt(stored, what)
+    if index.encrypted:
+        stored = _decrypt(stored, what)
     data = _unstore(stored, record.unpacked_size, index.storage, what)
     return Member(record.name, record.extension, data, record.created, record.modified)
 
