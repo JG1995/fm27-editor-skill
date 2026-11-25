@@ -13,17 +13,20 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
+from fm27_editor.award_history import HISTORY_CODE, check_award_history, history_change
 from fm27_editor.change_list import ChangeList
-from fm27_editor.change_reading import existing_record, read_change
+from fm27_editor.change_reading import is_existing, read_change, uid_of
 from fm27_editor.editor_file import EditorFile, load_editor_file
+from fm27_editor.history_plan import history_warnings
 from fm27_editor.nation_rules import NationRules
 from fm27_editor.new_file import new_editor_file
-from fm27_editor.planned import Addition, Edit, KnownRecord
+from fm27_editor.planned import Addition, Edit, HistoryEdit, KnownRecord
 from fm27_editor.potential import ABILITY, POTENTIAL, has_more_ability_than_potential
 from fm27_editor.record_changes import HIGHEST_UID, NewIds, stored_value
-from fm27_editor.record_kinds import RecordGroup, RecordKind, kind_of
+from fm27_editor.record_kinds import AWARD, RecordGroup, RecordKind, kind_of
 from fm27_editor.record_rules import NewReference, RecordRules, Setting
 from fm27_editor.request import (
+    HISTORY_KEY,
     RULES_KEY,
     RequestError,
     WantedEdit,
@@ -53,6 +56,7 @@ class Plan:
     start: StartingFile | None
     edits: list[Edit]
     additions: list[Addition]
+    histories: list[HistoryEdit]
     already_so: int
     """Requested values that records have already, which are left out."""
     replaced: int
@@ -69,6 +73,9 @@ def make_plan(request: Any, editor_dir: Path, lookup: sqlite3.Connection) -> Pla
     new = {addition.name: addition.kind for addition in additions if addition.name is not None}
     planned = list(_planned(wanted_edits(request, lookup), new, rules, lookup))
     edits = [edit for edit in planned if edit.old != edit.setting.as_the_lookup_says]
+    histories = []
+    if HISTORY_KEY in request:
+        histories = _histories(request[HISTORY_KEY], rules, lookup, start)
     nation_rules = None
     if RULES_KEY in request:
         if start is not None:
@@ -77,12 +84,13 @@ def make_plan(request: Any, editor_dir: Path, lookup: sqlite3.Connection) -> Pla
         nation_rules = plan_rules(
             request[RULES_KEY], definitions, partial(rules.refer, new=new), additions, lookup
         )
-    if not edits and not additions and nation_rules is None:
+    if not edits and not additions and not histories and nation_rules is None:
         raise RequestError("the request changes nothing")
     return Plan(
         start,
         edits,
         additions,
+        histories,
         already_so=len(planned) - len(edits),
         replaced=_replaced(start, edits),
         rules=nation_rules,
@@ -93,6 +101,7 @@ def make_plan(request: Any, editor_dir: Path, lookup: sqlite3.Connection) -> Pla
                 else rule_warnings(nation_rules, edits, additions, lookup)
             ),
             *_potential_warnings(edits, additions),
+            *history_warnings(histories),
         ],
     )
 
@@ -104,6 +113,7 @@ def approval_code(plan: Plan) -> str:
         parts.append(f"{addition.kind.name} {addition.name}")
         parts += [_written(setting) for setting in addition.settings]
     parts += [f"{_address(edit.record)} {_written(edit.setting)}" for edit in plan.edits]
+    parts += [f"{_address(edit.award)} {edit.history.years!r}" for edit in plan.histories]
     parts.append("" if plan.rules is None else repr(plan.rules.values))
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:CODE_LENGTH]
 
@@ -133,6 +143,7 @@ def _add_changes(file: ChangeList, plan: Plan) -> None:
         file.changes += new_record(addition.kind, record, addition.settings, new, ids)
     for edit in plan.edits:
         file.changes += edit_record(edit.record.kind, edit.record.uid, [edit.setting], new, ids)
+    file.changes += [history_change(edit.history, ids) for edit in plan.histories]
     if plan.rules is not None:
         add_rules(file, plan.rules, new)
 
@@ -234,15 +245,39 @@ def _by_code(settings: Iterable[Setting]) -> list[tuple[str, object]]:
 
 
 def _replaced(start: StartingFile | None, edits: list[Edit]) -> int:
-    if start is None:
-        return 0
-    changes = map(read_change, start.file.changes.changes)
-    changed = {(change.table, change.record, change.code) for change in changes}
-    wanted = (
-        (edit.record.kind.group.table, existing_record(edit.record.uid), edit.setting.field.code)
-        for edit in edits
-    )
+    changed = _changed_by(start)
+    wanted = ((*_address(edit.record), edit.setting.field.code) for edit in edits)
     return sum(key in changed for key in wanted)
+
+
+def _histories(
+    given: Any, rules: RecordRules, lookup: sqlite3.Connection, start: StartingFile | None
+) -> list[HistoryEdit]:
+    """A history is stored whole, so one that the starting file has as well would be lost."""
+    edits = [
+        HistoryEdit(_known(AWARD.group, history.award_uid, lookup), history)
+        for history in check_award_history(given, rules.fields(AWARD), lookup)
+        if history.changed
+    ]
+    changed = _changed_by(start)
+    for edit in edits:
+        if (*_address(edit.award), HISTORY_CODE) in changed:
+            raise RequestError(
+                f"the file to start from changes the history of {edit.award.name} already"
+            )
+    return edits
+
+
+def _changed_by(start: StartingFile | None) -> set[tuple[int, int, str]]:
+    """The table, uid, and field of everything in the database that a file changes."""
+    if start is None:
+        return set()
+    changes = map(read_change, start.file.changes.changes)
+    return {
+        (change.table, uid_of(change.record), change.code)
+        for change in changes
+        if is_existing(change.record)
+    }
 
 
 def _copy(file: EditorFile) -> EditorFile:

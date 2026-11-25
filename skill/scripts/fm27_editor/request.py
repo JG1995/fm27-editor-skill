@@ -12,7 +12,8 @@ from fm27_editor.binary import FormatError
 from fm27_editor.record_kinds import GROUPS, RecordGroup, RecordKind, kind_named
 
 RULES_KEY = "nation_rules"
-REQUEST_KEYS = {"start_from", "edits", "new", RULES_KEY}
+HISTORY_KEY = "award_history"
+REQUEST_KEYS = {"start_from", "edits", "new", RULES_KEY, HISTORY_KEY}
 QUERY_KEYS = {"of", "query"}
 BY_HAND_KEYS = {"of", "uid", "set"}
 NEW_KEYS = {"kind", "set"}

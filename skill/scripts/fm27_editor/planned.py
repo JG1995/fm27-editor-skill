@@ -1,9 +1,10 @@
-"""What a plan consists of: records to edit, and records to add."""
+"""What a plan consists of: records to edit, histories to change, and records to add."""
 
 from collections.abc import Mapping
 from dataclasses import dataclass
 from typing import Any
 
+from fm27_editor.award_history import AwardHistory
 from fm27_editor.record_kinds import RecordKind
 from fm27_editor.record_rules import Setting
 
@@ -27,6 +28,12 @@ class Edit:
     setting: Setting
     old: str | int | None
     """What the lookup says now; nothing when it does not know."""
+
+
+@dataclass(frozen=True)
+class HistoryEdit:
+    award: KnownRecord
+    history: AwardHistory
 
 
 @dataclass(frozen=True)
