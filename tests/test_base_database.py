@@ -187,6 +187,66 @@ def test_people_show_the_division_and_gender_of_their_club(editor, tmp_path):
     ]
 
 
+def test_awards_say_where_they_belong_and_how_far_their_history_goes(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            "SELECT uid, name, short_name, gender, nation, nation_uid, competition,"
+            " competition_uid, previous_winner, years FROM awards ORDER BY uid"
+        ).fetchall()
+
+    assert rows == [
+        (9501, "Example Player of the Year", "Player", "male", "Englandia", 9001)
+        + ("Example League", 9201, 3, 3),
+        (9502, "Example Women's Player", "Women", "female", None, None, None, None, None, 1),
+    ]
+
+
+def test_the_history_of_an_award_has_a_row_for_each_place(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            "SELECT year, place, person_uid, name, team, team_uid, points, age, nation, nation_uid"
+            " FROM award_history WHERE award_uid = 9501 ORDER BY year, place"
+        ).fetchall()
+
+    assert rows == [
+        (2020, None, None, None, None, None, None, None, None, None),
+        (2023, 1, None, "Old Master", "Example United", 9102, 30, None, "Englandia", 9001),
+        (2024, 1, 100, "Alfa Striker", "Fictional City", 9101, 47, 20, "Norwegia", 9002),
+        (2024, 2, None, "Old Master", "Example United", 9102, 22, None, "Englandia", 9001),
+        (2024, 3, None, "Cup Hero", "Englandia", 9001, 9, 33, "Englandia", 9001),
+    ]
+
+
+def test_the_history_of_an_award_says_which_years_it_was_not_held(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            "SELECT DISTINCT award, year, not_held, no_data FROM award_history ORDER BY award, year"
+        ).fetchall()
+
+    assert rows == [
+        ("Example Player of the Year", 2020, 1, 0),
+        ("Example Player of the Year", 2023, 0, 0),
+        ("Example Player of the Year", 2024, 0, 0),
+        ("Example Women's Player", 2024, 0, 0),
+    ]
+
+
+@pytest.mark.parametrize(
+    ("place", "what"),
+    [
+        ((7, "Nobody", 9101, 1, 0, 0, 0, 0), "person"),
+        ((0, "Alfa Striker", 9101, 1, 0, 0, 7, 0), "nation"),
+    ],
+)
+def test_a_past_winner_outside_its_table_is_an_error(editor, tmp_path, monkeypatch, place, what):
+    broken = [(9601, synthetic.award_year_record(0, 2024, place))]
+    monkeypatch.setattr(fictional_editor, "AWARD_YEARS", broken)
+    write_database(editor)
+
+    with pytest.raises(PlacesError, match=what):
+        open_database(editor, tmp_path / "cache.sqlite")
+
+
 def test_a_reference_outside_its_table_is_an_error(editor, tmp_path, monkeypatch):
     broken = {9101: ("Fictional City", "Fic City", {"nation": 7}, {})}
     monkeypatch.setattr(fictional_editor, "CLUBS", broken)
@@ -198,8 +258,8 @@ def test_a_reference_outside_its_table_is_an_error(editor, tmp_path, monkeypatch
 
 def test_a_club_without_a_team_is_an_error(editor, tmp_path, monkeypatch):
     teams = [(uid, synthetic.team_record()) for uid in list(fictional_editor.CLUBS)[1:]]
-    competitions = fictional_editor.server_tables()[1]
-    tables = [("table_24", synthetic.record_table(teams)), competitions]
+    others = fictional_editor.server_tables()[1:]
+    tables = [("table_24", synthetic.record_table(teams)), *others]
     monkeypatch.setattr(fictional_editor, "server_tables", lambda: tables)
     write_database(editor)
 

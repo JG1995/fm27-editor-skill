@@ -119,6 +119,36 @@ def test_the_installed_editor_database_reads_as_plausible_people(tmp_path):
 
 
 @needs_editor
+def test_the_installed_editor_database_reads_as_plausible_awards(tmp_path):
+    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
+        awards, named = db.execute("SELECT count(*), count(name) FROM awards").fetchone()
+        unlike_their_competition = db.execute(
+            "SELECT count(*) FROM award JOIN competition ON competition.uid = competition_uid"
+            " WHERE award.gender <> competition.gender OR award.nation_uid <>"
+            " competition.nation_uid"
+        ).fetchone()[0]
+        unknown_choice = db.execute(
+            "SELECT count(*) FROM awards WHERE previous_winner NOT IN (1, 2, 3)"
+        ).fetchone()[0]
+        years, outside = db.execute(
+            "SELECT count(*), sum(year NOT BETWEEN 1800 AND 2100) FROM award_year"
+        ).fetchone()
+        places, with_team = db.execute("SELECT count(*), count(team) FROM award_history").fetchone()
+        ordered, scored = db.execute(
+            "SELECT sum(first.points >= second.points), count(*) FROM award_place AS first"
+            " JOIN award_place AS second USING (year_uid)"
+            " WHERE first.place = 1 AND second.place = 2"
+            " AND first.points IS NOT NULL AND second.points IS NOT NULL"
+        ).fetchone()
+
+    assert awards > 3_000 and named == awards
+    assert (unlike_their_competition, unknown_choice, outside) == (0, 0, 0)
+    assert years > 30_000
+    assert with_team > places * 0.9
+    assert ordered > scored * 0.95
+
+
+@needs_editor
 def test_the_installed_editor_database_reads_as_plausible_clubs(tmp_path):
     with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
         clubs, named, with_nation = db.execute(
