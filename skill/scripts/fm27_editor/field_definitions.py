@@ -10,7 +10,7 @@ from pathlib import Path
 from xml.etree.ElementTree import Element
 
 from fm27_editor.binary import FormatError
-from fm27_editor.container import Folder, read_container
+from fm27_editor.container import ContainerError, Folder, read_container
 
 DEFINITIONS_FILE = Path("shared", "data", "editor.fmf")
 FORMAT_FOLDER = "format"
@@ -57,7 +57,11 @@ def _format_folder(editor_dir: Path) -> Folder:
     path = editor_dir / DEFINITIONS_FILE
     if not path.is_file():
         raise FieldDefinitionError(f"the Editor folder has no {DEFINITIONS_FILE.name}")
-    return _folder(read_container(path.read_bytes()).root, FORMAT_FOLDER)
+    try:
+        container = read_container(path.read_bytes())
+    except ContainerError as error:
+        raise FieldDefinitionError(f"{path.name}: {error}") from error
+    return _folder(container.root, FORMAT_FOLDER)
 
 
 def _folder(parent: Folder, name: str) -> Folder:

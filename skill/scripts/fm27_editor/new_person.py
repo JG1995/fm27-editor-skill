@@ -36,7 +36,7 @@ REQUIRED = {
 }
 
 
-def person_fields(editor_dir: Path, kind: PersonKind) -> dict[str, Field]:
+def person_definitions(editor_dir: Path, kind: PersonKind) -> dict[str, Field]:
     """The fields a person of this kind has, by code."""
     if kind not in DEFINED_IN:
         raise EditError(f"a new person must be a player or staff, not {kind.name.lower()}")

@@ -7,7 +7,7 @@ import pytest
 
 import synthetic
 from fm27_editor.change_list import ChangeList, Kind, Property
-from fm27_editor.new_person import new_person, person_fields
+from fm27_editor.new_person import new_person, person_definitions
 from fm27_editor.people import PersonKind
 from fm27_editor.record_changes import EditError, NewIds
 
@@ -87,7 +87,7 @@ def lookup():
 
 
 def make(editor, kind=PersonKind.PLAYER, **values):
-    return create(kind, BASICS | values, person_fields(editor, kind))
+    return create(kind, BASICS | values, person_definitions(editor, kind))
 
 
 def create(kind, values, fields):
@@ -146,11 +146,11 @@ def test_a_person_needs_a_name_a_birth_date_and_a_nation(editor, name):
     values = {key: value for key, value in BASICS.items() if key != name}
 
     with pytest.raises(EditError, match="needs"):
-        create(PersonKind.PLAYER, values, person_fields(editor, PersonKind.PLAYER))
+        create(PersonKind.PLAYER, values, person_definitions(editor, PersonKind.PLAYER))
 
 
 def test_an_editor_without_a_required_field_is_reported(editor):
-    fields = person_fields(editor, PersonKind.PLAYER)
+    fields = person_definitions(editor, PersonKind.PLAYER)
     del fields["Pdob"]
     values = {key: value for key, value in BASICS.items() if key != "birth_date"}
 
@@ -207,4 +207,4 @@ def test_what_the_editor_works_out_itself_cannot_be_set(editor, code):
 @pytest.mark.parametrize("kind", [PersonKind.BOTH, PersonKind.OFFICIAL, PersonKind.RETIRED])
 def test_kinds_of_people_not_seen_created_are_refused(editor, kind):
     with pytest.raises(EditError, match="player or staff"):
-        person_fields(editor, kind)
+        person_definitions(editor, kind)

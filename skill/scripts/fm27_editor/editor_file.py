@@ -1,4 +1,4 @@
-"""Load an editor file, and save a changed copy as a new file that is checked before it is kept."""
+"""Load or start an editor file, and save it as a new file that is checked before it is kept."""
 
 from dataclasses import dataclass, replace
 from pathlib import Path
@@ -10,8 +10,15 @@ from fm27_editor.change_list import (
     serialise_change_list,
     with_current_count,
 )
-from fm27_editor.container import Container, Folder, Member, read_container, write_container
-from fm27_editor.details import renamed_details
+from fm27_editor.container import (
+    Container,
+    Folder,
+    Member,
+    Storage,
+    read_container,
+    write_container,
+)
+from fm27_editor.details import new_details, renamed_details
 
 CHANGE_LIST_EXTENSION = ".dbc"
 DETAILS_FOLDER = "_data"
@@ -27,6 +34,13 @@ class EditorFileError(FormatError):
 class EditorFile:
     container: Container
     changes: ChangeList
+
+
+def start_editor_file(changes: ChangeList) -> EditorFile:
+    """A file made from nothing; it takes its name, inside as well, from the path it is saved to."""
+    details = Member(DETAILS_NAME, DETAILS_EXTENSION, new_details())
+    root = Folder("", [Member("", CHANGE_LIST_EXTENSION, b"")], [Folder(DETAILS_FOLDER, [details])])
+    return EditorFile(Container(Storage.ZSTD, root), changes)
 
 
 def load_editor_file(path: Path) -> EditorFile:
