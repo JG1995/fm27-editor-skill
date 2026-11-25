@@ -1,0 +1,95 @@
+"""Where the values of a person are stored in a people_db record.
+
+Offsets count from the start of the record. Every position was matched against 3,999 players of an
+FM27 save and agrees for 99 to 100 percent of the values that are set. A value of 0 means that the
+database leaves it to the game.
+"""
+
+ATTRIBUTES = {
+    "corners": 77,
+    "crossing": 50,
+    "dribbling": 51,
+    "finishing": 52,
+    "first_touch": 72,
+    "free_kicks": 85,
+    "heading": 53,
+    "long_shots": 54,
+    "long_throws": 80,
+    "marking": 55,
+    "passing": 57,
+    "penalty_taking": 58,
+    "tackling": 59,
+    "technique": 73,
+    "aggression": 95,
+    "anticipation": 67,
+    "bravery": 93,
+    "composure": 102,
+    "concentration": 103,
+    "decisions": 68,
+    "determination": 101,
+    "flair": 76,
+    "leadership": 90,
+    "off_the_ball": 56,
+    "positioning": 70,
+    "teamwork": 78,
+    "vision": 60,
+    "work_rate": 79,
+    "acceleration": 84,
+    "agility": 96,
+    "balance": 92,
+    "jumping_reach": 89,
+    "natural_fitness": 100,
+    "pace": 88,
+    "stamina": 87,
+    "strength": 86,
+    "aerial_reach": 62,
+    "command_of_area": 63,
+    "communication": 64,
+    "eccentricity": 81,
+    "handling": 61,
+    "kicking": 65,
+    "one_on_ones": 69,
+    "punching": 83,
+    "reflexes": 71,
+    "rushing_out": 82,
+    "throwing": 66,
+    "consistency": 94,
+    "dirtiness": 91,
+    "important_matches": 97,
+    "injury_proneness": 98,
+    "versatility": 99,
+    "left_foot": 74,
+    "right_foot": 75,
+}
+
+POSITIONS = {
+    "position_gk": 35,
+    "position_sw": 36,
+    "position_dl": 37,
+    "position_dc": 38,
+    "position_dr": 39,
+    "position_dm": 40,
+    "position_ml": 41,
+    "position_mc": 42,
+    "position_mr": 43,
+    "position_aml": 44,
+    "position_amc": 45,
+    "position_amr": 46,
+    "position_st": 47,
+    "position_wbl": 48,
+    "position_wbr": 49,
+}
+
+# Personality is stored after the nation, so its offsets count from the nation marker.
+PERSONALITY = {
+    "adaptability": 10,
+    "ambition": 11,
+    "loyalty": 12,
+    "pressure": 13,
+    "professionalism": 14,
+    "sportsmanship": 15,
+    "temperament": 16,
+    "controversy": 17,
+}
+
+FIELD_NAMES = [*ATTRIBUTES, *POSITIONS, *PERSONALITY]

@@ -1,0 +1,137 @@
+import datetime
+
+import pytest
+
+import synthetic
+from fm27_editor.people import (
+    Names,
+    PeopleError,
+    PersonKind,
+    iter_people,
+    parse_basic_people,
+)
+
+NAMES = Names({1: "Testy"}, {2: "McTestface"}, {5: "Testo"})
+
+
+def read_all(basic_records, people_records):
+    basic = parse_basic_people(synthetic.basic_people(basic_records))
+    return list(
+        iter_people(basic, synthetic.people_stream(people_records, len(people_records)), NAMES)
+    )
+
+
+def test_basic_records_of_every_kind_are_read():
+    records = [
+        synthetic.basic_person(kind, index, 100 + index)
+        for index, kind in enumerate([1, 2, 3, 4, 5, 2])
+    ]
+
+    people = parse_basic_people(synthetic.basic_people(records))
+
+    assert [(p.index, p.uid, p.kind) for p in people] == [
+        (0, 100, PersonKind.STAFF),
+        (1, 101, PersonKind.PLAYER),
+        (2, 102, PersonKind.BOTH),
+        (3, 103, PersonKind.OFFICIAL),
+        (4, 104, PersonKind.RETIRED),
+        (5, 105, PersonKind.PLAYER),
+    ]
+
+
+def test_basic_record_carries_nation_club_ability_and_signed_potential():
+    people = parse_basic_people(
+        synthetic.basic_people(
+            [synthetic.basic_person(2, 0, 100, ca=150, pa=-85, nation=(51, 9002), club=(61, 9101))]
+        )
+    )
+
+    (person,) = people
+    assert (person.nation_uid, person.club_uid, person.ca, person.pa) == (9002, 9101, 150, -85)
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param(synthetic.basic_people([synthetic.basic_person(2, 0, 100)])[:-4], id="short"),
+        pytest.param(
+            synthetic.basic_people([synthetic.basic_person(2, 0, 100)]) + b"\x00\x00", id="trailing"
+        ),
+        pytest.param(
+            synthetic.basic_people([synthetic.basic_person(2, 3, 100)]), id="index out of order"
+        ),
+        pytest.param(synthetic.basic_people([b"\x11\x09" + b"\x00" * 40]), id="unknown kind"),
+    ],
+)
+def test_rejects_basic_people_that_do_not_follow_the_layout(content):
+    with pytest.raises(PeopleError):
+        parse_basic_people(content)
+
+
+def test_player_record_yields_name_birth_date_attributes_and_personality():
+    attributes = {52: 17, 84: 20, 35: 1, 47: 20, 74: 8, 75: 20}
+    record = synthetic.person_record(0, 100, attributes=attributes, day=100, year=1999)
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert person.full_name == "Testy McTestface"
+    assert person.birth_date == datetime.date(1999, 4, 10)
+    assert person.fields["finishing"] == 17
+    assert person.fields["acceleration"] == 20
+    assert person.fields["position_st"] == 20
+    assert person.fields["right_foot"] == 20
+    assert person.fields["adaptability"] == 10
+    assert person.fields["controversy"] == 17
+
+
+def test_unresearched_values_are_missing_rather_than_zero():
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [synthetic.person_record(0, 100)])
+
+    assert "finishing" not in person.fields
+    assert person.fields["adaptability"] == 10
+
+
+@pytest.mark.parametrize(
+    ("first", "second", "common", "full", "expected"),
+    [
+        (1, 2, 0xFFFFFFFF, "Testy Long McTestface", "Testy Long McTestface"),
+        (1, 2, 0xFFFFFFFF, "", "Testy McTestface"),
+        (1, 2, 5, "Testy Long McTestface", "Testo"),
+    ],
+)
+def test_display_name_prefers_common_then_full_then_first_and_second(
+    first, second, common, full, expected
+):
+    record = synthetic.person_record(
+        0, 100, first=first, second=second, common=common, full_name=full
+    )
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert person.name == expected
+
+
+def test_people_are_matched_by_uid_not_by_order():
+    basic = [synthetic.basic_person(2, i, 100 + i) for i in range(3)]
+    records = [synthetic.person_record(i, 100 + i, full_name=f"Person {i}") for i in (2, 0, 1)]
+
+    people = {p.uid: p.full_name for p in read_all(basic, records)}
+
+    assert people == {100: "Person 0", 101: "Person 1", 102: "Person 2"}
+
+
+def test_a_stray_nation_marker_is_not_mistaken_for_the_birth_date():
+    record = synthetic.person_record(0, 100, decoy=True)
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert person.full_name == "Testy McTestface"
+
+
+def test_people_whose_names_cannot_be_found_are_skipped_not_guessed():
+    unknown_name = synthetic.person_record(0, 100, first=99)
+    assert read_all([synthetic.basic_person(2, 0, 100)], [unknown_name]) == []
+
+
+def test_records_without_player_details_are_skipped():
+    records = [synthetic.person_record(1, 101)]
+    basic = [synthetic.basic_person(5, 0, 100), synthetic.basic_person(2, 1, 101)]
+
+    assert [p.uid for p in read_all(basic, records)] == [101]
