@@ -1,12 +1,15 @@
 """A local SQLite copy of the base database for lookups, rebuilt when the Editor's files change."""
 
+import hashlib
 import os
 import sqlite3
+from collections.abc import Iterable
+from contextlib import closing
 from pathlib import Path
 
 from fm27_editor.binary import FormatError
 from fm27_editor.dat_tables import read_stream, read_string_table, read_tables
-from fm27_editor.people import Names, iter_people, parse_basic_people
+from fm27_editor.people import BasicPerson, Names, Person, iter_people, parse_basic_people
 from fm27_editor.person_fields import FIELD_NAMES
 from fm27_editor.places import parse_clubs, parse_nations
 
@@ -28,17 +31,24 @@ def open_database(editor_dir: Path, cache_path: Path) -> sqlite3.Connection:
     that the database leaves to the game are NULL.
     """
     source = _database_folder(editor_dir)
-    fingerprint = _fingerprint(source)
+    fingerprint = f"{_code_fingerprint()}|{_fingerprint(source)}"
     if not _is_current(cache_path, fingerprint):
         _build(source, cache_path, fingerprint)
     return sqlite3.connect(f"{cache_path.resolve().as_uri()}?mode=ro", uri=True)
 
 
 def _database_folder(editor_dir: Path) -> Path:
+    """The newest database: its folder is named by number, such as 2700/2700_fm."""
     folders = [folder for folder in editor_dir.glob(DATABASE_PATTERN) if folder.is_dir()]
-    if len(folders) != 1:
-        raise DatabaseError(f"no single base database folder under {editor_dir}")
-    return folders[0]
+    if not folders:
+        raise DatabaseError(f"no base database folder under {editor_dir}")
+    return max(folders, key=lambda folder: folder.parent.name)
+
+
+def _code_fingerprint() -> str:
+    """The library itself, so a change to the parsing or columns rebuilds the cache."""
+    sources = sorted(Path(__file__).parent.glob("*.py"))
+    return hashlib.sha256(b"".join(path.read_bytes() for path in sources)).hexdigest()
 
 
 def _fingerprint(source: Path) -> str:
@@ -50,20 +60,21 @@ def _fingerprint(source: Path) -> str:
 
 
 def _is_current(cache_path: Path, fingerprint: str) -> bool:
+    """Whether the cache matches. A file that is not a cache is an error and stays untouched."""
     if not cache_path.exists():
         return False
-    with sqlite3.connect(f"{cache_path.resolve().as_uri()}?mode=ro", uri=True) as cache:
+    with closing(sqlite3.connect(f"{cache_path.resolve().as_uri()}?mode=ro", uri=True)) as cache:
         try:
             row = cache.execute("SELECT fingerprint FROM meta").fetchone()
-        except sqlite3.DatabaseError:
-            return False
+        except sqlite3.DatabaseError as error:
+            raise DatabaseError(f"{cache_path.name} is not a lookup cache") from error
     return row == (fingerprint,)
 
 
 def _build(source: Path, cache_path: Path, fingerprint: str) -> None:
     """Build beside the cache and swap it in whole, so a failed build leaves no half-filled one."""
     cache_path.parent.mkdir(parents=True, exist_ok=True)
-    partial = cache_path.with_suffix(".partial")
+    partial = cache_path.with_name(f"{cache_path.name}.{os.getpid()}.partial")
     partial.unlink(missing_ok=True)
     try:
         _fill(partial, source, fingerprint)
@@ -80,7 +91,7 @@ def _fill(path: Path, source: Path, fingerprint: str) -> None:
     language = read_tables(source / "lang_db.dat", {NATION_LANGUAGE_TABLE})
     nations = parse_nations(language[NATION_LANGUAGE_TABLE], _nation_uids(basic))
     content = read_stream(source / "people_db.dat")
-    with sqlite3.connect(path) as cache:
+    with closing(sqlite3.connect(path)) as cache, cache:
         _create_tables(cache)
         cache.execute("INSERT INTO meta VALUES (?)", (fingerprint,))
         cache.executemany("INSERT INTO nation VALUES (?, ?)", nations.items())
@@ -97,7 +108,7 @@ def _fill(path: Path, source: Path, fingerprint: str) -> None:
         )
 
 
-def _nation_uids(basic) -> set[int]:
+def _nation_uids(basic: Iterable[BasicPerson]) -> set[int]:
     return {person.nation_uid for person in basic if person.nation_uid is not None}
 
 
@@ -116,7 +127,7 @@ def _create_tables(cache: sqlite3.Connection) -> None:
     )
 
 
-def _insert_people(cache: sqlite3.Connection, people) -> None:
+def _insert_people(cache: sqlite3.Connection, people: Iterable[Person]) -> None:
     placeholders = ", ".join("?" * (9 + len(FIELD_NAMES)))
     statement = f"INSERT INTO person VALUES ({placeholders})"
     batch = []

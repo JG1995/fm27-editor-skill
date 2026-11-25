@@ -130,3 +130,39 @@ def test_unmatched_clubs_and_nations_are_kept_with_an_empty_name(tmp_path):
         assert db.execute("SELECT name, nation, club FROM people").fetchall() == [
             ("Solo", None, None)
         ]
+
+
+def test_a_changed_library_rebuilds_the_cache(editor, tmp_path, monkeypatch):
+    cache = tmp_path / "cache.sqlite"
+    open_database(editor, cache).close()
+    monkeypatch.setattr(base_database, "_code_fingerprint", lambda: "other code")
+
+    with open_database(editor, cache) as db:
+        (fingerprint,) = db.execute("SELECT fingerprint FROM meta").fetchone()
+
+    assert fingerprint.startswith("other code")
+
+
+def test_a_file_that_is_not_a_cache_is_not_replaced(editor, tmp_path):
+    cache = tmp_path / "cache.sqlite"
+    cache.write_text("my notes")
+
+    with pytest.raises(DatabaseError, match="not a lookup cache"):
+        open_database(editor, cache)
+
+    assert cache.read_text() == "my notes"
+
+
+def test_the_newest_database_is_used_when_the_editor_has_several(tmp_path):
+    editor = write_editor(tmp_path / "editor")
+    newer = write_editor(
+        tmp_path / "newer", [(0, 100, "Newer Person", 2004, 100, (1, 9001), (1, 9101))]
+    )
+    source = newer / "shared/data/database/db/2700"
+    source.rename(editor / "shared/data/database/db/2710")
+    (editor / "shared/data/database/db/2710/2700_fm").rename(
+        editor / "shared/data/database/db/2710/2710_fm"
+    )
+
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        assert db.execute("SELECT name FROM people").fetchall() == [("Newer Person",)]
