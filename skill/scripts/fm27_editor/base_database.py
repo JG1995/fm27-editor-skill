@@ -40,6 +40,12 @@ def open_database(editor_dir: Path, cache_path: Path) -> sqlite3.Connection:
     return lookup
 
 
+def record_name(lookup: sqlite3.Connection, table: str, uid: int) -> str | None:
+    """The name of a person, club, or nation."""
+    row = lookup.execute(f"SELECT name FROM {table} WHERE uid = ?", (uid,)).fetchone()
+    return None if row is None else row[0]
+
+
 def _database_folder(editor_dir: Path) -> Path:
     """The newest database: its folder is named by number, such as 2700/2700_fm."""
     folders = [folder for folder in editor_dir.glob(DATABASE_PATTERN) if folder.is_dir()]

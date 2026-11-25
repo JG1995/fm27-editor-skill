@@ -2,34 +2,26 @@
 
 import argparse
 import datetime
-import json
 import os
 import sqlite3
 import sys
 from contextlib import closing
 from pathlib import Path
-from typing import Any
 
 from fm27_editor.base_database import open_database
 from fm27_editor.binary import FormatError
 from fm27_editor.editor_file import load_editor_file, save_editor_file
 from fm27_editor.explain import explain_lines
-from fm27_editor.field_definitions import Field
 from fm27_editor.people import PersonKind
-from fm27_editor.person_codes import person_codes
-from fm27_editor.person_rules import PersonRules
-from fm27_editor.plan import Plan, approval_code, build_file, make_plan
-from fm27_editor.preview import counted, preview_lines
-from fm27_editor.record_changes import (
-    HIGHEST_ATTRIBUTE,
-    LOWEST_ATTRIBUTE,
-    REFERENCE,
-    EditError,
-)
+from fm27_editor.person_codes import names_by_code
+from fm27_editor.person_rules import SETTABLE_KINDS, PersonRules
+from fm27_editor.plan import Plan, build_file, make_plan
+from fm27_editor.preview import preview_lines
+from fm27_editor.request import read_request, run_query
+from fm27_editor.words import accepted, counted
 
 EDITOR_VARIABLE = "FM27_EDITOR_DIR"
 EDITOR_DIR = Path("/mnt/c/Program Files (x86)/Steam/steamapps/common/Football Manager 27 Editor")
-EDITOR_FILE_ENDING = ".fmf"
 
 
 def main(arguments: list[str]) -> int:
@@ -56,7 +48,7 @@ def _parser() -> argparse.ArgumentParser:
     find.set_defaults(command=_find)
 
     fields = commands.add_parser("fields", help="list the fields that can be set on a person")
-    fields.add_argument("kind", choices=["player", "staff"])
+    fields.add_argument("kind", choices=[kind.name.lower() for kind in SETTABLE_KINDS])
     fields.add_argument("text", nargs="?", default="", help="part of a name or code")
     fields.set_defaults(command=_fields)
 
@@ -96,15 +88,10 @@ def _cache_path() -> Path:
 
 
 def _find(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str]:
-    found = lookup.execute(options.query)
-    columns = [column[0] for column in found.description or []]
-    rows = found.fetchmany(options.limit + 1)
-    shown = rows[: options.limit]
-    if len(rows) > options.limit:
-        end = f"The first {counted(len(shown), 'row', 'rows')}; there are more"
-    else:
-        end = counted(len(shown), "row", "rows")
-    return ["\t".join(columns), *("\t".join(map(_cell, row)) for row in shown), end]
+    found = run_query(lookup, options.query, options.limit)
+    rows = counted(len(found.rows), "row", "rows")
+    end = f"The first {rows}; there are more" if found.has_more else rows
+    return ["\t".join(found.columns), *("\t".join(map(_cell, row)) for row in found.rows), end]
 
 
 def _cell(value: object) -> str:
@@ -113,43 +100,13 @@ def _cell(value: object) -> str:
 
 def _fields(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str]:
     kind = PersonKind[options.kind.upper()]
-    names = {code: name for name, code in person_codes(kind).items()}
-    fields = PersonRules(options.editor, lookup).writable_fields(kind)
-    lines = [_field_line(field, names.get(field.code)) for field in fields]
+    names = names_by_code(kind)
+    lines = []
+    for field in PersonRules(options.editor, lookup).writable_fields(kind):
+        called = f"{names[field.code]} ({field.code})" if field.code in names else field.code
+        lines.append(f"{called}: {field.name}, {accepted(field)}")
     matching = [line for line in lines if options.text.lower() in line.lower()]
     return matching or [f"No field matches {options.text!r}"]
-
-
-def _field_line(field: Field, name: str | None) -> str:
-    called = field.code if name is None else f"{name} ({field.code})"
-    return f"{called}: {field.name}, {_accepted(field)}"
-
-
-def _accepted(field: Field) -> str:
-    match field.type:
-        case "attribute":
-            return f"{LOWEST_ATTRIBUTE} to {HIGHEST_ATTRIBUTE}"
-        case "integer":
-            return _accepted_numbers(field)
-        case "boolean":
-            return "true or false"
-        case "date":
-            return "a date such as 2008-04-25"
-        case "enum":
-            return f"one of {_listed(field.choices)}"
-        case _ if field.type == REFERENCE:
-            return f"the uid of a {field.points_to}"
-    return "a text"
-
-
-def _accepted_numbers(field: Field) -> str:
-    if not field.choices:
-        return f"{field.lowest} to {field.highest}"
-    return f"0 to {field.highest}, or a range: {_listed(field.choices)}"
-
-
-def _listed(choices: dict[int, str]) -> str:
-    return ", ".join(f"{number} {name}".strip() for number, name in choices.items())
 
 
 def _explain(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str]:
@@ -162,36 +119,12 @@ def _preview(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[st
 
 
 def _write(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str]:
-    if options.output.suffix != EDITOR_FILE_ENDING:
-        raise EditError(f"the name of an editor file ends in {EDITOR_FILE_ENDING}")
-    plan = _plan(options, lookup)
-    code = approval_code(plan)
-    if code != options.approved:
-        raise EditError(
-            f"this plan ({code}) is not the one that was approved ({options.approved}); "
-            "preview it again"
-        )
-    file = build_file(plan, datetime.date.today())
+    file = build_file(_plan(options, lookup), options.approved, datetime.date.today())
     save_editor_file(file, options.output)
     changes = counted(len(file.changes.changes), "change", "changes")
     return [f"Wrote {options.output}: {changes}, read back and compared"]
 
 
 def _plan(options: argparse.Namespace, lookup: sqlite3.Connection) -> Plan:
-    rules = PersonRules(options.editor, lookup)
-    return make_plan(_request(options.request), rules, lookup)
-
-
-def _request(path: Path) -> dict[str, Any]:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_named_once)
-    except (json.JSONDecodeError, UnicodeDecodeError) as error:
-        raise EditError(f"{path.name} is not a request: {error}") from error
-
-
-def _named_once(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    names = [name for name, _ in pairs]
-    repeated = {name for name in names if names.count(name) > 1}
-    if repeated:
-        raise EditError(f"the request gives {', '.join(sorted(repeated))} twice in one place")
-    return dict(pairs)
+    request = read_request(options.request)
+    return make_plan(request, PersonRules(options.editor, lookup), lookup)

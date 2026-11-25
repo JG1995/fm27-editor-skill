@@ -57,6 +57,21 @@ def test_every_code_names_the_same_fact_in_the_installed_editor(kind):
 
 
 @needs_editor
+def test_the_codes_that_the_instructions_name_can_be_written():
+    text = (Path(__file__).parents[1] / "skill" / "SKILL.md").read_text(encoding="utf-8")
+    named = set(re.findall(r"[`\"]([PN][A-Za-z]{2}[a-z])[`\"]", text))
+    rules = PersonRules(Path(EDITOR), sqlite3.connect(":memory:"))
+    writable = {
+        field.code
+        for kind in (PersonKind.PLAYER, PersonKind.STAFF)
+        for field in rules.writable_fields(kind)
+    }
+
+    assert len(named) > 5
+    assert named <= writable
+
+
+@needs_editor
 def test_the_installed_editor_database_reads_as_plausible_people(tmp_path):
     with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
         people, with_nation, with_club = db.execute(
