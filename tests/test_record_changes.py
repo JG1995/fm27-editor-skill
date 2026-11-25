@@ -33,6 +33,10 @@ def a_field(kind, **details):
     return Field(type=kind, **(defaults | details))
 
 
+def a_number(**details):
+    return a_field("integer", **({"lowest": 0, "highest": 20} | details))
+
+
 def change_to(field, value):
     return field_change(Table.PERSON, RECORD, field, value, NewIds(ChangeList(), random.Random(1)))
 
@@ -76,7 +80,7 @@ def test_a_field_change_names_the_record_and_the_field():
 
 
 def test_a_client_field_change_carries_the_client_marks():
-    assert tags(change_to(a_field("integer", is_client_field=True), 1))[6:] == ["ISCF", "DBCI"]
+    assert tags(change_to(a_number(is_client_field=True), 1))[6:] == ["ISCF", "DBCI"]
 
 
 def test_a_language_field_change_carries_the_language_mark():
@@ -146,25 +150,27 @@ def test_a_reference_names_the_other_record(table, tag):
     [
         (a_field("integer", lowest=0, highest=20), 21),
         (a_field("integer", lowest=0, highest=20), -1),
-        (a_field("integer"), 2**63),
+        (a_field("integer"), 5),
+        (a_field("integer", lowest=0), 5),
         (a_field("attribute"), 21),
         (a_field("attribute"), -1),
         (a_field("enum", choices={0: "Calm"}), 1),
         (a_field("enum", choices=None), 1),
         (a_field("string"), ""),
+        (a_field("string"), "  "),
         (a_field("string"), 5),
-        (a_field("integer"), "5"),
-        (a_field("integer"), True),
-        (a_field("integer"), 1.5),
+        (a_number(), "5"),
+        (a_number(), True),
+        (a_number(), 1.5),
         (a_field("boolean"), 1),
         (a_field("date"), "2027-06-30"),
         (a_field("date"), datetime.datetime(2027, 6, 30)),
         (a_field("database_record_unique_id", points_to="nation"), 0),
-        (a_field("database_record_unique_id", points_to="nation"), 2**32),
+        (a_field("database_record_unique_id", points_to="nation"), 2**31),
         (a_field("database_record_unique_id", points_to="moon"), 5),
         (a_field("list"), 5),
         (a_field("cash"), 5),
-        (a_field("integer", is_editable=False), 5),
+        (a_number(is_editable=False), 5),
     ],
 )
 def test_a_value_the_editor_would_not_accept_is_refused_with_the_field_named(field, value):
@@ -213,3 +219,26 @@ def test_a_new_record_id_is_not_one_the_file_already_uses():
     changes = ChangeList(changes=[add_record(Table.PERSON, 2, first, NewIds(ChangeList()))])
 
     assert NewIds(changes, random.Random(1)).record() != first
+
+
+@pytest.mark.parametrize(
+    "change",
+    [
+        [Property("prty", Kind.CODE, "ADDR")],
+        [Property("prty", Kind.CODE, "ADDR"), Property("nwvl", Kind.BOOL, b"\x01")],
+        [
+            Property("prty", Kind.CODE, "ADDR"),
+            Property("nwvl", Kind.NESTED, [Property("duni", Kind.INT8_2, b"\xff")]),
+        ],
+    ],
+    ids=["no new value", "not a record", "a short ID"],
+)
+def test_an_added_record_of_unknown_shape_is_reported(change):
+    with pytest.raises(EditError, match="adds a record"):
+        NewIds(ChangeList(changes=[change]))
+
+
+def test_changes_that_add_nothing_do_not_matter_for_new_ids():
+    changes = ChangeList(changes=[[], [Property("prty", Kind.CODE, "Ztst")]])
+
+    assert NewIds(changes, random.Random(1)).record()

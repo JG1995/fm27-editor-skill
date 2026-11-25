@@ -22,7 +22,7 @@ DATABASE = "2700"
 
 def new_editor_file(today: datetime.date) -> EditorFile:
     """The file takes its name, inside as well, from the path it is saved to."""
-    details = Member(DETAILS_NAME, DETAILS_EXTENSION, new_details(""))
+    details = Member(DETAILS_NAME, DETAILS_EXTENSION, new_details())
     root = Folder("", [Member("", CHANGE_LIST_EXTENSION, b"")], [Folder(DETAILS_FOLDER, [details])])
     return EditorFile(Container(Storage.ZSTD, root), ChangeList(_general(), _editor(today)))
 

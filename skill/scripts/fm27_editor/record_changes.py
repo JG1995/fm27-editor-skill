@@ -23,6 +23,7 @@ SECOND_ID_NUMBERS = 2**30
 # People in the database lie below or above this range, except for a few dozen of 657,000.
 # The Editor hands out IDs above it.
 NEW_UIDS = range(100_000_000, 2_000_000_000)
+HIGHEST_UID = 2**31 - 1  # no real file refers to a higher one
 INTEGER_KINDS = [(Kind.INT8, 1), (Kind.INT16, 2), (Kind.INT32, 4), (Kind.INT64, 8)]
 REFERENCE_TAGS = {
     "nation": "Nnat",
@@ -145,10 +146,11 @@ def _stored(field: Field, value: FieldValue) -> tuple[Kind, Value]:
         case "string":
             return Kind.TEXT, _checked_text(field, value)
         case "attribute":
-            checked = _checked_number(field, value, LOWEST_ATTRIBUTE, HIGHEST_ATTRIBUTE)
-            return Kind.TEXT, str(checked)
+            return Kind.TEXT, str(
+                _checked_number(field, value, LOWEST_ATTRIBUTE, HIGHEST_ATTRIBUTE)
+            )
         case "integer":
-            return _stored_number(_checked_number(field, value, field.lowest, field.highest))
+            return _stored_number(_checked_in_range(field, value))
         case "enum":
             return _stored_number(_checked_choice(field, value))
         case "boolean" if isinstance(value, bool):
@@ -168,38 +170,44 @@ def _stored_number(value: int) -> tuple[Kind, Value]:
 
 
 def _checked_text(field: Field, value: FieldValue) -> str:
-    if not isinstance(value, str) or not value:
+    if not isinstance(value, str) or not value.strip():
         raise _refused(field, f"needs a text, not {value!r}")
     return value
 
 
-def _checked_number(
-    field: Field, value: FieldValue, lowest: int | None, highest: int | None
-) -> int:
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise _refused(field, f"needs a whole number, not {value!r}")
-    too_low = lowest is not None and value < lowest
-    too_high = highest is not None and value > highest
-    if too_low or too_high or abs(value) >= 2**63:
+def _checked_in_range(field: Field, value: FieldValue) -> int:
+    if field.lowest is None or field.highest is None:
+        raise _refused(field, "has no range in the Editor's definitions")
+    return _checked_number(field, value, field.lowest, field.highest)
+
+
+def _checked_number(field: Field, value: FieldValue, lowest: int, highest: int) -> int:
+    _check_whole(field, value)
+    if not lowest <= value <= highest:
         raise _refused(field, f"must be from {lowest} to {highest}, not {value}")
     return value
+
+
+def _check_whole(field: Field, value: FieldValue) -> None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise _refused(field, f"needs a whole number, not {value!r}")
 
 
 def _checked_choice(field: Field, value: FieldValue) -> int:
     if field.choices is None:
         raise _refused(field, "has choices that the Editor's definitions do not list")
-    chosen = _checked_number(field, value, None, None)
-    if chosen not in field.choices:
+    _check_whole(field, value)
+    if value not in field.choices:
         options = ", ".join(f"{key} {name}" for key, name in sorted(field.choices.items()))
         raise _refused(field, f"must be one of {options}; not {value}")
-    return chosen
+    return value
 
 
 def _reference(field: Field, value: FieldValue) -> list[Property]:
     tag = REFERENCE_TAGS.get(field.points_to or "")
     if tag is None:
         raise _refused(field, f"points to a {field.points_to}, which cannot be written yet")
-    uid = _checked_number(field, value, 1, 2**32 - 1)
+    uid = _checked_number(field, value, 1, HIGHEST_UID)
     return [
         Property("id  ", Kind.CODE, "nwvl"),
         Property(tag, Kind.ID, existing_record(uid)),
@@ -213,12 +221,20 @@ def _refused(field: Field, reason: str) -> EditError:
 
 def _added_records(changes: ChangeList) -> list[bytes]:
     """The IDs of the records that the list adds."""
-    added = []
-    for change in changes.changes:
-        items = {item.tag: item for item in change}
-        if items["prty"].value == ADD_RECORD and items["nwvl"].kind is Kind.NESTED:
-            added += [item.value for item in items["nwvl"].value if item.tag == "duni"]
-    return added
+    return [_added_record(change) for change in changes.changes if _adds_record(change)]
+
+
+def _adds_record(change: Change) -> bool:
+    return any(item.tag == "prty" and item.value == ADD_RECORD for item in change)
+
+
+def _added_record(change: Change) -> bytes:
+    for item in change:
+        if item.tag == "nwvl" and item.kind is Kind.NESTED:
+            for inner in item.value:
+                if inner.tag == "duni" and inner.kind is Kind.ID:
+                    return inner.value
+    raise EditError("a change that adds a record does not say which")
 
 
 def _uid(record: bytes) -> int:
