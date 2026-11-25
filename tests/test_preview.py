@@ -197,11 +197,20 @@ def test_a_history_is_shown_with_what_was_there_before(lines_for):
     )
     assert lines[at + 1 : at + 3] == [
         "  2024: 1 Bravo Keeper (101), Example United, Englandia, 50 points, age 16; "
-        "2 Alfa Striker (100), Fictional City, Norwegia, 47 points, age 20",
-        "    was: 1 Alfa Striker (100), Fictional City, Norwegia, 47 points, age 20; "
-        "2 Old Master (no person), Example United, Englandia, 22 points; "
-        "3 Cup Hero (no person), Englandia, Englandia, 9 points, age 33",
+        "2 Alfa Striker (100), Fictional City, Norwegia, 47 points, age 20, Wing-Back Left",
+        "    was: 1 Alfa Striker (100), Fictional City, Norwegia, 47 points, age 20, "
+        "Wing-Back Left; 2 Old Master (no person), Example United, Englandia, 22 points, "
+        "then 3,000; 3 Cup Hero (no person), Englandia, Englandia, 9 points, age 33",
     ]
+
+
+def test_a_history_without_other_years_does_not_mention_them(lines_for):
+    lines = lines_for(award_history=[{"award": 9502, "year": 2024, "not_held": True}])
+
+    assert (
+        "History of Example Women's Player (9502), female: 1 of 1 year changes, "
+        "1 with another winner"
+    ) in lines
 
 
 def test_years_without_winners_and_new_years_say_so(lines_for):

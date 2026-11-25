@@ -50,7 +50,7 @@ Know these before you write a query:
 1. **Find** what it is about. Report how many records match and anything unclear, such as ranges or both genders.
 2. **Write the request** as a JSON file in a temporary folder.
 3. **Preview:** `fm27 preview REQUEST.json [--examples 10]`. Read it critically. Values that go down, very large counts, old values that are unknown, and warnings are often a mistake in the request.
-4. **Show the user** the counts by field and direction, several examples, warnings, what is left out, every new record, every year of a history that changes, and the rules. Wait for a yes. If anything changes, preview again and ask again.
+4. **Show the user** the counts by field and direction, several examples, warnings, what is left out, every new record, every year of a history that changes, and the rules. The preview shows as many years and new records as `--examples` says, so raise it until none is left out. Wait for a yes. If anything changes, preview again and ask again.
 5. **Write:** `fm27 write REQUEST.json "NEW FILE.fmf" --approved CODE`. Save it in the user's `editor data` folder. If you do not know where that is, ask. If the name is taken, choose another name.
 6. **Report** the file, the number of changes, and that it was read back and compared. Say that it still has to be checked in the Editor, for rules with its validation, and that it takes effect only in a new game.
 

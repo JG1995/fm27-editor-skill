@@ -166,6 +166,7 @@ def test_the_years_of_each_award_are_its_own(check):
         (year(2024, {"name": "A", "points": None}), "no value"),
         (year(2024, {"person_uid": 999}), "no person 999"),
         (year(2024, {"person_uid": True}), "no person True"),
+        (year(2024, {"person_uid": 10**20}), "no person 1000"),
         (year(2024, {"name": "A", "team_uid": 999}), "no club or nation 999"),
         (year(2024, {"name": "A", "nation_uid": 9101}), "no nation 9101"),
         (year(2024, {"keep": 4}), "keep"),

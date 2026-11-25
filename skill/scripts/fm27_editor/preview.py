@@ -128,7 +128,7 @@ def _history_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> lis
         changed = edit.history.changed
         shown_years = _spread(changed, examples)
         lines.append(history_heading(_described(edit.award), edit.history))
-        lines += year_lines(shown_years, lookup)
+        lines += year_lines(shown_years, edit.history.field, lookup)
         if len(changed) > len(shown_years):
             more = len(changed) - len(shown_years)
             lines.append(f"  and {counted(more, 'more year', 'more years')}")

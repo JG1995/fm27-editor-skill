@@ -148,6 +148,15 @@ def test_a_search_finds_what_stands_in_a_list(lines_for):
     ]
 
 
+def test_a_national_team_in_a_list_is_named_by_its_nation(lines_for):
+    ids = synthetic.prop("Ttea", 0x0F, struct.pack("<II", 9002, 9002))
+    team = synthetic.prop("AH1t", 0x0A, synthetic.props(ids))
+
+    lines = lines_for(history(b"\x01\x0a" + synthetic.props(team)), find="norwegia")
+
+    assert lines[-1].endswith("History: Team Norwegia (9002)")
+
+
 def test_new_people_are_counted_and_named_by_the_file_itself(lines_for):
     def named(code, value):
         return synthetic.record_change(PERSON, struct.pack("<II", 7001, 77), code, text(value))
