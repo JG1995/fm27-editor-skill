@@ -1,6 +1,6 @@
 ---
 name: fm27-editor
-description: Read, search, and change Football Manager 27 Pre-game Editor data without operating the Editor. Use when the user wants to find players, staff, or clubs in the FM27 database, change players or staff (one or thousands), create new players or staff, or know what an FM27 editor data file (.fmf) does. Not for save games, the in-game editor, tactics, shortlists, or other FM editions.
+description: Read, search, and change Football Manager 27 Pre-game Editor data without operating the Editor. Use when the user wants to find players, staff, clubs, or competitions in the FM27 database, change them (one or thousands), create new ones, including league and cup rules for a new competition, or know what an FM27 editor data file (.fmf) does. Not for save games, the in-game editor, tactics, shortlists, or other FM editions.
 ---
 
 # FM27 Editor
@@ -43,42 +43,47 @@ Know these before you write a query:
 - **Names** are spelled with their accents and often written in full. Search with `LIKE`, show the candidates when there are several, and let the user choose.
 - Some people in the Editor are not in the lookup. Not finding someone does not mean that they do not exist.
 
-## Change people
+## Make a file
 
-1. **Find** who it is about. Report how many people match and anything unclear, such as ranges or both genders.
+1. **Find** what it is about. Report how many records match and anything unclear, such as ranges or both genders.
 2. **Write the request** as a JSON file in a temporary folder.
-3. **Preview:** `fm27 preview REQUEST.json [--examples 10]`. Read it critically. Values that go down, very large counts, old values that are unknown, and the warning about ability above potential are often a mistake in the query.
-4. **Show the user** the counts by field and direction, several examples, warnings, what is left out, and every new person. Wait for a yes. If anything changes, preview again and ask again.
+3. **Preview:** `fm27 preview REQUEST.json [--examples 10]`. Read it critically. Values that go down, very large counts, old values that are unknown, and warnings are often a mistake in the request.
+4. **Show the user** the counts by field and direction, several examples, warnings, what is left out, every new record, and the rules. Wait for a yes. If anything changes, preview again and ask again.
 5. **Write:** `fm27 write REQUEST.json "NEW FILE.fmf" --approved CODE`. Save it in the user's `editor data` folder. If you do not know where that is, ask. If the name is taken, choose another name.
-6. **Report** the file, the number of changes, and that it was read back and compared. Say that it still has to be checked in the Editor, and that it takes effect only in a new game.
+6. **Report** the file, the number of changes, and that it was read back and compared. Say that it still has to be checked in the Editor, for rules with its validation, and that it takes effect only in a new game.
 
 A request has any of these parts. The uids here are made up:
 
 ```json
 {
   "edits": [
-    {"query": "SELECT uid, min(pa + 5, 180) AS pa FROM people WHERE kind = 'player' AND nation = 'Norway' AND pa BETWEEN 1 AND 179"},
-    {"uid": 1234567, "set": {"finishing": 17, "Phes": 179}}
+    {"of": "people", "query": "SELECT uid, min(pa + 5, 180) AS pa FROM people WHERE kind = 'player' AND nation = 'Norway' AND pa BETWEEN 1 AND 179"},
+    {"of": "people", "uid": 1234567, "set": {"finishing": 17, "Phes": 179}},
+    {"of": "clubs", "query": "SELECT uid, '@D1' AS division_uid FROM clubs WHERE division_uid = 4321"}
   ],
-  "new_people": [
+  "new": [
+    {"kind": "competition", "as": "D1", "set": {"name": "Testmann League", "short_name": "T. League", "nation_uid": 12345, "dbty": 0, "level": 1}},
     {"kind": "player", "set": {"Pfna": "Aldo", "Psna": "Testmann", "birth_date": "2008-03-14", "nation_uid": 12345, "club_uid": 67890, "ca": 120, "pa": -85, "position_st": 20}}
   ],
+  "nation_rules": {},
   "start_from": "/path/to/existing.fmf"
 }
 ```
 
+- **`of`** is `people`, `clubs`, or `competitions`. A club and a person can have the same uid.
 - **`query`** returns `uid` and one column for each field to set. The column's value is the new value.
+- **`as`** names a new record. Later ones and edits refer to it with `@` and that name.
 - **Potential is set with `pa` alone,** as a number or a range.
-- **Leave out people whose new value would be wrong.** `min(pa + 5, 180)` would lower someone who has 185, so limit the query to `pa BETWEEN 1 AND 179`.
+- **Leave out records whose new value would be wrong.** `min(pa + 5, 180)` would lower someone who has 185, so limit the query to `pa BETWEEN 1 AND 179`.
 - **Whole numbers only.** Use `CAST(round(...) AS INTEGER)`.
 - **A missing value is an error.** Add `AND finishing IS NOT NULL` when you calculate from it.
 - **`start_from`** puts the new changes behind those of an existing file, in a new file. Use it only when the user wants to build on that file.
 
 ## Fields
 
-`fm27 fields player` or `fm27 fields staff`, with part of a name or code to search, lists every field that can be set and what it accepts. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
+`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
 
-Not possible yet: wages and other money, jobs, formations, city of birth, second nations, languages, playing history, favourites, injuries, and bans. Clubs, competitions, and nations cannot be changed or created. If a request needs one of these, say so before doing the rest.
+Not possible yet: wages and other money, jobs, formations, second nations, languages, playing history, favourites, injuries, bans, kits other than their colours, reserve teams, stadiums, awards, and changing nations. If a request needs one of these, say so before doing the rest.
 
 ## Create people
 
@@ -88,6 +93,43 @@ A new person needs `Pfna` (first name), `Psna` (second name), `birth_date`, and 
 - What is left out is left to the Editor and the game. Set every attribute when the user wants a specific player.
 - With a `club_uid`, also set the dates joined (`Pcjd`), signed (`Pcsd`), and expiring (`Pcex`).
 - Staff have their own attributes, such as `NDja` for judging ability. Search with `fm27 fields staff`.
+
+## Create clubs and competitions
+
+A new club needs `name`, `short_name`, and `nation_uid`. Also set `based_nation_uid`, `city_uid`, `reputation`, `division_uid`, the status (`Cprs`), the year founded (`Cyfn`), short forms of the name (`Csxn`, `Cl3n`), and its colours (`ttcl` in front of `tbcl`). For a women's club, set `PLgn` to 1. Compare `reputation` with clubs of the same division.
+
+A new competition needs `name`, `short_name`, `nation_uid`, and its type (`dbty`). Also set `crep` and, for a division, `level`, where 1 is the top. A regional part of a division has that division as `parent_uid`.
+
+A competition without rules exists, but is not played. For it to be played, the file needs `nation_rules`.
+
+## Rules for competitions
+
+`nation_rules` holds the season, divisions, and cups of one nation. **They replace everything the game plays in that nation,** so all its divisions and cups have to be in them. The preview says when the game has competitions there. It cannot add a single division or cup to a nation that the game has rules for: offer to write the whole nation, or let the user add it in the Editor.
+
+```json
+{
+  "nation": 12345,
+  "season_update_day": {"day_of_month": 20, "month": "jun"},
+  "start_date": "2026-08-01", "end_date": "2027-05-31",
+  "transfer_windows": [{"start_date": "2026-07-01", "end_date": "2026-08-31"}],
+  "league_comps": [
+    {"competition": "@D1", "minimum_number_teams": 10, "maximum_number_teams": 10, "relegation_places": 2, "start_date": "2026-08-15", "end_date": "2027-05-15"},
+    {"competition": "@D2", "minimum_number_teams": 6, "maximum_number_teams": 6, "promotion_places": 2, "start_date": "2026-08-15", "end_date": "2027-05-15", "child_competitions": [{"competition": "@North"}, {"competition": "@South"}]}
+  ],
+  "cup_comps": [
+    {"competition": "@Cup", "type": "main_cup", "teams": [{"competition": "@North", "number_teams": 6}, {"competition": "@South", "number_teams": 6}, {"competition": "@D1", "number_teams": 10}],
+     "rounds": [{"number_matches": 6, "number_extra_teams": 12, "date": "2026-09-09"}, {"number_matches": 8, "number_extra_teams": 10, "date": "2026-10-07"}, {"number_matches": 4, "date": "2026-11-11"}, {"number_matches": 2, "date": "2027-03-10", "number_legs": 2, "date_2": "2027-03-17"}, {"number_matches": 1, "date": "2027-05-22", "stadium_rules": "neutral"}]},
+    {"competition": "@Super", "type": "super_cup", "comp_1": "@D1", "comp_2": "@Cup", "date": "2026-08-08"}
+  ]
+}
+```
+
+- **Divisions** stand from the top down. `relegation_places` of one equals `promotion_places` of the next.
+- **Teams are the clubs** whose `division_uid` is the competition. Set it on new clubs, and edit existing ones. The preview counts them. Clubs taken from another division leave it too small.
+- **Parts of a division** go in `child_competitions`. Clubs play in a part, not in the division. The number of teams is that of each part, and promotion and relegation places count for all parts together and divide evenly over them.
+- **A cup round** has two teams for each match: the winners of the round before, and `number_extra_teams` that enter. The last round has one match. `teams` says where all that enter come from.
+- **Dates** lie in the season that a new game starts in. Ask when that is if the user has not said. Put cup rounds on days without league matches.
+- **Women's competitions** cannot have rules yet, and neither can playoffs, prize money, or groups. Offer to add them in the Editor afterwards.
 
 ## Explain a file
 
