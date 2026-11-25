@@ -8,10 +8,10 @@ import pytest
 import synthetic
 from fictional_editor import write_definitions
 from fm27_editor.change_list import ChangeList, Kind, Property
-from fm27_editor.people import PersonKind
-from fm27_editor.person_changes import edit_person, new_person
-from fm27_editor.person_rules import PersonRules
 from fm27_editor.record_changes import EditError, NewIds
+from fm27_editor.record_kinds import PLAYER, STAFF
+from fm27_editor.record_rules import RecordRules
+from fm27_editor.setting_changes import edit_record, new_record
 
 BASICS = {
     "Pfna": "Testy",
@@ -35,14 +35,14 @@ def lookup():
     return contextlib.closing(connection)
 
 
-def make(editor, kind=PersonKind.PLAYER, **values):
+def make(editor, kind=PLAYER, **values):
     return create(editor, kind, BASICS | values)
 
 
 def create(editor, kind, values):
     with lookup() as database:
-        settings = PersonRules(editor, database).new_person_settings(kind, values)
-        return new_person(kind, settings, NewIds(ChangeList(), random.Random(1)))
+        settings = RecordRules(editor, database).new_record_settings(kind, values)
+        return new_record(kind, settings, NewIds(ChangeList(), random.Random(1)))
 
 
 def tagged(change):
@@ -62,8 +62,8 @@ def test_the_person_is_added_before_its_fields_are_set(editor):
 
 def test_an_existing_person_is_addressed_by_its_unique_id_twice(editor):
     with lookup() as database:
-        settings = PersonRules(editor, database).settings(PersonKind.PLAYER, {"finishing": 17})
-        changes = edit_person(776, settings, NewIds(ChangeList(), random.Random(1)))
+        settings = RecordRules(editor, database).settings(PLAYER, {"finishing": 17})
+        changes = edit_record(PLAYER, 776, settings, NewIds(ChangeList(), random.Random(1)))
 
     (change,) = changes
     assert tagged(change)["duni"].value == b"\x08\x03\x00\x00" * 2
@@ -73,7 +73,7 @@ def test_an_existing_person_is_addressed_by_its_unique_id_twice(editor):
 
 def test_an_existing_person_needs_no_name_or_birth_date(editor):
     with lookup() as database:
-        (setting,) = PersonRules(editor, database).settings(PersonKind.PLAYER, {"ca": 99})
+        (setting,) = RecordRules(editor, database).settings(PLAYER, {"ca": 99})
 
     assert (setting.field.code, setting.value) == ("PCAB", 99)
 
@@ -86,7 +86,7 @@ def test_every_field_is_addressed_to_the_new_person(editor):
     assert {tagged(change)["dtty"].value for change in fields} == {b"\x01"}
 
 
-@pytest.mark.parametrize(("kind", "code"), [(PersonKind.PLAYER, 2), (PersonKind.STAFF, 1)])
+@pytest.mark.parametrize(("kind", "code"), [(PLAYER, 2), (STAFF, 1)])
 def test_the_record_type_says_what_kind_of_person_it_is(editor, kind, code):
     added, *_ = make(editor, kind)
 
@@ -102,7 +102,7 @@ def test_facts_are_given_by_the_names_the_lookup_uses(editor):
 
 
 def test_ability_of_staff_has_its_own_field(editor):
-    assert values_by_code(make(editor, PersonKind.STAFF, ca=120))["Ncra"].value == b"\x78"
+    assert values_by_code(make(editor, STAFF, ca=120))["Ncra"].value == b"\x78"
 
 
 def test_fields_the_lookup_does_not_name_are_given_by_code(editor):
@@ -114,7 +114,7 @@ def test_a_person_needs_a_name_a_birth_date_and_a_nation(editor, name):
     values = {key: value for key, value in BASICS.items() if key != name}
 
     with pytest.raises(EditError, match="needs"):
-        create(editor, PersonKind.PLAYER, values)
+        create(editor, PLAYER, values)
 
 
 def test_an_editor_without_a_required_field_is_reported(tmp_path):
@@ -122,7 +122,7 @@ def test_an_editor_without_a_required_field_is_reported(tmp_path):
     editor = write_definitions(tmp_path, synthetic.definition_file("pers", first_name))
 
     with pytest.raises(EditError, match="Pdob"):
-        create(editor, PersonKind.PLAYER, {"Pfna": "Testy"})
+        create(editor, PLAYER, {"Pfna": "Testy"})
 
 
 @pytest.mark.parametrize("name", ["nation_uid", "club_uid"])
@@ -162,16 +162,10 @@ def test_a_field_given_by_name_and_by_code_is_refused(editor):
 
 def test_a_player_field_is_refused_for_staff(editor):
     with pytest.raises(EditError, match="finishing"):
-        make(editor, PersonKind.STAFF, finishing=17)
+        make(editor, STAFF, finishing=17)
 
 
 @pytest.mark.parametrize("code", ["Ptyp", "Page", "PPAR"])
 def test_what_the_editor_works_out_itself_cannot_be_set(editor, code):
     with pytest.raises(EditError, match=code):
         make(editor, **{code: 1})
-
-
-@pytest.mark.parametrize("kind", [PersonKind.BOTH, PersonKind.OFFICIAL, PersonKind.RETIRED])
-def test_kinds_of_people_not_seen_created_are_refused(editor, kind):
-    with pytest.raises(EditError, match="players and staff"):
-        make(editor, kind)

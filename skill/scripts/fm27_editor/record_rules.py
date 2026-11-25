@@ -1,4 +1,4 @@
-"""What can be set on a person: the fields of each kind, and the values that make sense in them.
+"""What can be set on a record: the fields of each kind, and the values that make sense in them.
 
 A value must be one the Editor's definitions allow, and what it refers to must be in the lookup.
 """
@@ -12,29 +12,11 @@ from pathlib import Path
 from fm27_editor.base_database import record_name
 from fm27_editor.change_reading import EditError
 from fm27_editor.field_definitions import Field, read_fields
-from fm27_editor.people import PersonKind
-from fm27_editor.person_codes import POTENTIALS, person_codes
+from fm27_editor.potential import PLAYER_POTENTIAL, POTENTIAL_RANGE, check_potential
 from fm27_editor.record_changes import FieldValue, refusal, stored_value
+from fm27_editor.record_kinds import RecordKind
 
-DEFINED_IN = {PersonKind.PLAYER: "player", PersonKind.STAFF: "non player"}
-# The record itself says the person type, and potential covers its ranges. The Editor works out the
-# others, or shows them only in the game, though its definitions do not mark them.
-NOT_SET_BY_HAND = {
-    *("Ptyp", "PPAR", "Page", "PnRV", "PShN", "dbnm", "Pbrl", "ERCL", "Pnhs", "NpCw"),
-    *("PcHC", "Pion", "Phij", "Phbn"),
-    *("PCRI", "PHRI", "PWRI", "NcrI", "NhmI", "NwrI"),
-    *(f"BR{position:02}" for position in range(1, 15)),
-}
-PLAYER_POTENTIAL, POTENTIAL_RANGE = "PPAB", "PPAR"
-NAME_CODES = ("Pfna", "Psna")
-SETTABLE_KINDS = list(DEFINED_IN)
 LOOKUP_TABLES = {"nation": "nation", "team": "club", "club": "club"}
-REQUIRED = {
-    "Pfna": "First Name",
-    "Psna": "Second Name",
-    "Pdob": "Date Of Birth",
-    "Pnti": "Nation",
-}
 
 
 @dataclass(frozen=True)
@@ -49,39 +31,19 @@ class Setting:
         return self.value.isoformat() if isinstance(self.value, datetime.date) else self.value
 
 
-def is_range(field: Field, value: object) -> bool:
-    """Whether a potential stands for a range of the Editor: those are below 0."""
-    return field.code in POTENTIALS and isinstance(value, int) and value < 0
-
-
-def has_more_ability_than_potential(
-    kind: PersonKind, settings: list[Setting], ca: int | None, pa: int | None
-) -> bool:
-    """Whether the settings would leave a person, who has `ca` and `pa` now, above potential.
-
-    A range is not compared, and neither is a potential that is not known.
-    """
-    codes = person_codes(kind)
-    set_to = {setting.field.code: setting.value for setting in settings}
-    ca, pa = set_to.get(codes["ca"], ca), set_to.get(codes["pa"], pa)
-    return ca is not None and pa is not None and 0 < pa < ca
-
-
-class PersonRules:
+class RecordRules:
     def __init__(self, editor_dir: Path, lookup: sqlite3.Connection):
         self._editor_dir = editor_dir
         self._lookup = lookup
-        self._fields: dict[PersonKind, dict[str, Field]] = {}
+        self._fields: dict[RecordKind, dict[str, Field]] = {}
 
-    def fields(self, kind: PersonKind) -> dict[str, Field]:
-        """The fields a person of this kind has, by code."""
-        if kind not in DEFINED_IN:
-            raise EditError(f"only players and staff can be set, not {kind.name.lower()}")
+    def fields(self, kind: RecordKind) -> dict[str, Field]:
+        """The fields a record of this kind has, by code."""
         if kind not in self._fields:
             self._fields[kind] = self._read_fields(kind)
         return self._fields[kind]
 
-    def writable_fields(self, kind: PersonKind) -> list[Field]:
+    def writable_fields(self, kind: RecordKind) -> list[Field]:
         """The fields that can be given a value, by code."""
         return [
             field
@@ -89,7 +51,7 @@ class PersonRules:
             if refusal(field) is None and field.points_to in (None, *LOOKUP_TABLES)
         ]
 
-    def settings(self, kind: PersonKind, values: Mapping[str, FieldValue]) -> list[Setting]:
+    def settings(self, kind: RecordKind, values: Mapping[str, FieldValue]) -> list[Setting]:
         """The checked settings for these values.
 
         Facts the lookup has are given by its names; any other field is given by its code. A date
@@ -105,36 +67,37 @@ class PersonRules:
             chosen[field.code] = Setting(field, value)
         return list(chosen.values())
 
-    def new_person_settings(
-        self, kind: PersonKind, values: Mapping[str, FieldValue]
+    def new_record_settings(
+        self, kind: RecordKind, values: Mapping[str, FieldValue]
     ) -> list[Setting]:
         settings = self.settings(kind, values)
         given = {setting.field.code for setting in settings}
-        missing = [f"{name} ({code})" for code, name in REQUIRED.items() if code not in given]
+        missing = [f"{name} ({code})" for code, name in kind.needed.items() if code not in given]
         if missing:
-            raise EditError(f"a new person needs {', '.join(missing)}")
+            raise EditError(f"a new {kind.name} needs {', '.join(missing)}")
         return settings
 
-    def _read_fields(self, kind: PersonKind) -> dict[str, Field]:
-        fields = read_fields(self._editor_dir, DEFINED_IN[kind])
-        fields |= read_fields(self._editor_dir, "person")
+    def _read_fields(self, kind: RecordKind) -> dict[str, Field]:
+        fields: dict[str, Field] = {}
+        for definitions in kind.defined_in:
+            fields |= read_fields(self._editor_dir, definitions)
         if PLAYER_POTENTIAL in fields and POTENTIAL_RANGE in fields:
             # The Editor shows potential as two fields, a number and a choice of ranges.
             ranges = fields[POTENTIAL_RANGE].choices
             fields[PLAYER_POTENTIAL] = replace(fields[PLAYER_POTENTIAL], choices=ranges)
-        return {code: field for code, field in fields.items() if code not in NOT_SET_BY_HAND}
+        return {code: field for code, field in fields.items() if code not in kind.left_out}
 
-    def _field(self, kind: PersonKind, name: str) -> Field:
-        field = self.fields(kind).get(person_codes(kind).get(name, name))
+    def _field(self, kind: RecordKind, name: str) -> Field:
+        field = self.fields(kind).get(kind.codes.get(name, name))
         if field is None:
-            raise EditError(f"{kind.name.lower()} has no field {name}")
+            raise EditError(f"{kind.name} has no field {name}")
         return field
 
     def _check(self, field: Field, value: FieldValue) -> None:
         stored_value(field, value)
         self._check_exists(field, value)
         if field.code == PLAYER_POTENTIAL:
-            _check_potential(field, value)
+            check_potential(field, value)
 
     def _check_exists(self, field: Field, value: FieldValue) -> None:
         if field.points_to is None:
@@ -147,12 +110,6 @@ class PersonRules:
             )
         if record_name(self._lookup, table, value) is None:
             raise EditError(f"{field.name} ({field.code}): there is no {table} {value!r}")
-
-
-def _check_potential(field: Field, value: FieldValue) -> None:
-    """A negative potential stands for a range, and only some numbers do."""
-    if is_range(field, value) and value not in (field.choices or {}):
-        raise EditError(f"{value} is not one of the Editor's potential ranges")
 
 
 def _typed(field: Field, given: FieldValue) -> FieldValue:

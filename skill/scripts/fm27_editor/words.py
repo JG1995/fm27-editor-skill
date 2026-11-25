@@ -5,8 +5,8 @@ import sqlite3
 
 from fm27_editor.base_database import record_name
 from fm27_editor.field_definitions import Field
-from fm27_editor.person_rules import LOOKUP_TABLES
 from fm27_editor.record_changes import HIGHEST_ATTRIBUTE, LOWEST_ATTRIBUTE, REFERENCE
+from fm27_editor.record_rules import LOOKUP_TABLES
 
 
 def counted(number: int, one: str, many: str) -> str:

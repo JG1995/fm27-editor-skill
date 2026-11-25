@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Any
 
 from fm27_editor.binary import FormatError
-from fm27_editor.people import PersonKind
+from fm27_editor.record_kinds import RecordKind, kind_named
 
 REQUEST_KEYS = {"start_from", "edits", "new_people"}
 QUERY_KEYS = {"query"}
@@ -71,16 +71,12 @@ def wanted_edits(request: Any, lookup: sqlite3.Connection) -> Iterator[tuple[Any
             raise RequestError("an edit has either a query, or a uid and what to set")
 
 
-def wanted_people(request: Any) -> Iterator[tuple[PersonKind, Values]]:
+def wanted_people(request: Any) -> Iterator[tuple[RecordKind, Values]]:
     for entry in request.get("new_people", []):
         _check_keys(entry, NEW_PERSON_KEYS, "a new person")
         if set(entry) != NEW_PERSON_KEYS:
             raise RequestError("a new person has a kind and what to set")
-        try:
-            kind = PersonKind[str(entry["kind"]).upper()]
-        except KeyError as error:
-            raise RequestError(f"{entry['kind']} is not a kind of person") from error
-        yield kind, _values(entry)
+        yield kind_named(str(entry["kind"])), _values(entry)
 
 
 def _named_once(pairs: list[tuple[str, Any]]) -> dict[str, Any]:

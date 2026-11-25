@@ -6,8 +6,8 @@ import synthetic
 from fictional_editor import PEOPLE, STAFF_KIND, write_editor
 from fm27_editor.base_database import open_database
 from fm27_editor.binary import FormatError
-from fm27_editor.person_rules import PersonRules
 from fm27_editor.plan import approval_code, build_file, make_plan
+from fm27_editor.record_rules import RecordRules
 from fm27_editor.request import RequestError
 
 TODAY = datetime.date(2026, 11, 12)
@@ -31,7 +31,7 @@ def editor(tmp_path):
 @pytest.fixture
 def plan_for(editor, tmp_path):
     lookup = open_database(editor, tmp_path / "cache.sqlite")
-    rules = PersonRules(editor, lookup)
+    rules = RecordRules(editor, lookup)
     yield lambda **request: make_plan(request, rules, lookup)
     lookup.close()
 
@@ -41,7 +41,7 @@ def by_hand(uid, **values):
 
 
 def edited(plan):
-    return [(e.person.uid, e.setting.field.code, e.old, e.setting.value) for e in plan.edits]
+    return [(e.record.uid, e.setting.field.code, e.old, e.setting.value) for e in plan.edits]
 
 
 def test_a_query_gives_each_person_the_values_of_its_columns(plan_for):
@@ -86,9 +86,9 @@ def test_values_a_person_already_has_are_left_out(plan_for):
 def test_people_are_described_the_way_the_lookup_knows_them(plan_for):
     (edit,) = plan_for(edits=[by_hand(100, finishing=3)]).edits
 
-    person = edit.person
-    assert (person.name, person.birth_date) == ("Alfa Striker", "2004-02-29")
-    assert (person.nation, person.club) == ("Norwegia", "Fictional City")
+    facts = edit.record.facts
+    assert (facts["name"], facts["birth_date"]) == ("Alfa Striker", "2004-02-29")
+    assert (facts["nation"], facts["club"]) == ("Norwegia", "Fictional City")
 
 
 @pytest.mark.parametrize(
@@ -151,7 +151,7 @@ def test_a_request_that_is_empty_or_misspelt_is_refused(plan_for, request_):
 def test_new_people_are_planned_with_their_settings(plan_for):
     (addition,) = plan_for(new_people=[NEW_PLAYER]).additions
 
-    assert addition.kind.name == "PLAYER"
+    assert addition.kind.name == "player"
     assert [s.field.code for s in addition.settings] == ["Pfna", "Psna", "Pdob", "Pnti"]
 
 
