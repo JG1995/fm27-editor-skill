@@ -22,6 +22,7 @@ DEFINITIONS_FILE = Path("shared", "data", "editor.fmf")
 FORMAT_FOLDER = "format"
 DATABASE_FOLDER = "database"
 SHARED_CHOICES = "db enums"
+ITEM_FIELDS = "record[@id='list_item']/list[@id='fields']/record"
 NOT_OFFERED = ("is_read_only", "is_ige_only", "debug_only")
 
 
@@ -68,6 +69,18 @@ def read_field_names(editor_dir: Path, record_kind: str) -> dict[str, str]:
     return {code: found.pop() for code, found in names.items() if len(found) == 1}
 
 
+def read_item_names(editor_dir: Path, record_kind: str) -> dict[str, dict[str, str]]:
+    """The names of the parts of an item, by the code of the list and the code of the part."""
+    folder = _format_folder(editor_dir).subfolder(DATABASE_FOLDER)
+    return {
+        value_of(element, "field") or "": {
+            value_of(part, "field") or "": name_of(part) for part in element.findall(ITEM_FIELDS)
+        }
+        for element in _field_elements(folder.parse(record_kind))
+        if element.find(ITEM_FIELDS) is not None
+    }
+
+
 def read_shared_choices(editor_dir: Path, name: str) -> dict[int, str]:
     """Choices that several fields use, such as the kinds of records, by number."""
     choices = _shared_choices(_format_folder(editor_dir).parse(SHARED_CHOICES)).get(name)
@@ -105,8 +118,7 @@ def _field(element: Element, shared: dict[str, dict[int, str] | None]) -> Field 
 
 
 def _items(element: Element, shared: dict[str, dict[int, str] | None]) -> tuple[Field, ...]:
-    entries = element.findall("record[@id='list_item']/list[@id='fields']/record")
-    found = (_field(entry, shared) for entry in entries)
+    found = (_field(entry, shared) for entry in element.findall(ITEM_FIELDS))
     return tuple(field for field in found if field is not None)
 
 

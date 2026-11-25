@@ -2,9 +2,10 @@
 
 import sqlite3
 from collections import Counter
+from collections.abc import Callable, Iterator
 from pathlib import Path
 
-from fm27_editor.change_list import Kind, Property
+from fm27_editor.change_list import Kind, ListItem, Property
 from fm27_editor.change_reading import (
     ADD_RECORD,
     ID_SIZE,
@@ -19,8 +20,12 @@ from fm27_editor.change_reading import (
 )
 from fm27_editor.definition_files import NoDefinitionsError
 from fm27_editor.editor_file import EditorFile
-from fm27_editor.field_definitions import read_field_names, read_shared_choices
-from fm27_editor.record_changes import REFERENCE_TAGS
+from fm27_editor.field_definitions import (
+    read_field_names,
+    read_item_names,
+    read_shared_choices,
+)
+from fm27_editor.list_changes import LIST_REFERENCE_TAGS
 from fm27_editor.record_kinds import COMPETITION, GROUPS, PLAYER, STAFF
 from fm27_editor.record_rules import LOOKUP_TABLES
 from fm27_editor.rule_changes import read_rules
@@ -46,7 +51,8 @@ TABLE_OF_KIND = {
     "City": "city",
     "Stadium": "stadium",
 }
-TABLE_OF_TAG = {tag: LOOKUP_TABLES.get(kind) for kind, tag in REFERENCE_TAGS.items()}
+TABLE_OF_REFERENCE = LOOKUP_TABLES | {"person": "person"}
+TABLE_OF_TAG = {tag: TABLE_OF_REFERENCE.get(kind) for kind, tag in LIST_REFERENCE_TAGS.items()}
 
 
 def explain_lines(
@@ -75,6 +81,7 @@ class _Words:
         self._editor_dir = editor_dir
         self._kinds = read_shared_choices(editor_dir, KINDS_OF_RECORD)
         self._fields: dict[str, dict[str, str]] = {}
+        self._items: dict[str, dict[str, dict[str, str]]] = {}
         self._new_names = _names_of_new_records(changes)
 
     def kind(self, table: int) -> str:
@@ -85,6 +92,12 @@ class _Words:
             self._fields[kind] = self._read_fields(kind)
         return self._fields[kind].get(code, code)
 
+    def part(self, kind: str, code: str, part: str) -> str:
+        """A part of an item of a list."""
+        if kind not in self._items:
+            self._items[kind] = self._read_items(kind)
+        return self._items[kind].get(code, {}).get(part, part)
+
     def record(self, table: str | None, record: bytes) -> str:
         """A record of one of the lookup's tables, or a new one, by name if that is known."""
         if is_existing(record):
@@ -94,10 +107,16 @@ class _Words:
         return f"{self._new_names.get(record[KEPT_HALF], uid_of(record))} (new)"
 
     def _read_fields(self, kind: str) -> dict[str, str]:
-        names: dict[str, str] = {}
+        return self._read(kind, read_field_names)
+
+    def _read_items(self, kind: str) -> dict[str, dict[str, str]]:
+        return self._read(kind, read_item_names)
+
+    def _read[T](self, kind: str, read: Callable[[Path, str], dict[str, T]]) -> dict[str, T]:
+        names: dict[str, T] = {}
         for definitions in DEFINED_IN.get(kind, [kind.lower()]):
             try:
-                names = read_field_names(self._editor_dir, definitions) | names
+                names = read(self._editor_dir, definitions) | names
             except NoDefinitionsError:
                 continue
         return names
@@ -177,7 +196,7 @@ def _change_lines(items: list[ReadChange], words: _Words, find: str, examples: i
     if not find:
         lines, total = [_change_line(item, words) for item in items[:examples]], len(items)
     else:
-        every = (_change_line(item, words) for item in items)
+        every = (line for item in items for line in _searched_lines(item, words))
         matching = [line for line in every if find.lower() in line.lower()]
         lines, total = matching[:examples], len(matching)
     if not lines:
@@ -186,19 +205,50 @@ def _change_lines(items: list[ReadChange], words: _Words, find: str, examples: i
 
 
 def _change_line(item: ReadChange, words: _Words) -> str:
+    return f"{_changed_field(item, words)} = {_value(item.new, words)}"
+
+
+def _searched_lines(item: ReadChange, words: _Words) -> Iterator[str]:
+    """What a search looks through: each item of a list stands for itself."""
+    if item.new is None or item.new.kind is not Kind.LIST or not item.new.value:
+        yield _change_line(item, words)
+        return
+    called = _changed_field(item, words)
+    for entry in item.new.value:
+        yield f"{called}: {_list_item(item, entry, words)}"
+
+
+def _changed_field(item: ReadChange, words: _Words) -> str:
     kind = words.kind(item.table)
     record = words.record(TABLE_OF_KIND.get(kind), item.record)
-    return f"  {record}: {words.field(kind, item.code)} = {_value(item.new, words)}"
+    return f"  {record}: {words.field(kind, item.code)}"
 
 
 # --- values --------------------------------------------------------------------------------
 
 
-def _value(value: Property | None, words: _Words) -> str:
+def _list_item(item: ReadChange, entry: ListItem, words: _Words) -> str:
+    """What an item has, without the parts that say nothing."""
+    if entry.kind is not Kind.NESTED:
+        return _value(entry, words)
+    kind = words.kind(item.table)
+    return ", ".join(
+        f"{words.part(kind, item.code, part.tag)} {_value(part, words)}"
+        for part in entry.value
+        if not _says_nothing(part)
+    )
+
+
+def _says_nothing(part: Property) -> bool:
+    is_no = part.kind is Kind.BOOL and not part.value[0]
+    return part.kind is Kind.NULL or is_no or (part.kind is Kind.TEXT and not part.value)
+
+
+def _value(value: Property | ListItem | None, words: _Words) -> str:
     if value is None:
         return "nothing"
     if value.kind is Kind.LIST:
-        return "a whole list"
+        return f"a list of {len(value.value)}"
     if value.kind is Kind.NESTED:
         reference = referred_to(value)
         if reference is None:

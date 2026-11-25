@@ -111,6 +111,16 @@ def test_the_rules_that_can_be_set_are_listed_with_what_is_set_otherwise(run):
     ]
 
 
+def test_what_can_be_given_for_past_winners_is_listed(run):
+    _, lines, _ = run("fields", "award_history")
+
+    assert "year: 1800 to 2100, needed" in lines
+    assert "not_held: true, instead of places" in lines
+    (places,) = [line for line in lines if line.startswith("places: ")]
+    assert "points: 1 to 5000; age: 14 to 120" in places
+    assert "team_uid: the uid of a club, or of a nation for its national team" in places
+
+
 def test_fields_can_be_searched_by_name_or_code(run):
     _, by_name, _ = run("fields", "staff", "ability")
     _, by_code, _ = run("fields", "staff", "ncra")

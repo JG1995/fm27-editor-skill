@@ -1,8 +1,9 @@
 """A plan in plain words, for the user to approve."""
 
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 
+from fm27_editor.history_words import history_heading, year_lines
 from fm27_editor.plan import Plan, approval_code
 from fm27_editor.planned import Addition, Edit, KnownRecord
 from fm27_editor.potential import is_range
@@ -16,6 +17,7 @@ def preview_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list
     return [
         *_starting_lines(plan),
         *_edit_lines(plan, lookup, examples),
+        *_history_lines(plan, lookup, examples),
         *_addition_lines(plan, lookup, examples),
         *([] if plan.rules is None else rule_lines(plan.rules, lookup)),
         *(f"Warning: {warning}" for warning in plan.warnings),
@@ -95,13 +97,13 @@ def _has_range(edit: Edit) -> bool:
     return is_range(field, edit.old) or is_range(field, edit.setting.value)
 
 
-def _spread(edits: list[Edit], count: int) -> list[Edit]:
-    """Up to `count` edits from first to last, so that no part of a long list stays unseen."""
-    if len(edits) <= count:
-        return edits
+def _spread[T](items: Sequence[T], count: int) -> Sequence[T]:
+    """Up to `count` items from first to last, so that no part of a long list stays unseen."""
+    if len(items) <= count:
+        return items
     if count < 2:
-        return edits[:count]
-    return [edits[step * (len(edits) - 1) // (count - 1)] for step in range(count)]
+        return items[:count]
+    return [items[step * (len(items) - 1) // (count - 1)] for step in range(count)]
 
 
 def _example_line(edit: Edit, lookup: sqlite3.Connection) -> str:
@@ -118,6 +120,19 @@ def _described(record: KnownRecord) -> str:
         if record.facts[column] is not None
     }
     return ", ".join([f"{record.name} ({record.uid})", *said.values()])
+
+
+def _history_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list[str]:
+    lines = []
+    for edit in plan.histories:
+        changed = edit.history.changed
+        shown_years = _spread(changed, examples)
+        lines.append(history_heading(_described(edit.award), edit.history))
+        lines += year_lines(shown_years, lookup)
+        if len(changed) > len(shown_years):
+            more = len(changed) - len(shown_years)
+            lines.append(f"  and {counted(more, 'more year', 'more years')}")
+    return lines
 
 
 def _addition_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list[str]:
