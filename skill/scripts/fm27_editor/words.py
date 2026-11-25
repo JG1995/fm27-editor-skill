@@ -6,7 +6,8 @@ import sqlite3
 from fm27_editor.base_database import record_name
 from fm27_editor.field_definitions import Field
 from fm27_editor.record_changes import HIGHEST_ATTRIBUTE, LOWEST_ATTRIBUTE, REFERENCE
-from fm27_editor.record_rules import LOOKUP_TABLES, NEW_MARK, NewReference
+from fm27_editor.record_kinds import RecordKind
+from fm27_editor.record_rules import LOOKUP_TABLES, NewReference, RecordRules
 
 
 def counted(number: int, one: str, many: str) -> str:
@@ -37,6 +38,18 @@ def accepted(field: Field) -> str:
     raise ValueError(f"no words for a field of type {field.type}")
 
 
+def field_lines(kind: RecordKind, rules: RecordRules) -> list[str]:
+    """What can be given for each field of a kind of record."""
+    lines = []
+    for field in rules.writable_fields(kind):
+        name = kind.names.get(field.code)
+        called = field.code if name is None else f"{name} ({field.code})"
+        words = kind.words.get(field.code)
+        given = accepted(field) if words is None else f"one of {', '.join(words)}"
+        lines.append(f"{called}: {field.name}, {given}")
+    return lines
+
+
 def shown(field: Field, value: object, lookup: sqlite3.Connection) -> str:
     if isinstance(value, datetime.date):
         return value.isoformat()
@@ -57,9 +70,7 @@ def named_reference(
     lookup: sqlite3.Connection, table: str | None, record: int | NewReference
 ) -> str:
     """A record by name, or a new one by its name in the request."""
-    if isinstance(record, NewReference):
-        return f"{NEW_MARK}{record.name}"
-    return named(lookup, table, record)
+    return str(record) if isinstance(record, NewReference) else named(lookup, table, record)
 
 
 def _listed(choices: dict[int, str]) -> str:

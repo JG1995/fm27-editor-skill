@@ -3,51 +3,76 @@
 import datetime
 import struct
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from typing import Any
 
 from fm27_editor.change_list import ChangeList, Kind, ListItem, Property
-from fm27_editor.change_reading import EditError, existing_record, uid_of
+from fm27_editor.change_reading import EditError, existing_record
 from fm27_editor.nation_rules import NationRules, choices_of
-from fm27_editor.record_changes import date_bytes, number
+from fm27_editor.record_changes import date_bytes, number, reference
 from fm27_editor.record_rules import NewReference
 from fm27_editor.rule_definitions import Rule, RuleDefinitions
 from fm27_editor.rule_shapes import CODES, CUP_GROUP, DAYS, DIVISION_GROUP, MONTHS, NATION_GROUP
-from fm27_editor.setting_changes import NewRecords
+from fm27_editor.setting_changes import NewRecords, resolved
 
 RULES_TAG = "rlgr"
-# Rules for a nation, a continent, international competitions, and versus competitions. The Editor
-# lets a file have one of these.
-RULES_TAGS = {RULES_TAG, "cnrl", "inrl", "vrrl"}
+# The Editor lets a file have rules for a nation or one of these: for a continent, international
+# competitions, or versus competitions.
+OTHER_RULES_TAGS = {"cnrl", "inrl", "vrrl"}
 ADVANCED_RULES_TAG = "fles"
 ID_TAG = "id  "
-COMPETITION_TAG = "comp"
 # Rules without a value that the Editor stores as nothing; others are left out.
 STORED_AS_NOTHING = {"number_teams"}
 
 
 def add_rules(changes: ChangeList, rules: NationRules, new: NewRecords) -> None:
     """Put the rules among the file's properties, and the nation at its head as well."""
-    if has_rules(changes):
-        raise EditError("the file to start from has rules already; a file has rules for one nation")
+    check_has_no_rules(changes)
     writer = _Writer(rules.definitions, new)
     parts = writer.parts(rules.values, rules.definitions.group(NATION_GROUP))
     changes.general.insert(1, Property(RULES_TAG, Kind.NESTED, [_nation(rules.nation)]))
     changes.editor.append(_nested(RULES_TAG, parts))
 
 
-def has_rules(changes: ChangeList) -> bool:
-    return any(
-        item.tag in RULES_TAGS or (item.tag == ADVANCED_RULES_TAG and item.value)
-        for item in (*changes.general, *changes.editor)
+def check_has_no_rules(changes: ChangeList) -> None:
+    if read_rules(changes) != StoredRules():
+        raise EditError("the file to start from has rules already, and a file has one kind of them")
+
+
+@dataclass(frozen=True)
+class StoredRules:
+    """The rules that a file holds, as far as they are read."""
+
+    nations: tuple[int | None, ...] = ()
+    """The nation that there are rules for; nothing in its place when that cannot be read."""
+    divisions: int = 0
+    cups: int = 0
+    others: int = 0
+    """Rules for a continent, international competitions, or versus competitions."""
+    advanced: int = 0
+
+
+def read_rules(changes: ChangeList) -> StoredRules:
+    """What is at the head of a file counts as well, but the rest of it is among the properties."""
+    items = {item.tag: item for item in (*changes.general, *changes.editor)}
+    parts = {item.tag: item for item in _inside(items.get(RULES_TAG))}
+    return StoredRules(
+        nations=(_read_nation(parts.get(CODES["nation"])),) if RULES_TAG in items else (),
+        divisions=len(_inside(parts.get(CODES["league_comps"]))),
+        cups=len(_inside(parts.get(CODES["cup_comps"]))),
+        others=len(items.keys() & OTHER_RULES_TAGS),
+        advanced=len(_inside(items.get(ADVANCED_RULES_TAG))),
     )
 
 
-def nation_of(rules: Property) -> int | None:
-    """The nation that stored rules are for."""
-    for item in rules.value:
-        if item.tag == CODES["nation"] and item.kind is Kind.CODE:
-            return struct.unpack(">I", item.value.encode("latin-1"))[0]
-    return None
+def _inside(item: Property | None) -> list:
+    return item.value if item is not None and item.kind in (Kind.NESTED, Kind.LIST) else []
+
+
+def _read_nation(item: Property | None) -> int | None:
+    if item is None or item.kind is not Kind.CODE:
+        return None
+    return struct.unpack(">I", item.value.encode("latin-1"))[0]
 
 
 class _Writer:
@@ -80,19 +105,17 @@ class _Writer:
             case "database_record_unique_id" if name == "nation":
                 return _nation(value)
             case "database_record_unique_id":
-                return _nested(tag, self._reference(value))
+                return Property(tag, Kind.NESTED, self._reference(tag, rule, value))
         return _simple(tag, rule, value)
 
     def _items(self, rule: Rule, values: Sequence[Mapping[str, Any]]) -> list[ListItem]:
         rules = self._groups.get(rule.name, rule.parts)
         return [ListItem(Kind.NESTED, self.parts(value, rules)) for value in values]
 
-    def _reference(self, value: int | NewReference) -> list[Property]:
-        if isinstance(value, NewReference):
-            record = self._new[value.name]
-        else:
-            record = existing_record(value)
-        return [Property(COMPETITION_TAG, Kind.ID, record), number("DBID", uid_of(record))]
+    def _reference(self, tag: str, rule: Rule, value: int | NewReference) -> list[Property]:
+        found = resolved(value, self._new)
+        record = found if isinstance(found, bytes) else existing_record(found)
+        return reference(tag, rule.points_to, record)
 
 
 def _simple(tag: str, rule: Rule, value: Any) -> Property:

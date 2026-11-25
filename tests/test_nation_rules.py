@@ -12,6 +12,7 @@ from fm27_editor.nation_rules import check_nation_rules
 from fm27_editor.record_rules import NewReference
 from fm27_editor.rule_changes import add_rules
 from fm27_editor.rule_definitions import RuleDefinitions
+from fm27_editor.rule_plan import fit_warnings
 
 D1, D2, CUP = b"\x01\0\0\0\x0a\0\0\0", b"\x02\0\0\0\x0b\0\0\0", b"\x03\0\0\0\x0c\0\0\0"
 NEW = {"D1": D1, "D2": D2, "CUP": CUP}
@@ -81,6 +82,10 @@ def refer(points_to, what, given):
 @pytest.fixture
 def checked(definitions):
     return lambda given: check_nation_rules(given, definitions, refer)
+
+
+def warned(rules):
+    return list(fit_warnings(rules, str))
 
 
 def changed(**parts):
@@ -167,7 +172,7 @@ def test_places_of_a_division_count_for_all_its_sub_divisions_together(checked):
         "promotion_places": 2,
         "child_competitions": [{"competition": 9205}, {"competition": 9206}],
     }
-    assert checked(rules).warnings == []
+    assert warned(checked(rules)) == []
 
     rules["league_comps"][0]["relegation_places"] = 1
     rules["league_comps"][1]["promotion_places"] = 1
@@ -258,11 +263,11 @@ def test_rules_the_editor_would_not_accept_are_refused_with_a_reason(checked, ru
 
 
 def test_rules_that_fit_together_have_no_warnings(checked):
-    assert checked(RULES).warnings == []
+    assert warned(checked(RULES)) == []
 
 
 def test_unequal_promotion_and_relegation_is_pointed_out(checked):
-    (warning,) = checked(with_division(relegation_places=2)).warnings
+    (warning,) = warned(checked(with_division(relegation_places=2)))
 
     assert "2 go down" in warning and "1 come up" in warning
 
@@ -270,7 +275,7 @@ def test_unequal_promotion_and_relegation_is_pointed_out(checked):
 def test_relegation_that_does_not_divide_over_the_sub_divisions_is_pointed_out(checked):
     parts = [{"competition": 9205}, {"competition": 9206}]
 
-    (warning,) = checked(with_division(child_competitions=parts) | {"cup_comps": []}).warnings
+    (warning,) = warned(checked(with_division(child_competitions=parts) | {"cup_comps": []}))
 
     assert "1 go down" in warning and "2 sub-divisions" in warning
 
@@ -286,7 +291,7 @@ def test_relegation_that_does_not_divide_over_the_sub_divisions_is_pointed_out(c
 def test_entrants_that_the_divisions_do_not_have_are_pointed_out(checked, entrants, complaint):
     teams = [{"competition": c, "number_teams": number} for c, number in entrants]
 
-    (warning,) = checked(with_cup(teams=teams)).warnings
+    (warning,) = warned(checked(with_cup(teams=teams)))
 
     assert re.search(complaint, warning)
 
@@ -294,13 +299,13 @@ def test_entrants_that_the_divisions_do_not_have_are_pointed_out(checked, entran
 def test_entrants_come_from_the_parts_of_a_division(checked):
     rules = with_division(child_competitions=[{"competition": 9205}])
 
-    (warning,) = checked(rules).warnings
+    (warning,) = warned(checked(rules))
 
     assert "@D1" in warning
 
 
 def test_a_super_cup_between_competitions_of_other_rules_is_pointed_out(checked):
-    (warning,) = checked(changed(cup_comps=[SUPER_CUP | {"comp_2": 9208}])).warnings
+    (warning,) = warned(checked(changed(cup_comps=[SUPER_CUP | {"comp_2": 9208}])))
 
     assert "9208" in warning
 
@@ -312,7 +317,7 @@ def test_a_second_leg_can_start_at_midnight(checked):
 
 
 def test_a_season_too_short_for_its_matches_is_pointed_out(checked):
-    (warning,) = checked(with_division(number_rounds=40)).warnings
+    (warning,) = warned(checked(with_division(number_rounds=40)))
 
     assert "120 match days" in warning
 

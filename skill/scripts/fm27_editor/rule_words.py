@@ -8,6 +8,7 @@ from typing import Any
 from fm27_editor.nation_rules import NationRules, choices_of
 from fm27_editor.rule_definitions import Rule, RuleDefinitions
 from fm27_editor.rule_shapes import (
+    COMPUTED,
     CUP,
     CUP_GROUP,
     DAYS,
@@ -101,7 +102,20 @@ def rule_lines(rules: NationRules, lookup: sqlite3.Connection) -> list[str]:
         lines.append(f"  Division {number}: {words.listed(division, DIVISION.offered)}")
     for number, cup in enumerate(rules.cups, 1):
         lines += _cup_lines(number, cup, words)
+    lines += [
+        f"  Always for {what}: {words.listed(shape.fixed, _fixed(shape))}"
+        for what, shape in (
+            ("the nation", NATION_RULES),
+            ("a division", DIVISION),
+            ("a cup", CUP),
+            ("a super cup", SUPER_CUP),
+        )
+    ]
     return lines
+
+
+def _fixed(shape: Shape) -> list[str]:
+    return [name for name in shape.fixed if name not in COMPUTED]
 
 
 def _cup_lines(number: int, cup: Mapping[str, Any], words: _Words) -> list[str]:
@@ -132,7 +146,7 @@ class _Words:
             case datetime.date():
                 return value.isoformat()
             case Mapping():
-                return self.listed(value, value)
+                return self.listed(value, value) or "none"
             case list():
                 return " and ".join(self._inside(name, item) for item in value) or "none"
         if name in COMPETITIONS:

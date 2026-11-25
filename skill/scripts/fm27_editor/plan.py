@@ -9,6 +9,7 @@ import hashlib
 import sqlite3
 from collections.abc import Iterable, Iterator, Mapping
 from dataclasses import dataclass
+from functools import partial
 from pathlib import Path
 from typing import Any
 
@@ -21,7 +22,7 @@ from fm27_editor.planned import Addition, Edit, KnownRecord
 from fm27_editor.potential import ABILITY, POTENTIAL, has_more_ability_than_potential
 from fm27_editor.record_changes import HIGHEST_UID, NewIds, stored_value
 from fm27_editor.record_kinds import RecordGroup, RecordKind, kind_of
-from fm27_editor.record_rules import NEW_MARK, NewReference, RecordRules, Setting
+from fm27_editor.record_rules import NewReference, RecordRules, Setting
 from fm27_editor.request import (
     RULES_KEY,
     RequestError,
@@ -31,10 +32,11 @@ from fm27_editor.request import (
     wanted_edits,
     wanted_records,
 )
-from fm27_editor.rule_changes import add_rules, has_rules
+from fm27_editor.rule_changes import add_rules, check_has_no_rules
 from fm27_editor.rule_definitions import RuleDefinitions
 from fm27_editor.rule_plan import plan_rules, rule_warnings
 from fm27_editor.setting_changes import edit_record, new_record
+from fm27_editor.words import counted
 
 CODE_LENGTH = 12
 
@@ -55,8 +57,6 @@ class Plan:
     """Requested values that records have already, which are left out."""
     replaced: int
     """Edits of a field that the starting file changes as well."""
-    above_potential: int
-    """People who would have more ability than potential."""
     rules: NationRules | None
     warnings: list[str]
 
@@ -71,11 +71,12 @@ def make_plan(request: Any, editor_dir: Path, lookup: sqlite3.Connection) -> Pla
     edits = [edit for edit in planned if edit.old != edit.setting.as_the_lookup_says]
     nation_rules = None
     if RULES_KEY in request:
-        if start is not None and has_rules(start.file.changes):
-            raise RequestError(
-                f"{start.path.name} has rules already; a file has rules for one nation"
-            )
-        nation_rules = plan_rules(request[RULES_KEY], additions, rules, RuleDefinitions(editor_dir))
+        if start is not None:
+            check_has_no_rules(start.file.changes)
+        definitions = RuleDefinitions(editor_dir)
+        nation_rules = plan_rules(
+            request[RULES_KEY], definitions, partial(rules.refer, new=new), additions, lookup
+        )
     if not edits and not additions and nation_rules is None:
         raise RequestError("the request changes nothing")
     return Plan(
@@ -84,11 +85,15 @@ def make_plan(request: Any, editor_dir: Path, lookup: sqlite3.Connection) -> Pla
         additions,
         already_so=len(planned) - len(edits),
         replaced=_replaced(start, edits),
-        above_potential=_above_potential(edits, additions),
         rules=nation_rules,
-        warnings=[]
-        if nation_rules is None
-        else rule_warnings(nation_rules, edits, additions, lookup),
+        warnings=[
+            *(
+                []
+                if nation_rules is None
+                else rule_warnings(nation_rules, edits, additions, lookup)
+            ),
+            *_potential_warnings(edits, additions),
+        ],
     )
 
 
@@ -138,7 +143,7 @@ def _address(record: KnownRecord) -> tuple[int, int]:
 
 def _written(setting: Setting) -> str:
     if isinstance(setting.value, NewReference):
-        return f"{setting.field.code} {NEW_MARK}{setting.value.name}"
+        return f"{setting.field.code} {setting.value}"
     return f"{setting.field.code} {stored_value(setting.field, setting.value)!r}"
 
 
@@ -204,7 +209,7 @@ def _check_values(record: KnownRecord, values: Mapping[str, Any]) -> None:
             )
 
 
-def _above_potential(edits: list[Edit], additions: list[Addition]) -> int:
+def _potential_warnings(edits: list[Edit], additions: list[Addition]) -> list[str]:
     edited: dict[tuple[int, int], list[Edit]] = {}
     for edit in edits:
         edited.setdefault(_address(edit.record), []).append(edit)
@@ -218,7 +223,10 @@ def _above_potential(edits: list[Edit], additions: list[Addition]) -> int:
         has_more_ability_than_potential(new.kind, _by_code(new.settings), None, None)
         for new in additions
     ]
-    return sum(above)
+    if not any(above):
+        return []
+    people = counted(sum(above), "person", "people")
+    return [f"{people} would have more ability than potential"]
 
 
 def _by_code(settings: Iterable[Setting]) -> list[tuple[str, object]]:

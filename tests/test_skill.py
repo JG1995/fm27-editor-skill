@@ -11,6 +11,7 @@ from fm27_editor.nation_rules import check_nation_rules
 from fm27_editor.record_rules import NewReference
 from fm27_editor.request import check_request, wanted_records
 from fm27_editor.rule_definitions import RuleDefinitions
+from fm27_editor.rule_plan import fit_warnings
 
 INSTRUCTIONS = Path(__file__).parents[1] / "skill" / "SKILL.md"
 REQUEST, RULES = (
@@ -36,7 +37,7 @@ def test_the_example_rules_fit_together(tmp_path):
         ),
     )
 
-    assert rules.warnings == []
+    assert list(fit_warnings(rules, str)) == []
 
 
 @pytest.mark.parametrize("kind", ["player", "staff", "club", "competition", "nation_rules"])

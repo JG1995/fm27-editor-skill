@@ -1,6 +1,7 @@
 """Potential ability, which is a number or, below 0, one of the Editor's ranges."""
 
 from collections.abc import Iterable
+from dataclasses import replace
 
 from fm27_editor.change_reading import EditError
 from fm27_editor.field_definitions import Field
@@ -15,9 +16,18 @@ def is_range(field: Field, value: object) -> bool:
     return field.code in POTENTIALS and isinstance(value, int) and value < 0
 
 
+def with_ranges(fields: dict[str, Field]) -> dict[str, Field]:
+    """The fields with the choice of ranges, which the Editor shows apart, on the number itself."""
+    if PLAYER_POTENTIAL not in fields or POTENTIAL_RANGE not in fields:
+        return fields
+    ranges = fields[POTENTIAL_RANGE].choices
+    return fields | {PLAYER_POTENTIAL: replace(fields[PLAYER_POTENTIAL], choices=ranges)}
+
+
 def check_potential(field: Field, value: object) -> None:
     """A negative potential stands for a range, and only some numbers do."""
-    if is_range(field, value) and value not in (field.choices or {}):
+    is_listed = field.code == PLAYER_POTENTIAL
+    if is_listed and is_range(field, value) and value not in (field.choices or {}):
         raise EditError(f"{value} is not one of the Editor's potential ranges")
 
 

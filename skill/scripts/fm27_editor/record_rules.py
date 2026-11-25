@@ -6,15 +6,22 @@ A value must be one the Editor's definitions allow, and what it refers to must b
 import datetime
 import sqlite3
 from collections.abc import Mapping
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
+from dataclasses import field as dataclass_field
 from pathlib import Path
 
 from fm27_editor.base_database import record_name
 from fm27_editor.change_reading import EditError
 from fm27_editor.field_definitions import Field, read_fields
-from fm27_editor.potential import PLAYER_POTENTIAL, POTENTIAL_RANGE, check_potential
-from fm27_editor.record_changes import HIGHEST_UID, FieldValue, refusal, stored_value
-from fm27_editor.record_kinds import CLUB, COMPETITION, RecordKind
+from fm27_editor.potential import check_potential, with_ranges
+from fm27_editor.record_changes import (
+    HIGHEST_UID,
+    FieldValue,
+    checked_date,
+    refusal,
+    stored_value,
+)
+from fm27_editor.record_kinds import RecordKind
 
 # The lookup's table for what a field points to.
 LOOKUP_TABLES = {
@@ -25,7 +32,6 @@ LOOKUP_TABLES = {
     "city": "city",
     "stadium": "stadium",
 }
-NEW_KINDS = {"team": CLUB, "club": CLUB, "competition": COMPETITION}
 NEW_MARK = "@"
 
 
@@ -35,6 +41,9 @@ class NewReference:
 
     name: str
 
+    def __str__(self) -> str:
+        return f"{NEW_MARK}{self.name}"
+
 
 @dataclass(frozen=True)
 class Setting:
@@ -42,10 +51,15 @@ class Setting:
 
     field: Field
     value: FieldValue | NewReference
+    words: Mapping[str, int] = dataclass_field(default_factory=dict, repr=False, compare=False)
+    """The numbers of choices that the lookup holds as words."""
 
     @property
     def as_the_lookup_says(self) -> object:
-        return self.value.isoformat() if isinstance(self.value, datetime.date) else self.value
+        if isinstance(self.value, datetime.date):
+            return self.value.isoformat()
+        said = {number: word for word, number in self.words.items()}
+        return said.get(self.value, self.value) if said else self.value
 
 
 NO_NEW: Mapping[str, RecordKind] = {}
@@ -88,7 +102,9 @@ class RecordRules:
             field = self._field(kind, name)
             if field.code in chosen:
                 raise EditError(f"{field.name} ({field.code}) is given twice")
-            chosen[field.code] = Setting(field, self._value(field, given, new))
+            words = kind.words.get(field.code, {})
+            value = self._value(field, _number_of(given, words), new)
+            chosen[field.code] = Setting(field, value, words)
         return list(chosen.values())
 
     def new_record_settings(
@@ -108,11 +124,7 @@ class RecordRules:
         fields: dict[str, Field] = {}
         for definitions in kind.defined_in:
             fields |= read_fields(self._editor_dir, definitions)
-        if PLAYER_POTENTIAL in fields and POTENTIAL_RANGE in fields:
-            # The Editor shows potential as two fields, a number and a choice of ranges.
-            ranges = fields[POTENTIAL_RANGE].choices
-            fields[PLAYER_POTENTIAL] = replace(fields[PLAYER_POTENTIAL], choices=ranges)
-        return {code: field for code, field in fields.items() if kind.offers(code)}
+        return {code: found for code, found in with_ranges(fields).items() if kind.offers(code)}
 
     def _field(self, kind: RecordKind, name: str) -> Field:
         field = self.fields(kind).get(kind.codes.get(name, name))
@@ -124,22 +136,15 @@ class RecordRules:
         self, field: Field, given: FieldValue, new: Mapping[str, RecordKind]
     ) -> FieldValue | NewReference:
         called = f"{field.name} ({field.code})"
-        if field.points_to is not None and is_new_reference(given):
-            reason = refusal(field)
-            if reason is not None:
-                raise EditError(f"{called} {reason}")
-            return _new_reference(field.points_to, called, given, new)
+        reason = refusal(field)
+        if reason is not None:
+            raise EditError(f"{called} {reason}")
+        if field.points_to is not None:
+            return self.refer(field.points_to, called, given, new)
         value = _typed(field, given)
         stored_value(field, value)
-        if field.points_to is not None:
-            self._check_exists(field.points_to, called, value)
-        if field.code == PLAYER_POTENTIAL:
-            check_potential(field, value)
+        check_potential(field, value)
         return value
-
-    @property
-    def lookup(self) -> sqlite3.Connection:
-        return self._lookup
 
     def refer(
         self, points_to: str, called: str, given: object, new: Mapping[str, RecordKind]
@@ -169,19 +174,18 @@ def _new_reference(
     name = given.removeprefix(NEW_MARK)
     if name not in new:
         raise EditError(f"{called}: no new record above is called {given}")
-    if new[name] is not NEW_KINDS.get(points_to):
+    if points_to not in new[name].pointed_to_as:
         raise EditError(f"{called} points to a {points_to}, and {given} is a {new[name].name}")
     return NewReference(name)
+
+
+def _number_of(given: FieldValue, words: Mapping[str, int]) -> FieldValue:
+    return words.get(given, given) if isinstance(given, str) else given
 
 
 def _typed(field: Field, given: FieldValue) -> FieldValue:
     if field.type == "boolean" and isinstance(given, int) and given in (0, 1):
         return bool(given)
     if field.type == "date" and isinstance(given, str):
-        try:
-            return datetime.date.fromisoformat(given)
-        except ValueError as error:
-            raise EditError(
-                f"{field.name} ({field.code}) needs a date such as 2008-04-25, not {given!r}"
-            ) from error
+        return checked_date(f"{field.name} ({field.code})", given)
     return given
