@@ -4,7 +4,14 @@ import datetime
 
 from fm27_editor.change_list import CHANGE_COUNT_TAG, ChangeList, Kind, Property
 from fm27_editor.container import Container, Folder, Member, Storage
-from fm27_editor.editor_file import CHANGE_LIST_EXTENSION, EditorFile
+from fm27_editor.details import new_details
+from fm27_editor.editor_file import (
+    CHANGE_LIST_EXTENSION,
+    DETAILS_EXTENSION,
+    DETAILS_FOLDER,
+    DETAILS_NAME,
+    EditorFile,
+)
 from fm27_editor.record_changes import EDITOR_DATA_VERSION, date_bytes, number
 
 # The newest Editor whose files were read to learn the format.
@@ -15,7 +22,8 @@ DATABASE = "2700"
 
 def new_editor_file(today: datetime.date) -> EditorFile:
     """The file takes its name, inside as well, from the path it is saved to."""
-    root = Folder("", [Member("", CHANGE_LIST_EXTENSION, b"")])
+    details = Member(DETAILS_NAME, DETAILS_EXTENSION, new_details(""))
+    root = Folder("", [Member("", CHANGE_LIST_EXTENSION, b"")], [Folder(DETAILS_FOLDER, [details])])
     return EditorFile(Container(Storage.ZSTD, root), ChangeList(_general(), _editor(today)))
 
 

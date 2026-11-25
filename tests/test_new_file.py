@@ -2,6 +2,7 @@ import datetime
 
 import pytest
 
+import synthetic
 from fm27_editor.change_list import Kind, Property
 from fm27_editor.editor_file import load_editor_file, save_editor_file
 from fm27_editor.new_file import new_editor_file
@@ -22,6 +23,14 @@ def test_a_new_file_holds_an_empty_change_list_under_its_own_name(saved):
     assert root.name == "Brand new"
     assert [(m.name, m.extension) for m in root.members] == [("Brand new", ".dbc")]
     assert saved.changes.changes == []
+
+
+def test_a_new_file_is_described_as_editor_data_without_an_author(saved):
+    (folder,) = saved.container.root.folders
+    (member,) = folder.members
+
+    assert (folder.name, member.name, member.extension) == ("_data", "details", ".aom")
+    assert member.data == synthetic.details("Brand new")
 
 
 def test_a_new_file_says_which_editor_and_database_it_is_for(saved):

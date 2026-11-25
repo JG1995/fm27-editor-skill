@@ -86,6 +86,14 @@ def container(
     return header + region + b"\x02\x01fmf.\x08\x00\x00" + frame
 
 
+def details(name: str, *, description: str = "", author: str = "", owner: bytes = b"") -> bytes:
+    """The member that says what a file is; a file with an owner has a Steam ID at the end."""
+    start = b"\x03\x01moa.\x04\x00" + text("LEAGUE_DATA_UPDATE_TYPE_HANDLER") + text(name)
+    middle = text(description) + b"\x00" * 6 + b"\xff" * 16 + text(author)
+    end = b"\x01\x00\x01\x00\x02" + owner if owner else b"\x00\x00\x01\x00"
+    return start + middle + end
+
+
 def prop(tag: str, kind: int, payload: bytes = b"") -> bytes:
     return tag.encode()[::-1] + b"\x01" + bytes([kind]) + payload
 
