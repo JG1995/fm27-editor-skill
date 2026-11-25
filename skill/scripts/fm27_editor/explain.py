@@ -23,10 +23,13 @@ from fm27_editor.field_definitions import read_field_names, read_shared_choices
 from fm27_editor.record_changes import REFERENCE_TAGS
 from fm27_editor.record_kinds import GROUPS
 from fm27_editor.record_rules import LOOKUP_TABLES
+from fm27_editor.rule_changes import RULES_TAG, nation_of
+from fm27_editor.rule_shapes import CODES
 from fm27_editor.words import counted, named
 
 KINDS_OF_RECORD = "dbts"
 FIELDS_SHOWN = 12
+ADVANCED_RULES = "fles"
 KEPT_HALF = slice(4, ID_SIZE)
 # Where the definition files are not called what the Editor calls the kind of record.
 DEFINED_IN = {
@@ -57,6 +60,7 @@ def explain_lines(
     changed = [change for change in changes if change.code not in (ADD_RECORD, REMOVE_RECORD)]
     return [
         _heading(file),
+        *_rule_lines(file, lookup),
         *_record_lines("Adds", added, words),
         *_record_lines("Removes", removed, words),
         *_table_lines(changed, words),
@@ -127,6 +131,27 @@ def _heading(file: EditorFile) -> str:
     if "EdDt" in editor and editor["EdDt"].kind is Kind.DATE:
         heading += f" on {read_plain(editor['EdDt'])}"
     return heading
+
+
+def _rule_lines(file: EditorFile, lookup: sqlite3.Connection) -> list[str]:
+    editor = {item.tag: item for item in file.changes.editor}
+    lines = []
+    if RULES_TAG in editor and editor[RULES_TAG].kind is Kind.NESTED:
+        rules = {item.tag: item for item in editor[RULES_TAG].value}
+        counts = [
+            counted(len(rules[CODES[name]].value) if CODES[name] in rules else 0, one, many)
+            for name, one, many in (
+                ("league_comps", "division", "divisions"),
+                ("cup_comps", "cup", "cups"),
+            )
+        ]
+        nation = nation_of(editor[RULES_TAG])
+        called = "a nation" if nation is None else named(lookup, "nation", nation)
+        lines.append(f"Rules for {called}: {', '.join(counts)}")
+    if ADVANCED_RULES in editor and editor[ADVANCED_RULES].value:
+        files = counted(len(editor[ADVANCED_RULES].value), "set", "sets")
+        lines.append(f"Advanced rules: {files}, which are not spelled out")
+    return lines
 
 
 def _record_lines(verb: str, items: list[ReadChange], words: _Words) -> list[str]:

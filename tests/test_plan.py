@@ -6,8 +6,8 @@ import synthetic
 from fictional_editor import PEOPLE, STAFF_KIND, write_editor
 from fm27_editor.base_database import open_database
 from fm27_editor.binary import FormatError
+from fm27_editor.editor_file import save_editor_file
 from fm27_editor.plan import approval_code, build_file, make_plan
-from fm27_editor.record_rules import RecordRules
 from fm27_editor.request import RequestError
 
 TODAY = datetime.date(2026, 11, 12)
@@ -31,8 +31,7 @@ def editor(tmp_path):
 @pytest.fixture
 def plan_for(editor, tmp_path):
     lookup = open_database(editor, tmp_path / "cache.sqlite")
-    rules = RecordRules(editor, lookup)
-    yield lambda **request: make_plan(request, rules, lookup)
+    yield lambda **request: make_plan(request, editor, lookup)
     lookup.close()
 
 
@@ -236,6 +235,125 @@ def test_the_code_covers_which_new_record_is_meant(plan_for):
     plans = [plan_for(new=[LEAGUE, second, club]) for club in (ROVERS, to_second)]
 
     assert len({approval_code(plan) for plan in plans}) == 2
+
+
+# --- nation rules -------------------------------------------------------------------------
+
+NATION_RULES = {
+    "nation": 9001,
+    "season_update_day": {"day_of_month": 20, "month": "jun"},
+    "start_date": "2026-08-01",
+    "end_date": "2027-05-31",
+    "league_comps": [
+        {
+            "competition": "@D1",
+            "minimum_number_teams": 2,
+            "maximum_number_teams": 2,
+            "start_date": "2026-08-15",
+            "end_date": "2027-05-15",
+        }
+    ],
+}
+
+
+def rules_for(competition):
+    division = NATION_RULES["league_comps"][0] | {"competition": competition}
+    return NATION_RULES | {"league_comps": [division]}
+
+
+def test_rules_are_written_with_the_records_they_are_for(plan_for):
+    plan = plan_for(new=[LEAGUE, ROVERS, ROVERS], nation_rules=NATION_RULES)
+
+    file = build_file(plan, approval_code(plan), TODAY)
+
+    league = next(i.value for i in file.changes.changes[0] if i.tag == "nwvl")[-1].value
+    (rules,) = [item for item in file.changes.editor if item.tag == "rlgr"]
+    (divisions,) = [item for item in rules.value if item.tag == "lgcs"]
+    assert divisions.value[0].value[0].value[1].value == league
+    assert plan.warnings == []
+
+
+def test_rules_alone_are_a_request(plan_for):
+    assert plan_for(nation_rules=rules_for(9201)).rules is not None
+
+
+def test_the_code_covers_the_rules(plan_for):
+    plans = [
+        plan_for(new=[LEAGUE]),
+        plan_for(new=[LEAGUE], nation_rules=NATION_RULES),
+        plan_for(new=[LEAGUE], nation_rules=NATION_RULES | {"end_date": "2027-06-01"}),
+    ]
+
+    assert len({approval_code(plan) for plan in plans}) == 3
+
+
+@pytest.mark.parametrize(
+    ("clubs", "has"),
+    [([], "no clubs"), ([ROVERS], "1 club"), ([ROVERS] * 3, "3 clubs")],
+    ids=["none", "too few", "too many"],
+)
+def test_a_division_without_the_right_number_of_clubs_is_pointed_out(plan_for, clubs, has):
+    (warning,) = plan_for(new=[LEAGUE, *clubs], nation_rules=NATION_RULES).warnings
+
+    assert "@D1" in warning and has in warning and "needs 2" in warning
+
+
+def test_clubs_that_are_moved_in_and_out_count(plan_for):
+    """9101 is in 9201 and 9102 in 9203; one is moved in, the other out."""
+    moves = [
+        by_hand(9102, of="clubs", division_uid=9201),
+        by_hand(9103, of="clubs", division_uid=9201),
+        by_hand(9101, of="clubs", division_uid=9203),
+    ]
+
+    assert plan_for(edits=moves, nation_rules=rules_for(9201)).warnings == []
+
+
+def test_sub_divisions_hold_the_clubs_of_a_division(plan_for):
+    rules = rules_for("@D1")
+    rules["league_comps"][0]["child_competitions"] = [{"competition": "@D2"}]
+    second = LEAGUE | {"as": "D2"}
+    in_second = ROVERS | {"set": ROVERS["set"] | {"division_uid": "@D2"}}
+
+    plan = plan_for(new=[LEAGUE, second, in_second, in_second], nation_rules=rules)
+
+    assert plan.warnings == []
+
+
+@pytest.mark.parametrize(
+    ("request_", "complaint"),
+    [
+        ({"nation_rules": rules_for(9202)}, "women"),
+        (
+            {
+                "new": [LEAGUE | {"set": LEAGUE["set"] | {"PLgn": 1}}],
+                "nation_rules": rules_for("@D1"),
+            },
+            "women",
+        ),
+        ({"nation_rules": rules_for("@D1")}, "@D1"),
+        ({"new": [LEAGUE, ROVERS | {"as": "R"}], "nation_rules": rules_for("@R")}, "club"),
+    ],
+    ids=["existing", "new", "unknown", "not a competition"],
+)
+def test_rules_that_cannot_be_written_are_refused(plan_for, request_, complaint):
+    with pytest.raises(FormatError, match=complaint):
+        plan_for(**request_)
+
+
+def test_a_file_with_rules_cannot_be_started_from_for_other_rules(plan_for, tmp_path):
+    plan = plan_for(nation_rules=rules_for(9201))
+    path = tmp_path / "Rules.fmf"
+    save_editor_file(build_file(plan, approval_code(plan), TODAY), path)
+
+    with pytest.raises(FormatError, match="rules already"):
+        plan_for(start_from=str(path), nation_rules=rules_for(9201))
+
+
+def test_rules_that_replace_those_of_the_game_are_pointed_out(plan_for):
+    (warning, *_) = plan_for(nation_rules=rules_for(9201) | {"nation": 9002}).warnings
+
+    assert "Norwegia" in warning and "replace" in warning
 
 
 # --- the file -----------------------------------------------------------------------------

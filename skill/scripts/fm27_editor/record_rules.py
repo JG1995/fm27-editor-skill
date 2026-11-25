@@ -123,43 +123,53 @@ class RecordRules:
     def _value(
         self, field: Field, given: FieldValue, new: Mapping[str, RecordKind]
     ) -> FieldValue | NewReference:
-        if field.points_to is not None and isinstance(given, str) and given.startswith(NEW_MARK):
-            return _new_reference(field, given, new)
+        called = f"{field.name} ({field.code})"
+        if field.points_to is not None and is_new_reference(given):
+            reason = refusal(field)
+            if reason is not None:
+                raise EditError(f"{called} {reason}")
+            return _new_reference(field.points_to, called, given, new)
         value = _typed(field, given)
-        self._check(field, value)
-        return value
-
-    def _check(self, field: Field, value: FieldValue) -> None:
         stored_value(field, value)
-        self._check_exists(field, value)
+        if field.points_to is not None:
+            self._check_exists(field.points_to, called, value)
         if field.code == PLAYER_POTENTIAL:
             check_potential(field, value)
+        return value
 
-    def _check_exists(self, field: Field, value: FieldValue) -> None:
-        if field.points_to is None:
-            return
-        table = LOOKUP_TABLES.get(field.points_to)
+    @property
+    def lookup(self) -> sqlite3.Connection:
+        return self._lookup
+
+    def refer(
+        self, points_to: str, called: str, given: object, new: Mapping[str, RecordKind]
+    ) -> int | NewReference:
+        """A record that exists or is new, for something called `called` that points to it."""
+        if is_new_reference(given):
+            return _new_reference(points_to, called, given, new)
+        self._check_exists(points_to, called, given)
+        return given
+
+    def _check_exists(self, points_to: str, called: str, uid: object) -> None:
+        table = LOOKUP_TABLES.get(points_to)
         if table is None:
-            raise EditError(
-                f"{field.name} ({field.code}) points to a {field.points_to}, "
-                "which the lookup does not hold"
-            )
-        if record_name(self._lookup, table, value) is None:
-            raise EditError(f"{field.name} ({field.code}): there is no {table} {value!r}")
+            raise EditError(f"{called} points to a {points_to}, which the lookup does not hold")
+        if not isinstance(uid, int) or record_name(self._lookup, table, uid) is None:
+            raise EditError(f"{called}: there is no {table} {uid!r}")
 
 
-def _new_reference(field: Field, given: str, new: Mapping[str, RecordKind]) -> NewReference:
-    reason = refusal(field)
-    if reason is not None:
-        raise EditError(f"{field.name} ({field.code}) {reason}")
+def is_new_reference(given: object) -> bool:
+    return isinstance(given, str) and given.startswith(NEW_MARK)
+
+
+def _new_reference(
+    points_to: str, called: str, given: str, new: Mapping[str, RecordKind]
+) -> NewReference:
     name = given.removeprefix(NEW_MARK)
     if name not in new:
-        raise EditError(f"{field.name} ({field.code}): no new record above is called {given}")
-    if new[name] is not NEW_KINDS.get(field.points_to):
-        raise EditError(
-            f"{field.name} ({field.code}) points to a {field.points_to}, "
-            f"and {given} is a {new[name].name}"
-        )
+        raise EditError(f"{called}: no new record above is called {given}")
+    if new[name] is not NEW_KINDS.get(points_to):
+        raise EditError(f"{called} points to a {points_to}, and {given} is a {new[name].name}")
     return NewReference(name)
 
 

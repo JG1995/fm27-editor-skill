@@ -14,9 +14,11 @@ from fm27_editor.editor_file import load_editor_file, save_editor_file
 from fm27_editor.explain import explain_lines
 from fm27_editor.plan import Plan, build_file, make_plan
 from fm27_editor.preview import preview_lines
-from fm27_editor.record_kinds import KINDS, kind_named
+from fm27_editor.record_kinds import KINDS, RecordKind, kind_named
 from fm27_editor.record_rules import RecordRules
 from fm27_editor.request import read_request, run_query
+from fm27_editor.rule_definitions import RuleDefinitions
+from fm27_editor.rule_words import RULES_OF, offered_lines
 from fm27_editor.words import accepted, counted
 
 EDITOR_VARIABLE = "FM27_EDITOR_DIR"
@@ -47,7 +49,7 @@ def _parser() -> argparse.ArgumentParser:
     find.set_defaults(command=_find)
 
     fields = commands.add_parser("fields", help="list the fields that can be set")
-    fields.add_argument("kind", choices=list(KINDS))
+    fields.add_argument("kind", choices=[*KINDS, *RULES_OF])
     fields.add_argument("text", nargs="?", default="", help="part of a name or code")
     fields.set_defaults(command=_fields)
 
@@ -98,14 +100,21 @@ def _cell(value: object) -> str:
 
 
 def _fields(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str]:
-    kind = kind_named(options.kind)
+    if options.kind in RULES_OF:
+        lines = offered_lines(options.kind, RuleDefinitions(options.editor))
+    else:
+        lines = _field_lines(kind_named(options.kind), RecordRules(options.editor, lookup))
+    matching = [line for line in lines if options.text.lower() in line.lower()]
+    return matching or [f"No field matches {options.text!r}"]
+
+
+def _field_lines(kind: RecordKind, rules: RecordRules) -> list[str]:
     lines = []
-    for field in RecordRules(options.editor, lookup).writable_fields(kind):
+    for field in rules.writable_fields(kind):
         name = kind.names.get(field.code)
         called = field.code if name is None else f"{name} ({field.code})"
         lines.append(f"{called}: {field.name}, {accepted(field)}")
-    matching = [line for line in lines if options.text.lower() in line.lower()]
-    return matching or [f"No field matches {options.text!r}"]
+    return lines
 
 
 def _explain(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str]:
@@ -125,5 +134,4 @@ def _write(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str]
 
 
 def _plan(options: argparse.Namespace, lookup: sqlite3.Connection) -> Plan:
-    request = read_request(options.request)
-    return make_plan(request, RecordRules(options.editor, lookup), lookup)
+    return make_plan(read_request(options.request), options.editor, lookup)

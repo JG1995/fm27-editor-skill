@@ -38,12 +38,10 @@ def accepted(field: Field) -> str:
 
 
 def shown(field: Field, value: object, lookup: sqlite3.Connection) -> str:
-    if isinstance(value, NewReference):
-        return f"{NEW_MARK}{value.name}"
     if isinstance(value, datetime.date):
         return value.isoformat()
     if field.points_to is not None:
-        return named(lookup, LOOKUP_TABLES[field.points_to], value)
+        return named_reference(lookup, LOOKUP_TABLES[field.points_to], value)
     if field.choices and value in field.choices:
         return f"{field.choices[value]} ({value})"
     return str(value)
@@ -53,6 +51,15 @@ def named(lookup: sqlite3.Connection, table: str | None, uid: int) -> str:
     """A record by name and uid, or by uid alone when the lookup has no name for it."""
     name = None if table is None else record_name(lookup, table, uid)
     return str(uid) if name is None else f"{name} ({uid})"
+
+
+def named_reference(
+    lookup: sqlite3.Connection, table: str | None, record: int | NewReference
+) -> str:
+    """A record by name, or a new one by its name in the request."""
+    if isinstance(record, NewReference):
+        return f"{NEW_MARK}{record.name}"
+    return named(lookup, table, record)
 
 
 def _listed(choices: dict[int, str]) -> str:

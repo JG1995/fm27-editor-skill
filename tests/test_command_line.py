@@ -94,6 +94,23 @@ def test_the_fields_of_clubs_and_competitions_are_listed_by_the_lookups_names(ru
     assert competitions == ["dbty: Type, one of 0 Top Division, 2 Main Cup"]
 
 
+def test_the_rules_that_can_be_set_are_listed_with_what_is_set_otherwise(run):
+    _, rounds, _ = run("fields", "division", "number_rounds")
+    _, division, _ = run("fields", "division")
+    _, cup, _ = run("fields", "cup", "rounds")
+    _, nation, _ = run("fields", "nation_rules", "transfer_windows")
+
+    assert rounds == ["number_rounds: Number Rounds, 1 to 40, otherwise 2"]
+    assert "competition: Competition, the uid or new name of a competition, needed" in division
+    assert "subs_rules" in "\n".join(division) and "use_game_rules" not in "\n".join(division)
+    assert cup[0].startswith("rounds: Rounds, a list of (number_matches: 1 to 500, needed; ")
+    assert nation == [
+        "transfer_windows: Transfer Windows, a list of (start_date: a date such as 2026-08-15, "
+        "needed; end_date: a date such as 2026-08-15, needed; window_type: one of normal, "
+        "free_transfers_only, otherwise normal), otherwise none"
+    ]
+
+
 def test_fields_can_be_searched_by_name_or_code(run):
     _, by_name, _ = run("fields", "staff", "ability")
     _, by_code, _ = run("fields", "staff", "ncra")
