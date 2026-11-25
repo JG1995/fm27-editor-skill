@@ -45,6 +45,18 @@ def test_edited_file_saves_as_a_new_file_that_reads_back(source, tmp_path):
     assert saved.container.root.members[0].name == "mcp test"
 
 
+def test_a_file_with_an_added_change_saves_with_the_new_count(source, tmp_path):
+    edited = load_editor_file(source)
+    edited.changes.changes.append(list(edited.changes.changes[0]))
+
+    save_editor_file(edited, tmp_path / "two changes.fmf")
+
+    saved = load_editor_file(tmp_path / "two changes.fmf")
+    count = next(item.value for item in saved.changes.general if item.tag == "dchc")
+    assert count == (2).to_bytes(8, "little")
+    assert saved.changes.changes == edited.changes.changes
+
+
 def test_source_file_is_not_changed_by_loading_or_saving(source, tmp_path):
     before = source.read_bytes()
     edited = load_editor_file(source)

@@ -9,7 +9,7 @@ Scalar values stay as raw bytes: their meaning depends on the field, and raw byt
 
 import struct
 from compression import zstd
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from enum import IntEnum
 
 from fm27_editor.binary import FormatError, Reader, text_bytes, unpack_frame
@@ -111,16 +111,20 @@ def read_body(content: bytes) -> bytes:
 
 
 def change_list_body(changes: ChangeList) -> bytes:
-    general = [_with_change_count(item, len(changes.changes)) for item in changes.general]
-    body = _group_bytes(general) + _group_bytes(changes.editor)
-    body += struct.pack("<I", len(changes.changes))
-    return body + b"".join(_group_bytes(change) for change in changes.changes)
+    counted = with_current_count(changes)
+    body = _group_bytes(counted.general) + _group_bytes(counted.editor)
+    body += struct.pack("<I", len(counted.changes))
+    return body + b"".join(_group_bytes(change) for change in counted.changes)
 
 
-def _with_change_count(item: Property, count: int) -> Property:
-    if item.tag != CHANGE_COUNT_TAG:
-        return item
-    return Property(item.tag, item.kind, struct.pack("<Q", count), item.flag)
+def with_current_count(changes: ChangeList) -> ChangeList:
+    """The same list with its stored change count brought up to date."""
+    count = struct.pack("<Q", len(changes.changes))
+    general = [
+        replace(item, value=count) if item.tag == CHANGE_COUNT_TAG else item
+        for item in changes.general
+    ]
+    return replace(changes, general=general)
 
 
 def _read_group(reader: Reader) -> list[Property]:

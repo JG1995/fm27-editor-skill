@@ -4,7 +4,12 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 
 from fm27_editor.binary import FormatError
-from fm27_editor.change_list import ChangeList, parse_change_list, serialise_change_list
+from fm27_editor.change_list import (
+    ChangeList,
+    parse_change_list,
+    serialise_change_list,
+    with_current_count,
+)
 from fm27_editor.container import Container, Folder, Member, read_container, write_container
 
 CHANGE_LIST_EXTENSION = ".dbc"
@@ -70,5 +75,6 @@ def _container_to_save(file: EditorFile, name: str) -> Container:
 
 def _check_reads_back(content: bytes, container: Container, changes: ChangeList) -> None:
     again = read_container(content)
-    if again != container or parse_change_list(_change_list_member(again).data) != changes:
+    saved = parse_change_list(_change_list_member(again).data)
+    if again != container or saved != with_current_count(changes):
         raise EditorFileError("the new file does not read back as it was written")
