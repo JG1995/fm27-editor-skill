@@ -147,7 +147,7 @@ def _stored(field: Field, value: FieldValue) -> tuple[Kind, Value]:
         case "attribute":
             checked = _checked_number(field, value, LOWEST_ATTRIBUTE, HIGHEST_ATTRIBUTE)
             return Kind.TEXT, str(checked)
-        case "integer" | "cash":
+        case "integer":
             return _stored_number(_checked_number(field, value, field.lowest, field.highest))
         case "enum":
             return _stored_number(_checked_choice(field, value))

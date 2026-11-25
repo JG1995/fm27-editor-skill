@@ -163,6 +163,7 @@ def test_a_reference_names_the_other_record(table, tag):
         (a_field("database_record_unique_id", points_to="nation"), 2**32),
         (a_field("database_record_unique_id", points_to="moon"), 5),
         (a_field("list"), 5),
+        (a_field("cash"), 5),
         (a_field("integer", is_editable=False), 5),
     ],
 )
