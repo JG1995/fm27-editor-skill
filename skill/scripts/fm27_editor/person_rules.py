@@ -12,7 +12,7 @@ from pathlib import Path
 from fm27_editor.field_definitions import Field, read_fields
 from fm27_editor.people import PersonKind
 from fm27_editor.person_codes import person_codes
-from fm27_editor.record_changes import EditError, FieldValue, stored_value
+from fm27_editor.record_changes import EditError, FieldValue, refusal, stored_value
 
 DEFINED_IN = {PersonKind.PLAYER: "player", PersonKind.STAFF: "non player"}
 # The record itself says the person type. The Editor works out the others, or shows them only in the
@@ -54,6 +54,14 @@ class PersonRules:
         if kind not in self._fields:
             self._fields[kind] = self._read_fields(kind)
         return self._fields[kind]
+
+    def writable_fields(self, kind: PersonKind) -> list[Field]:
+        """The fields that can be given a value, by code."""
+        return [
+            field
+            for _, field in sorted(self.fields(kind).items())
+            if refusal(field) is None and field.points_to in (None, *LOOKUP_TABLES)
+        ]
 
     def settings(self, kind: PersonKind, values: Mapping[str, FieldValue]) -> list[Setting]:
         """The checked settings for these values.
