@@ -41,6 +41,7 @@ TABLE_OF_KIND = {
     "Person": "person",
     "Club": "club",
     "Competition": "competition",
+    "Award": "award",
     "Nation": "nation",
     "City": "city",
     "Stadium": "stadium",

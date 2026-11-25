@@ -11,7 +11,7 @@ from fm27_editor.editor_file import load_editor_file
 from fm27_editor.explain import explain_lines
 from fm27_editor.plan import approval_code, build_file, make_plan
 
-PERSON, CLUB, STADIUM, COMPETITION = 1, 3, 21, 25
+AWARD, PERSON, CLUB, STADIUM, COMPETITION = 0, 1, 3, 21, 25
 
 
 def number(value):
@@ -96,6 +96,13 @@ def test_every_kind_of_value_is_shown_in_plain_words(lines_for, value, shown):
     lines = lines_for(synthetic.record_change(PERSON, 100, "Phes", value))
 
     assert f"  Alfa Striker (100): Height = {shown}" in lines
+
+
+def test_changes_to_awards_name_the_award(lines_for):
+    lines = lines_for(synthetic.record_change(AWARD, 9501, "AWap", number(1)))
+
+    assert "Award: 1 change to 1 record" in lines
+    assert "  Example Player of the Year (9501): Allow Previous Winner = 1" in lines
 
 
 def test_new_people_are_counted_and_named_by_the_file_itself(lines_for):
