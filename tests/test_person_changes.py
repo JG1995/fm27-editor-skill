@@ -7,8 +7,9 @@ import pytest
 
 import synthetic
 from fm27_editor.change_list import ChangeList, Kind, Property
-from fm27_editor.new_person import new_person, person_definitions
 from fm27_editor.people import PersonKind
+from fm27_editor.person_changes import new_person
+from fm27_editor.person_rules import PersonRules
 from fm27_editor.record_changes import EditError, NewIds
 
 PERSON = synthetic.definition_file(
@@ -70,11 +71,15 @@ BASICS = {
 
 @pytest.fixture
 def editor(tmp_path):
-    path = tmp_path / "shared" / "data" / "editor.fmf"
-    path.parent.mkdir(parents=True)
-    files = {"person": PERSON, "player": PLAYER, "non player": NON_PLAYER}
-    path.write_bytes(synthetic.definitions_container(files, synthetic.enum_file()))
-    return tmp_path
+    return editor_folder(tmp_path, PERSON)
+
+
+def editor_folder(path, person):
+    definitions = path / "shared" / "data" / "editor.fmf"
+    definitions.parent.mkdir(parents=True)
+    files = {"person": person, "player": PLAYER, "non player": NON_PLAYER}
+    definitions.write_bytes(synthetic.definitions_container(files, synthetic.enum_file()))
+    return path
 
 
 def lookup():
@@ -87,12 +92,13 @@ def lookup():
 
 
 def make(editor, kind=PersonKind.PLAYER, **values):
-    return create(kind, BASICS | values, person_definitions(editor, kind))
+    return create(editor, kind, BASICS | values)
 
 
-def create(kind, values, fields):
+def create(editor, kind, values):
     with lookup() as database:
-        return new_person(kind, values, fields, NewIds(ChangeList(), random.Random(1)), database)
+        settings = PersonRules(editor, database).new_person_settings(kind, values)
+        return new_person(kind, settings, NewIds(ChangeList(), random.Random(1)))
 
 
 def tagged(change):
@@ -146,16 +152,15 @@ def test_a_person_needs_a_name_a_birth_date_and_a_nation(editor, name):
     values = {key: value for key, value in BASICS.items() if key != name}
 
     with pytest.raises(EditError, match="needs"):
-        create(PersonKind.PLAYER, values, person_definitions(editor, PersonKind.PLAYER))
+        create(editor, PersonKind.PLAYER, values)
 
 
-def test_an_editor_without_a_required_field_is_reported(editor):
-    fields = person_definitions(editor, PersonKind.PLAYER)
-    del fields["Pdob"]
-    values = {key: value for key, value in BASICS.items() if key != "birth_date"}
+def test_an_editor_without_a_required_field_is_reported(tmp_path):
+    first_name = synthetic.field_definition("Pfna", "First Name", "string")
+    editor = editor_folder(tmp_path, synthetic.definition_file("pers", first_name))
 
     with pytest.raises(EditError, match="Pdob"):
-        create(PersonKind.PLAYER, values, fields)
+        create(editor, PersonKind.PLAYER, {"Pfna": "Testy"})
 
 
 @pytest.mark.parametrize("name", ["nation_uid", "club_uid"])
@@ -206,5 +211,5 @@ def test_what_the_editor_works_out_itself_cannot_be_set(editor, code):
 
 @pytest.mark.parametrize("kind", [PersonKind.BOTH, PersonKind.OFFICIAL, PersonKind.RETIRED])
 def test_kinds_of_people_not_seen_created_are_refused(editor, kind):
-    with pytest.raises(EditError, match="player or staff"):
-        person_definitions(editor, kind)
+    with pytest.raises(EditError, match="players and staff"):
+        make(editor, kind)
