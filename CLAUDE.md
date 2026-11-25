@@ -30,9 +30,10 @@ Record the exact commands here as soon as they exist, and correct them when the 
 * Install: needs Python 3.14, `cryptography`, and `numpy` (`python3 -m pip install cryptography numpy pytest`); Ruff is the linter.
 * Test: `python3 -m pytest`, or one file with `python3 -m pytest tests/test_container.py`.
 * Test against your own editor files (never committed): `FM27_EDITOR_FILES="<folder>" python3 -m pytest tests/test_real_files.py`.
-* Test the lookup against an installed Editor: `FM27_EDITOR_DIR="<Editor folder>" python3 -m pytest tests/test_real_database.py`.
+* Test the lookup and field codes against an installed Editor: `FM27_EDITOR_DIR="<Editor folder>" python3 -m pytest tests/test_real_database.py`.
 * Lint and format: `ruff check .` and `ruff format .`.
-* Run and typecheck: none yet.
+* Run: `python3 skill/scripts/fm27.py --help` lists the commands; `FM27_EDITOR_DIR` or `--editor` names the Editor folder.
+* Typecheck: none yet.
 
 ## Conventions
 * Always follow TDD.
