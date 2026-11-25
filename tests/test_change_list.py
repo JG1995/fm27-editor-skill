@@ -42,6 +42,7 @@ def every_verified_kind() -> bytes:
         prop("pair", 0x14, b"\x67\x07"),
         prop("quad", 0x15, b"\x01\x02\x03\x04"),
         prop("wide", 0x18, b"\x01" * 8),
+        prop("real", 0x19, struct.pack("<f", 1.5)),
         prop("name", 0x1A, text("Ægir Þór")),
         prop("date", 0x20, b"\x00\xb6\xd2\x0f"),
     )
