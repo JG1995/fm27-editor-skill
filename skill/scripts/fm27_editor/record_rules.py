@@ -14,9 +14,26 @@ from fm27_editor.change_reading import EditError
 from fm27_editor.field_definitions import Field, read_fields
 from fm27_editor.potential import PLAYER_POTENTIAL, POTENTIAL_RANGE, check_potential
 from fm27_editor.record_changes import FieldValue, refusal, stored_value
-from fm27_editor.record_kinds import RecordKind
+from fm27_editor.record_kinds import CLUB, COMPETITION, RecordKind
 
-LOOKUP_TABLES = {"nation": "nation", "team": "club", "club": "club"}
+# The lookup's table for what a field points to.
+LOOKUP_TABLES = {
+    "nation": "nation",
+    "team": "club",
+    "club": "club",
+    "competition": "competition",
+    "city": "city",
+    "stadium": "stadium",
+}
+NEW_KINDS = {"team": CLUB, "club": CLUB, "competition": COMPETITION}
+NEW_MARK = "@"
+
+
+@dataclass(frozen=True)
+class NewReference:
+    """A record that the same request creates, by the name it has there."""
+
+    name: str
 
 
 @dataclass(frozen=True)
@@ -24,11 +41,14 @@ class Setting:
     """A field and the value it is to have."""
 
     field: Field
-    value: FieldValue
+    value: FieldValue | NewReference
 
     @property
-    def as_the_lookup_says(self) -> str | int:
+    def as_the_lookup_says(self) -> object:
         return self.value.isoformat() if isinstance(self.value, datetime.date) else self.value
+
+
+NO_NEW: Mapping[str, RecordKind] = {}
 
 
 class RecordRules:
@@ -51,26 +71,33 @@ class RecordRules:
             if refusal(field) is None and field.points_to in (None, *LOOKUP_TABLES)
         ]
 
-    def settings(self, kind: RecordKind, values: Mapping[str, FieldValue]) -> list[Setting]:
+    def settings(
+        self,
+        kind: RecordKind,
+        values: Mapping[str, FieldValue],
+        new: Mapping[str, RecordKind] = NO_NEW,
+    ) -> list[Setting]:
         """The checked settings for these values.
 
         Facts the lookup has are given by its names; any other field is given by its code. A date
-        may be given as text, the way the lookup holds it, and yes or no as 1 or 0.
+        may be given as text, the way the lookup holds it, and yes or no as 1 or 0. A record among
+        `new` is referred to by its name there, with a mark in front.
         """
         chosen: dict[str, Setting] = {}
         for name, given in values.items():
             field = self._field(kind, name)
             if field.code in chosen:
                 raise EditError(f"{field.name} ({field.code}) is given twice")
-            value = _typed(field, given)
-            self._check(field, value)
-            chosen[field.code] = Setting(field, value)
+            chosen[field.code] = Setting(field, self._value(field, given, new))
         return list(chosen.values())
 
     def new_record_settings(
-        self, kind: RecordKind, values: Mapping[str, FieldValue]
+        self,
+        kind: RecordKind,
+        values: Mapping[str, FieldValue],
+        new: Mapping[str, RecordKind] = NO_NEW,
     ) -> list[Setting]:
-        settings = self.settings(kind, values)
+        settings = self.settings(kind, values, new)
         given = {setting.field.code for setting in settings}
         missing = [f"{name} ({code})" for code, name in kind.needed.items() if code not in given]
         if missing:
@@ -85,13 +112,22 @@ class RecordRules:
             # The Editor shows potential as two fields, a number and a choice of ranges.
             ranges = fields[POTENTIAL_RANGE].choices
             fields[PLAYER_POTENTIAL] = replace(fields[PLAYER_POTENTIAL], choices=ranges)
-        return {code: field for code, field in fields.items() if code not in kind.left_out}
+        return {code: field for code, field in fields.items() if kind.offers(code)}
 
     def _field(self, kind: RecordKind, name: str) -> Field:
         field = self.fields(kind).get(kind.codes.get(name, name))
         if field is None:
             raise EditError(f"{kind.name} has no field {name}")
         return field
+
+    def _value(
+        self, field: Field, given: FieldValue, new: Mapping[str, RecordKind]
+    ) -> FieldValue | NewReference:
+        if field.points_to is not None and isinstance(given, str) and given.startswith(NEW_MARK):
+            return _new_reference(field, given, new)
+        value = _typed(field, given)
+        self._check(field, value)
+        return value
 
     def _check(self, field: Field, value: FieldValue) -> None:
         stored_value(field, value)
@@ -110,6 +146,21 @@ class RecordRules:
             )
         if record_name(self._lookup, table, value) is None:
             raise EditError(f"{field.name} ({field.code}): there is no {table} {value!r}")
+
+
+def _new_reference(field: Field, given: str, new: Mapping[str, RecordKind]) -> NewReference:
+    reason = refusal(field)
+    if reason is not None:
+        raise EditError(f"{field.name} ({field.code}) {reason}")
+    name = given.removeprefix(NEW_MARK)
+    if name not in new:
+        raise EditError(f"{field.name} ({field.code}): no new record above is called {given}")
+    if new[name] is not NEW_KINDS.get(field.points_to):
+        raise EditError(
+            f"{field.name} ({field.code}) points to a {field.points_to}, "
+            f"and {given} is a {new[name].name}"
+        )
+    return NewReference(name)
 
 
 def _typed(field: Field, given: FieldValue) -> FieldValue:

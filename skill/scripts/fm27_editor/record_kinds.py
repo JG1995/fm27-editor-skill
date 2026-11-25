@@ -18,6 +18,8 @@ class RecordGroup:
     table: Table
     details: Mapping[str, str]
     """What tells a record from others of its name: columns of the view, and how to say them."""
+    name_codes: tuple[str, ...]
+    """The fields a name is made of, in the order they are said."""
 
 
 @dataclass(frozen=True, eq=False)
@@ -32,6 +34,8 @@ class RecordKind:
     """What a new record cannot be without: names by code."""
     left_out: frozenset[str]
     """Codes that are not set by hand."""
+    left_out_families: tuple[str, ...] = ()
+    """What the codes of whole groups of fields start with that are not set by hand either."""
     person_type: int | None = None
 
     @cached_property
@@ -39,13 +43,32 @@ class RecordKind:
         """The lookup's names by code."""
         return {code: name for name, code in self.codes.items()}
 
+    def offers(self, code: str) -> bool:
+        return code not in self.left_out and not code.startswith(self.left_out_families)
+
 
 PEOPLE = RecordGroup(
     one="person",
     view="people",
     table=Table.PERSON,
     details={"birth_date": "born {}", "nation": "{}", "club": "{}"},
+    name_codes=("Pfna", "Psna"),
 )
+CLUBS = RecordGroup(
+    one="club",
+    view="clubs",
+    table=Table.CLUB,
+    details={"nation": "{}", "gender": "{}", "division": "{}"},
+    name_codes=("Cnam",),
+)
+COMPETITIONS = RecordGroup(
+    one="competition",
+    view="competitions",
+    table=Table.COMPETITION,
+    details={"nation": "{}", "gender": "{}", "level": "level {}"},
+    name_codes=("cnam",),
+)
+GROUPS = {group.view: group for group in (PEOPLE, CLUBS, COMPETITIONS)}
 PERSON_NEEDS = {
     "Pfna": "First Name",
     "Psna": "Second Name",
@@ -80,7 +103,65 @@ STAFF = RecordKind(
     left_out=PERSON_LEFT_OUT,
     person_type=PersonKind.STAFF,
 )
-KINDS = {kind.name: kind for kind in (PLAYER, STAFF)}
+COMPUTED_NAMES = ("dbnm", "dAPw")
+# The record books: highest attendance, biggest win, and so on.
+CLUB_RECORDS = (
+    *("CAA", "CBD", "CBW", "CFG", "CGL", "CGM", "CHA", "CHF", "CHG", "CHL", "CHR", "CHS", "CLA"),
+    *("CLR", "CMA", "CMC", "CMG", "CMO", "COP", "COS", "CWC", "CWL", "CWR", "CWS", "CWW", "CYP"),
+    "CYS",
+)
+CLUB = RecordKind(
+    name="club",
+    group=CLUBS,
+    defined_in=("club",),
+    codes={
+        "name": "Cnam",
+        "short_name": "Csnm",
+        "is_extinct": "Cext",
+        "nation_uid": "Cnti",
+        "based_nation_uid": "Cbni",
+        "city_uid": "Ccty",
+        "stadium_uid": "Csti",
+        "reputation": "Crep",
+        "division_uid": "Cdvi",
+        "last_division_uid": "Cldi",
+        "last_position": "Clps",
+    },
+    needed={"Cnam": "Name", "Csnm": "Short Name", "Cnti": "Nation"},
+    # The Editor shows facts of the stadium and whether there is a list among those of the club.
+    # Crkt is called a yes or no, and holds other numbers in 305 real changes.
+    left_out=frozenset(
+        {
+            *COMPUTED_NAMES,
+            *("Snam", "Scpy", "Sscy", "Scas", "Secy", "Sucy", "Sdcy", "Spty", "Scov", "Sush"),
+            "Sscl",
+            *("Chrd", "CrcS", "Cmls", "Crkt"),
+        }
+    ),
+    left_out_families=CLUB_RECORDS,
+)
+COMPETITION = RecordKind(
+    name="competition",
+    group=COMPETITIONS,
+    defined_in=("comp",),
+    codes={
+        "name": "cnam",
+        "short_name": "csnm",
+        "level": "levl",
+        "nation_uid": "cnti",
+        "parent_uid": "cpcm",
+    },
+    needed={"cnam": "Name", "csnm": "Short Name", "cnti": "Nation", "dbty": "Type"},
+    left_out=frozenset({*COMPUTED_NAMES, "DBvw"}),
+    left_out_families=(*CLUB_RECORDS, "HCA", "LCA"),
+)
+KINDS = {kind.name: kind for kind in (PLAYER, STAFF, CLUB, COMPETITION)}
+
+
+def kind_of(group: RecordGroup, facts: Mapping[str, object]) -> RecordKind:
+    """The kind of a record that the lookup describes."""
+    kinds = [kind for kind in KINDS.values() if kind.group is group]
+    return kinds[0] if len(kinds) == 1 else kind_named(str(facts["kind"]))
 
 
 def kind_named(name: str) -> RecordKind:

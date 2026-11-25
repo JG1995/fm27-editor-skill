@@ -119,11 +119,15 @@ def change_list(*changes: bytes, count: int | None = None) -> bytes:
     return b"\x03\x01cbd.\x06\x00\x00" + zstd_frame(body)
 
 
-def record_change(table: int, uid: int, code: str, new_value: bytes) -> bytes:
-    """A change to a record of the database; `new_value` is a property made with `prop`."""
+def record_change(table: int, record: int | bytes, code: str, new_value: bytes) -> bytes:
+    """A change to a record of the database, given by its uid, or to a new one, given by its ID.
+
+    `new_value` is a property made with `prop`.
+    """
+    identity = record if isinstance(record, bytes) else struct.pack("<II", record, record)
     return change(
         prop("dtty", 0x11, bytes([table])),
-        prop("duni", 0x0F, struct.pack("<II", uid, uid)),
+        prop("duni", 0x0F, identity),
         prop("prty", 0x02, code.encode()[::-1]),
         new_value,
     )
@@ -356,6 +360,14 @@ def field_definition(code: str, name: str, kind: str, *extra: str) -> str:
         f'<record><flags id="field" value="{code}" />'
         f'<translation id="name" translation_id="1" type="use" value="{name}" />'
         f'<flags id="type" value="{kind}" />{"".join(extra)}</record>'
+    )
+
+
+def reference(table: str) -> tuple[str, str]:
+    """The type of a field that points to a record, and what tells the kind of that record."""
+    return (
+        "database_record_unique_id",
+        f'<flags id="database_table_type" value="{table}" />',
     )
 
 
