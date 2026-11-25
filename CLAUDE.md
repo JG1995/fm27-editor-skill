@@ -1,5 +1,5 @@
 # Core Guidelines
-You are building an MCP server that lets AI assistants operate the Football Manager 27 Pre-game Editor more effectively than just operating the user's PC.
+You are building a Claude Code skill, with bundled scripts, that lets Claude read and write Football Manager 27 Pre-game Editor data files directly instead of operating the Editor on the user's PC.
 
 Always build code cleanly, modularly, and with proper architecture and separation of concerns, so the codebase reads as if one developer wrote all of it: the same kind of problem is solved with the same pattern everywhere. Never simply bolt on a feature just because I asked for it; the Architecture section below says what to do when a feature does not fit. Always keep `.wiki/ARCHITECTURE.md` updated: it states the intended architecture and lists where the code does not match it yet.
 
