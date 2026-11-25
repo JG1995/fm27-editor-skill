@@ -65,24 +65,24 @@ def insert_places(
     divisions = [competition.uid for competition in competitions]
     teams = {team.uid: team for team in parse_teams(server[TEAMS])}
 
-    _insert(cache, "nation", [(uid, _name(names[NamedTable.NATION], uid)) for uid in nations])
-    _insert(
+    insert_rows(cache, "nation", [(uid, _name(names[NamedTable.NATION], uid)) for uid in nations])
+    insert_rows(
         cache,
         "city",
         [
-            (uid, _name(names[NamedTable.CITY], uid), _uid(nations, nation, "nation"))
+            (uid, _name(names[NamedTable.CITY], uid), uid_at(nations, nation, "nation"))
             for uid, nation in city_nations.items()
         ],
     )
-    _insert(
+    insert_rows(
         cache,
         "stadium",
         [
-            (uid, _name(names[NamedTable.STADIUM], uid), _uid(cities, city, "city"))
+            (uid, _name(names[NamedTable.STADIUM], uid), uid_at(cities, city, "city"))
             for uid, city in stadium_cities.items()
         ],
     )
-    _insert(
+    insert_rows(
         cache,
         "competition",
         [
@@ -91,13 +91,13 @@ def insert_places(
                 *names[NamedTable.COMPETITION].get(competition.uid, (None, None)),
                 competition.gender,
                 competition.level,
-                _uid(nations, competition.nation, "nation"),
-                _uid(divisions, competition.parent, "competition"),
+                uid_at(nations, competition.nation, "nation"),
+                uid_at(divisions, competition.parent, "competition"),
             )
             for competition in competitions
         ],
     )
-    _insert(
+    insert_rows(
         cache,
         "club",
         [
@@ -106,9 +106,9 @@ def insert_places(
                 *names[NamedTable.CLUB].get(club.uid, (None, None)),
                 club.gender,
                 club.is_extinct,
-                _uid(nations, club.nation, "nation"),
-                _uid(nations, club.based_nation, "nation"),
-                _uid(cities, club.city, "city"),
+                uid_at(nations, club.nation, "nation"),
+                uid_at(nations, club.based_nation, "nation"),
+                uid_at(cities, club.city, "city"),
                 *_standing(_team(teams, club.uid), stadiums, divisions),
             )
             for club in parse_clubs(client[CLUBS])
@@ -126,15 +126,15 @@ def _standing(
     team: Team, stadiums: Sequence[int], divisions: Sequence[int]
 ) -> tuple[int | None, ...]:
     return (
-        _uid(stadiums, team.stadium, "stadium"),
+        uid_at(stadiums, team.stadium, "stadium"),
         team.reputation or None,
-        _uid(divisions, team.division, "competition"),
-        _uid(divisions, team.last_division, "competition"),
+        uid_at(divisions, team.division, "competition"),
+        uid_at(divisions, team.last_division, "competition"),
         team.last_position or None,
     )
 
 
-def _insert(cache: sqlite3.Connection, table: str, rows: Sequence[tuple]) -> None:
+def insert_rows(cache: sqlite3.Connection, table: str, rows: Sequence[tuple]) -> None:
     if rows:
         placeholders = ", ".join("?" * len(rows[0]))
         cache.executemany(f"INSERT INTO {table} VALUES ({placeholders})", rows)
@@ -144,7 +144,7 @@ def _name(names: Mapping[int, tuple[str, str | None]], uid: int) -> str | None:
     return names[uid][0] if uid in names else None
 
 
-def _uid(uids: Sequence[int], index: int | None, kind: str) -> int | None:
+def uid_at(uids: Sequence[int], index: int | None, kind: str) -> int | None:
     if index is None:
         return None
     if index >= len(uids):
