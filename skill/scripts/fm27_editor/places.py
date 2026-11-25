@@ -8,7 +8,7 @@ from dataclasses import dataclass
 from enum import StrEnum
 
 from fm27_editor.binary import FormatError, Reader
-from fm27_editor.dat_tables import NO_RECORD, read_records
+from fm27_editor.dat_tables import index_at, read_records
 
 CLUB = 0  # other records in the club table are placeholders without a name
 CLUB_HEAD_SIZE, CLUB_TAIL_SIZE = 27, 3
@@ -70,14 +70,14 @@ def parse_clubs(table: bytes) -> list[Club]:
         tail = reader.take(CLUB_TAIL_SIZE)
         if not reader.at_end:
             raise PlacesError(f"club {record.uid} has bytes behind its names")
-        nation, extinct_nation = _index(head, 1), _index(head, 5)
+        nation, extinct_nation = index_at(head, 1), index_at(head, 5)
         clubs.append(
             Club(
                 record.uid,
                 nation if extinct_nation is None else extinct_nation,
-                based_nation=_index(head, 9),
-                city=_index(head, 17),
-                gender=_gender(tail[-1], record.uid),
+                based_nation=index_at(head, 9),
+                city=index_at(head, 17),
+                gender=gender_of(tail[-1], record.uid),
                 is_extinct=extinct_nation is not None,
             )
         )
@@ -95,10 +95,10 @@ def parse_teams(table: bytes) -> list[Team]:
             Team(
                 record.uid,
                 reputation,
-                division=_index(head, 5),
-                last_division=_index(head, 9),
+                division=index_at(head, 5),
+                last_division=index_at(head, 9),
                 last_position=last_position,
-                stadium=_index(head, 17),
+                stadium=index_at(head, 17),
             )
         )
     return teams
@@ -118,10 +118,10 @@ def parse_competitions(client_table: bytes, server_table: bytes) -> list[Competi
         competitions.append(
             Competition(
                 record.uid,
-                nation=_index(record.data, 57),
-                parent=_index(record.data, 65),
+                nation=index_at(record.data, 57),
+                parent=index_at(record.data, 65),
                 level=None if level == NO_LEVEL else level + 1,
-                gender=_gender(Reader(rest.data, PlacesError).take(121)[120], record.uid),
+                gender=gender_of(Reader(rest.data, PlacesError).take(121)[120], record.uid),
             )
         )
     return competitions
@@ -141,16 +141,11 @@ def _references(table: bytes, size: int, offset: int) -> dict[int, int | None]:
     references = {}
     for record in read_records(table):
         _check_size(record.data, size, record.uid)
-        references[record.uid] = _index(record.data, offset)
+        references[record.uid] = index_at(record.data, offset)
     return references
 
 
-def _index(data: bytes, offset: int) -> int | None:
-    index = struct.unpack_from("<I", data, offset)[0]
-    return None if index == NO_RECORD else index
-
-
-def _gender(value: int, uid: int) -> Gender:
+def gender_of(value: int, uid: int) -> Gender:
     if value not in (0, 1):
         raise PlacesError(f"record {uid} has gender {value}, only 0 and 1 are known")
     return Gender.FEMALE if value else Gender.MALE

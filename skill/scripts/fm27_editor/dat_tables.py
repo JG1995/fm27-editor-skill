@@ -79,6 +79,12 @@ def read_records(table: bytes) -> Iterator[Record]:
         raise DatError(f"{len(table) - position} bytes follow the last record")
 
 
+def index_at(data: bytes, offset: int) -> int | None:
+    """The place of another record in its table, if there is one."""
+    index = struct.unpack_from("<I", data, offset)[0]
+    return None if index == NO_RECORD else index
+
+
 def _record_end(table: bytes, position: int, index: int) -> int:
     """Where the index and ID that end a record start.
 
