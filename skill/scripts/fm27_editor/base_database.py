@@ -7,17 +7,13 @@ from collections.abc import Iterable
 from contextlib import closing
 from pathlib import Path
 
+from fm27_editor import award_lookup, place_lookup
+from fm27_editor.award_lookup import insert_awards
 from fm27_editor.binary import FormatError
 from fm27_editor.dat_tables import read_stream, read_string_table, read_tables
 from fm27_editor.people import Names, Person, iter_people, parse_basic_people
 from fm27_editor.person_fields import FIELD_NAMES
-from fm27_editor.place_lookup import (
-    CLIENT_TABLES,
-    LANGUAGE_TABLES,
-    SCHEMA,
-    SERVER_TABLES,
-    insert_places,
-)
+from fm27_editor.place_lookup import insert_places
 
 DATABASE_PATTERN = "shared/data/database/db/*/*_fm"
 SOURCE_FILES = [
@@ -28,6 +24,9 @@ SOURCE_FILES = [
     "lang_db.dat",
 ]
 BATCH = 5_000
+CLIENT_TABLES = place_lookup.CLIENT_TABLES | award_lookup.CLIENT_TABLES
+SERVER_TABLES = place_lookup.SERVER_TABLES | award_lookup.SERVER_TABLES
+LANGUAGE_TABLES = place_lookup.LANGUAGE_TABLES | award_lookup.LANGUAGE_TABLES
 
 
 class DatabaseError(FormatError):
@@ -114,6 +113,7 @@ def _fill(path: Path, source: Path, fingerprint: str) -> None:
         _create_tables(cache)
         cache.execute("INSERT INTO meta VALUES (?)", (fingerprint,))
         insert_places(cache, client, server, language)
+        insert_awards(cache, client, server, language, [person.uid for person in basic])
         _insert_people(cache, iter_people(basic, content, names))
         cache.executescript(
             "CREATE INDEX person_nation ON person(nation_uid);"
@@ -126,7 +126,7 @@ def _fill(path: Path, source: Path, fingerprint: str) -> None:
 def _create_tables(cache: sqlite3.Connection) -> None:
     columns = ", ".join(f"{name} INTEGER" for name in FIELD_NAMES)
     cache.executescript(
-        f"CREATE TABLE meta(fingerprint TEXT);{SCHEMA}"
+        f"CREATE TABLE meta(fingerprint TEXT);{place_lookup.SCHEMA}{award_lookup.SCHEMA}"
         "CREATE TABLE person(uid INTEGER PRIMARY KEY, kind TEXT, name TEXT, full_name TEXT,"
         " birth_date TEXT, nation_uid INTEGER, club_uid INTEGER, ca INTEGER, pa INTEGER,"
         f" {columns});"

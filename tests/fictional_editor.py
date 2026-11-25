@@ -32,6 +32,35 @@ CLUBS = {
     9104: ("Gone Town", "Gone", {"extinct_nation": 1}, {}),
 }
 
+AWARDS = {
+    9501: (
+        "Example Player of the Year",
+        "Player",
+        {"nation": 0, "competition": 0, "previous_winner": 3},
+    ),
+    9502: ("Example Women's Player", "Women", {"female": True}),
+}
+NOBODY = synthetic.NO_INDEX
+# By award and year, as in synthetic.award_year_record. A national team has the uid of the nation.
+AWARD_YEARS = [
+    (
+        9601,
+        synthetic.award_year_record(
+            0,
+            2024,
+            (0, "Alfa Striker", 9101, 47, 0, 20, 1, 64),
+            (NOBODY, "Old Master", 9102, 22, 3000, 0, 0, 0),
+            (NOBODY, "Cup Hero", 9001, 9, 0, 33, 0, 0),
+        ),
+    ),
+    (9602, synthetic.award_year_record(0, 2020, not_held=True)),
+    (
+        9603,
+        synthetic.award_year_record(1, 2024, (NOBODY, "Bravo Keeper", 9103, 0, 0, 0, NOBODY, 0)),
+    ),
+    (9604, synthetic.award_year_record(0, 2023, (NOBODY, "Old Master", 9102, 30, 0, 0, 0, 0))),
+]
+
 PERSON = synthetic.definition_file(
     "pers",
     synthetic.field_definition("Ptyp", "Person Type", "enum"),
@@ -185,6 +214,9 @@ def client_tables() -> list[tuple[str, bytes]]:
             (uid, synthetic.competition_record(**facts))
             for uid, (_, _, facts, _) in COMPETITIONS.items()
         ],
+        "table_0": [
+            (uid, synthetic.award_record(**facts)) for uid, (_, _, facts) in AWARDS.items()
+        ],
         "table_3": [
             (uid, synthetic.club_record(name, short_name, **facts))
             for uid, (name, short_name, facts, _) in CLUBS.items()
@@ -202,6 +234,7 @@ def server_tables() -> list[tuple[str, bytes]]:
     return [
         ("table_24", synthetic.record_table(teams)),
         ("table_25", synthetic.record_table(competitions)),
+        ("table_12", synthetic.record_table(AWARD_YEARS)),
     ]
 
 
@@ -210,6 +243,7 @@ def language_tables() -> list[tuple[str, bytes]]:
         ("8_9", synthetic.nation_names(NATIONS)),
         ("8_3", synthetic.club_names({uid: club[:2] for uid, club in CLUBS.items()})),
         ("8_25", synthetic.competition_names({uid: c[:2] for uid, c in COMPETITIONS.items()})),
+        ("8_0", synthetic.award_names({uid: award[:2] for uid, award in AWARDS.items()})),
         ("8_2", synthetic.city_names({uid: name for uid, (name, _) in CITIES.items()})),
         ("8_21", synthetic.stadium_names({uid: name for uid, (name, _) in STADIUMS.items()})),
     ]

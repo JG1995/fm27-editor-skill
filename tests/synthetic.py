@@ -232,6 +232,48 @@ def competition_server_record(*, female: bool = False) -> bytes:
     return bytes(range(1, 121)) + bytes([female]) + bytes(range(1, 59))
 
 
+def award_record(
+    *,
+    nation: int = NO_INDEX,
+    competition: int = NO_INDEX,
+    female: bool = False,
+    previous_winner: int = 0,
+) -> bytes:
+    """Nation and competition are indexes into their tables."""
+    record = bytearray(range(1, 66))  # no repeats, which could read as an ID
+    struct.pack_into("<I", record, 28, nation)
+    record[37] = female
+    struct.pack_into("<I", record, 42, competition)
+    record[51] = previous_winner
+    return bytes(record)
+
+
+NO_PLACE = (NO_INDEX, "", NO_INDEX, 0, 0, 0, NO_INDEX, 0)
+
+
+def award_year_record(
+    award: int, year: int, *places: tuple, no_data: bool = False, not_held: bool = False
+) -> bytes:
+    """Up to three places as (person, name, team uid, points, more points, age, nation, position).
+
+    The award, people, and nations are indexes into their tables. A team is given by a made-up
+    index and its uid.
+    """
+    places = [*places, NO_PLACE, NO_PLACE, NO_PLACE][:3]
+    record = b"\x00" + struct.pack("<IH", award, year)
+    record += struct.pack("<3I", *(place[0] for place in places))
+    record += struct.pack("<3H", *(place[3] for place in places))
+    record += struct.pack("<3H", *(place[4] for place in places))
+    record += struct.pack("<3I", *(place[7] for place in places))
+    record += b"".join(text(place[1]) for place in places)
+    for place in places:
+        index = NO_INDEX if place[2] == NO_INDEX else 55
+        record += struct.pack("<II", index, place[2])
+    record += struct.pack("<3I", *(place[6] for place in places))
+    record += bytes(place[5] for place in places)
+    return record + bytes([no_data, not_held])
+
+
 def city_record(nation: int = NO_INDEX) -> bytes:
     return b"\x00" * 2 + b"\x42" * 9 + struct.pack("<I", nation) + bytes(range(1, 17))
 
@@ -271,6 +313,15 @@ def competition_names(competitions: dict[int, tuple[str, str]]) -> bytes:
             struct.pack("<I", uid) + text(name) + b"\xff" + text(short_name) + b"\xff"
             + text("THR") + b"\x00"
             for uid, (name, short_name) in competitions.items()
+        ]
+    )  # fmt: skip
+
+
+def award_names(awards: dict[int, tuple[str, str]]) -> bytes:
+    return name_table(
+        [
+            struct.pack("<I", uid) + text(name) + b"\xff" + text(short_name) + b"\xff\x00"
+            for uid, (name, short_name) in awards.items()
         ]
     )  # fmt: skip
 

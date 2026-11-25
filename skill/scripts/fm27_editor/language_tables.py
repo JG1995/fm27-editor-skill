@@ -15,11 +15,17 @@ class NamedTable(Enum):
     NATION = (TEXT, 1, TEXT, 1, TEXT, TEXT, 1)
     CLUB = (TEXT, 1, TEXT, 1, TEXT, TEXT, TEXT, 1, TEXT, 4, TEXT)
     COMPETITION = (TEXT, 1, TEXT, 1, TEXT, 1)
+    AWARD = (TEXT, 1, TEXT, 2)
     CITY = (TEXT, 2)
     STADIUM = (TEXT, TEXT, 3)
 
 
-WITH_SHORT_NAMES = {NamedTable.NATION, NamedTable.CLUB, NamedTable.COMPETITION}
+WITH_SHORT_NAMES = {
+    NamedTable.NATION,
+    NamedTable.CLUB,
+    NamedTable.COMPETITION,
+    NamedTable.AWARD,
+}
 
 
 def read_names(kind: NamedTable, table: bytes) -> dict[int, tuple[str, str | None]]:

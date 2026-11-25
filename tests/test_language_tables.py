@@ -23,6 +23,11 @@ from fm27_editor.language_tables import NamedTable, read_names
             synthetic.competition_names({9201: ("Example League", "League")}),
             {9201: ("Example League", "League")},
         ),
+        (
+            NamedTable.AWARD,
+            synthetic.award_names({9501: ("Example Player of the Year", "Player")}),
+            {9501: ("Example Player of the Year", "Player")},
+        ),
         (NamedTable.CITY, synthetic.city_names({9301: "Testby"}), {9301: ("Testby", None)}),
         (
             NamedTable.STADIUM,
