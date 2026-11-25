@@ -8,13 +8,30 @@ from pathlib import Path
 import pytest
 
 from fm27_editor.base_database import open_database
-from fm27_editor.record_kinds import PLAYER, STAFF
+from fm27_editor.record_kinds import CLUB, COMPETITION, KINDS, PLAYER, STAFF
 from fm27_editor.record_rules import RecordRules
+from fm27_editor.rule_definitions import RuleDefinitions
+from fm27_editor.rule_words import RULES_OF, offered_lines
 
 EDITOR = os.environ.get("FM27_EDITOR_DIR", "")
 needs_editor = pytest.mark.skipif(
     not EDITOR, reason="set FM27_EDITOR_DIR to the Editor's install folder"
 )
+# Parts of a request and columns, not codes of fields.
+WORDS_OF_FOUR_LETTERS = {
+    "find",
+    "name",
+    "city",
+    "both",
+    "kind",
+    "club",
+    "NULL",
+    "LIKE",
+    "KIND",
+    "male",
+    "type",
+    "date",
+}
 # Where the Editor words a name differently from the game's own screens.
 EDITOR_NAMES = {
     "birth_date": "date_of_birth",
@@ -58,12 +75,30 @@ def test_every_code_names_the_same_fact_in_the_installed_editor(kind):
 @needs_editor
 def test_the_codes_that_the_instructions_name_can_be_written():
     text = (Path(__file__).parents[1] / "skill" / "SKILL.md").read_text(encoding="utf-8")
-    named = set(re.findall(r"[`\"]([PN][A-Za-z]{2}[a-z])[`\"]", text))
+    named = set(re.findall(r"[`\"]([A-Za-z]{4})(?:`|\":)", text)) - WORDS_OF_FOUR_LETTERS
     rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
-    writable = {field.code for kind in (PLAYER, STAFF) for field in rules.writable_fields(kind)}
+    writable = {field.code for kind in KINDS.values() for field in rules.writable_fields(kind)}
 
-    assert len(named) > 5
+    assert len(named) > 10
     assert named <= writable
+
+
+@needs_editor
+def test_the_installed_editor_defines_every_rule_that_is_offered():
+    definitions = RuleDefinitions(Path(EDITOR))
+
+    for name in RULES_OF:
+        lines = offered_lines(name, definitions)
+        assert lines and not [line for line in lines if "one of ," in line or "None" in line]
+
+
+@needs_editor
+def test_every_code_of_a_club_or_competition_names_a_field_that_can_be_written():
+    rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
+
+    for kind in (CLUB, COMPETITION):
+        writable = {field.code for field in rules.writable_fields(kind)}
+        assert {*kind.codes.values(), *kind.needed, *kind.group.name_codes} <= writable
 
 
 @needs_editor
