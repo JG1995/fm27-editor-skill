@@ -36,6 +36,9 @@ LOOKUP_TABLES = {"Nnat": "nation", "Ttea": "club", "Cclu": "club"}
 PERSON_LOOKUP = {"Person": "person", "Club": "club", "Nation": "nation"}
 
 
+type Parts = dict[str, Property]
+
+
 class ExplainError(FormatError):
     """The file holds something that cannot be put in words."""
 
@@ -53,8 +56,9 @@ class Described:
 def explain_lines(
     file: EditorFile, editor_dir: Path, lookup: sqlite3.Connection, *, find: str, examples: int
 ) -> list[str]:
-    words = _Words(file, editor_dir, lookup)
-    described = [_described(change, words) for change in file.changes.changes]
+    changes = [_named_parts(change) for change in file.changes.changes]
+    words = _Words(changes, editor_dir, lookup)
+    described = [_described(change, words) for change in changes]
     added = [item for item in described if item.code == ADD_RECORD]
     removed = [item for item in described if item.code == REMOVE_RECORD]
     changed = [item for item in described if item.code not in (ADD_RECORD, REMOVE_RECORD)]
@@ -70,12 +74,12 @@ def explain_lines(
 class _Words:
     """Names for kinds of records, fields, and records."""
 
-    def __init__(self, file: EditorFile, editor_dir: Path, lookup: sqlite3.Connection):
+    def __init__(self, changes: list[Parts], editor_dir: Path, lookup: sqlite3.Connection):
         self._editor_dir = editor_dir
         self._lookup = lookup
         self._kinds = read_shared_choices(editor_dir, KINDS_OF_RECORD)
         self._fields: dict[str, dict[str, str]] = {}
-        self._new_names = _names_of_new_records(file.changes.changes)
+        self._new_names = _names_of_new_records(changes)
 
     def kind(self, number: int) -> str:
         return self._kinds.get(number, f"Table {number}")
@@ -111,28 +115,40 @@ class _Words:
         return names
 
 
-def _described(change: Change, words: _Words) -> Described:
-    items = {item.tag: item for item in change}
-    missing = {"dtty", "duni", "prty"} - items.keys()
+def _named_parts(change: Change) -> Parts:
+    parts = {item.tag: item for item in change}
+    missing = {"dtty", "duni", "prty"} - parts.keys()
     if missing:
         raise ExplainError(f"a change has no {', '.join(sorted(missing))}")
-    new, code = items.get("nwvl"), str(items["prty"].value)
-    table, record = _number(items["dtty"]), bytes(items["duni"].value)
-    if code == ADD_RECORD and table == Table.DATABASE and new is not None:
-        inner = {item.tag: item for item in new.value}
-        table, record = _number(inner["dtty"]), bytes(inner["duni"].value)
-    return Described(words.kind(table), record, code, new)
+    return parts
 
 
-def _names_of_new_records(changes: Iterable[Change]) -> dict[bytes, str]:
+def _described(change: Parts, words: _Words) -> Described:
+    code, said = str(change["prty"].value), change
+    if code == ADD_RECORD and _number(change["dtty"]) == Table.DATABASE:
+        said = _added(change.get("nwvl"))
+    kind = words.kind(_number(said["dtty"]))
+    return Described(kind, bytes(said["duni"].value), code, change.get("nwvl"))
+
+
+def _added(new: Property | None) -> Parts:
+    parts = {}
+    if new is not None and new.kind is Kind.NESTED:
+        parts = {item.tag: item for item in new.value}
+    if not {"dtty", "duni"} <= parts.keys():
+        raise ExplainError("a change that adds a record does not say which")
+    return parts
+
+
+def _names_of_new_records(changes: Iterable[Parts]) -> dict[bytes, str]:
     names: dict[bytes, dict[str, str]] = {}
     for change in changes:
-        items = {item.tag: item.value for item in change}
-        record, code = items.get("duni"), items.get("prty")
-        if code in NAME_PARTS and record[:4] != record[4:]:
-            names.setdefault(record, {})[code] = str(items.get("nwvl", ""))
+        record, code, new = change["duni"].value, change["prty"].value, change.get("nwvl")
+        is_name = code in NAME_PARTS and new is not None and new.kind is Kind.TEXT and new.value
+        if is_name and record[:4] != record[4:]:
+            names.setdefault(record, {})[code] = new.value
     return {
-        record: " ".join(parts[code] for code in NAME_PARTS if parts.get(code))
+        record: " ".join(parts[code] for code in NAME_PARTS if code in parts)
         for record, parts in names.items()
     }
 
@@ -145,7 +161,7 @@ def _heading(file: EditorFile) -> str:
     heading = counted(len(file.changes.changes), "change", "changes")
     if "EdBr" in editor:
         heading += f", saved by {editor['EdBr'].value}"
-    if "EdDt" in editor:
+    if "EdDt" in editor and editor["EdDt"].kind is Kind.DATE:
         heading += f" on {_date(editor['EdDt'].value)}"
     return heading
 

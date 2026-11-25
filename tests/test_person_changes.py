@@ -165,7 +165,7 @@ def test_a_player_field_is_refused_for_staff(editor):
         make(editor, PersonKind.STAFF, finishing=17)
 
 
-@pytest.mark.parametrize("code", ["Ptyp", "Page"])
+@pytest.mark.parametrize("code", ["Ptyp", "Page", "PPAR"])
 def test_what_the_editor_works_out_itself_cannot_be_set(editor, code):
     with pytest.raises(EditError, match=code):
         make(editor, **{code: 1})

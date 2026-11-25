@@ -6,7 +6,7 @@ A value must be one the Editor's definitions allow, and what it refers to must b
 import datetime
 import sqlite3
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 from fm27_editor.field_definitions import Field, read_fields
@@ -15,10 +15,10 @@ from fm27_editor.person_codes import person_codes
 from fm27_editor.record_changes import EditError, FieldValue, refusal, stored_value
 
 DEFINED_IN = {PersonKind.PLAYER: "player", PersonKind.STAFF: "non player"}
-# The record itself says the person type. The Editor works out the others, or shows them only in the
-# game, though its definitions do not mark them.
+# The record itself says the person type, and potential covers its ranges. The Editor works out the
+# others, or shows them only in the game, though its definitions do not mark them.
 NOT_SET_BY_HAND = {
-    *("Ptyp", "Page", "PnRV", "PShN", "dbnm", "Pbrl", "ERCL", "Pnhs", "NpCw"),
+    *("Ptyp", "PPAR", "Page", "PnRV", "PShN", "dbnm", "Pbrl", "ERCL", "Pnhs", "NpCw"),
     *("PcHC", "Pion", "Phij", "Phbn"),
     *("PCRI", "PHRI", "PWRI", "NcrI", "NhmI", "NwrI"),
     *(f"BR{position:02}" for position in range(1, 15)),
@@ -75,7 +75,7 @@ class PersonRules:
             if field.code in chosen:
                 raise EditError(f"{field.name} ({field.code}) is given twice")
             value = _typed(field, given)
-            self._check(kind, field, value)
+            self._check(field, value)
             chosen[field.code] = Setting(field, value)
         return list(chosen.values())
 
@@ -92,6 +92,9 @@ class PersonRules:
     def _read_fields(self, kind: PersonKind) -> dict[str, Field]:
         fields = read_fields(self._editor_dir, DEFINED_IN[kind])
         fields |= read_fields(self._editor_dir, "person")
+        if PLAYER_POTENTIAL in fields and POTENTIAL_RANGE in fields:
+            ranges = fields[POTENTIAL_RANGE].choices
+            fields[PLAYER_POTENTIAL] = replace(fields[PLAYER_POTENTIAL], choices=ranges)
         return {code: field for code, field in fields.items() if code not in NOT_SET_BY_HAND}
 
     def _field(self, kind: PersonKind, name: str) -> Field:
@@ -100,11 +103,11 @@ class PersonRules:
             raise EditError(f"{kind.name.lower()} has no field {name}")
         return field
 
-    def _check(self, kind: PersonKind, field: Field, value: FieldValue) -> None:
+    def _check(self, field: Field, value: FieldValue) -> None:
         stored_value(field, value)
         self._check_exists(field, value)
         if field.code == PLAYER_POTENTIAL:
-            self._check_potential(kind, value)
+            _check_potential(field, value)
 
     def _check_exists(self, field: Field, value: FieldValue) -> None:
         if field.points_to is None:
@@ -119,11 +122,11 @@ class PersonRules:
         if self._lookup.execute(query, (value,)).fetchone() is None:
             raise EditError(f"{field.name} ({field.code}): there is no {table} {value!r}")
 
-    def _check_potential(self, kind: PersonKind, value: FieldValue) -> None:
-        """A negative potential stands for a range, and only some numbers do."""
-        ranges = self.fields(kind).get(POTENTIAL_RANGE)
-        if value < 0 and (ranges is None or value not in (ranges.choices or {})):
-            raise EditError(f"{value} is not one of the Editor's potential ranges")
+
+def _check_potential(field: Field, value: FieldValue) -> None:
+    """A negative potential stands for a range, and only some numbers do."""
+    if value < 0 and value not in (field.choices or {}):
+        raise EditError(f"{value} is not one of the Editor's potential ranges")
 
 
 def _typed(field: Field, given: FieldValue) -> FieldValue:
