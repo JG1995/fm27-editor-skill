@@ -168,6 +168,16 @@ def test_clubs_and_competitions_are_counted_apart_from_people(lines_for):
     )
 
 
+def test_awards_are_counted_and_described(lines_for):
+    lines = lines_for(edits=[{"of": "awards", "uid": 9501, "set": {"previous_winner": 1}}])
+
+    assert "Edits: 1 change to 1 award" in lines
+    assert (
+        "  Example Player of the Year (9501), Englandia, male, Example League: "
+        "Allow Previous Winner Yes (3) -> Never (1)"
+    ) in lines
+
+
 def test_new_records_are_shown_with_their_names_in_the_request(lines_for):
     league = {"name": "Test League", "short_name": "League", "nation_uid": 9001, "dbty": 0}
     rovers = {

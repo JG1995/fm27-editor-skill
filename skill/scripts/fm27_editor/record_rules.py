@@ -113,6 +113,8 @@ class RecordRules:
         values: Mapping[str, FieldValue],
         new: Mapping[str, RecordKind] = NO_NEW,
     ) -> list[Setting]:
+        if not kind.can_be_new:
+            raise EditError(f"a new {kind.name} cannot be made yet")
         settings = self.settings(kind, values, new)
         given = {setting.field.code for setting in settings}
         missing = [f"{name} ({code})" for code, name in kind.needed.items() if code not in given]

@@ -42,6 +42,8 @@ class RecordKind:
     """What the Editor's definitions call a record of this kind that a field points to."""
     words: Mapping[str, Mapping[str, int]] = field(default_factory=dict)
     """The numbers of choices that the lookup holds as words, by code."""
+    can_be_new: bool = True
+    """Whether a file was seen that adds a record of this kind."""
 
     @cached_property
     def names(self) -> dict[str, str]:
@@ -73,7 +75,14 @@ COMPETITIONS = RecordGroup(
     details={"nation": "{}", "gender": "{}", "level": "level {}"},
     name_codes=("cnam",),
 )
-GROUPS = {group.view: group for group in (PEOPLE, CLUBS, COMPETITIONS)}
+AWARDS = RecordGroup(
+    one="award",
+    view="awards",
+    table=Table.AWARD,
+    details={"nation": "{}", "gender": "{}", "competition": "{}"},
+    name_codes=("AWna",),
+)
+GROUPS = {group.view: group for group in (PEOPLE, CLUBS, COMPETITIONS, AWARDS)}
 PERSON_NEEDS = {
     "Pfna": "First Name",
     "Psna": "Second Name",
@@ -169,7 +178,22 @@ COMPETITION = RecordKind(
     pointed_to_as=("competition",),
     words=GENDER_WORDS,
 )
-KINDS = {kind.name: kind for kind in (PLAYER, STAFF, CLUB, COMPETITION)}
+AWARD = RecordKind(
+    name="award",
+    group=AWARDS,
+    defined_in=("award",),
+    codes={
+        "name": "AWna",
+        "short_name": "AWsn",
+        "nation_uid": "AWni",
+        "competition_uid": "AWmi",
+        "previous_winner": "AWap",
+    },
+    needed={},
+    left_out=frozenset(COMPUTED_NAMES),
+    can_be_new=False,
+)
+KINDS = {kind.name: kind for kind in (PLAYER, STAFF, CLUB, COMPETITION, AWARD)}
 
 
 def kind_of(group: RecordGroup, facts: Mapping[str, object]) -> RecordKind:

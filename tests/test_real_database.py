@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 from fm27_editor.base_database import open_database
-from fm27_editor.record_kinds import CLUB, COMPETITION, KINDS, PLAYER, STAFF
+from fm27_editor.record_kinds import AWARD, CLUB, COMPETITION, KINDS, PLAYER, STAFF
 from fm27_editor.record_rules import RecordRules
 from fm27_editor.rule_definitions import RuleDefinitions
 from fm27_editor.rule_words import RULES_OF, offered_lines
@@ -93,10 +93,10 @@ def test_the_installed_editor_defines_every_rule_that_is_offered():
 
 
 @needs_editor
-def test_every_code_of_a_club_or_competition_names_a_field_that_can_be_written():
+def test_every_code_of_a_place_or_award_names_a_field_that_can_be_written():
     rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
 
-    for kind in (CLUB, COMPETITION):
+    for kind in (CLUB, COMPETITION, AWARD):
         writable = {field.code for field in rules.writable_fields(kind)}
         assert {*kind.codes.values(), *kind.needed, *kind.group.name_codes} <= writable
 

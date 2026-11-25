@@ -208,6 +208,23 @@ def test_competitions_are_edited_by_the_lookups_names(plan_for):
     assert edited(plan) == [(9203, "levl", 2, 3), (9203, "cpcm", 9201, 9202)]
 
 
+def test_awards_are_edited_by_the_lookups_names(plan_for):
+    values = {"previous_winner": 1, "AWxa": 21, "competition_uid": 9203}
+
+    plan = plan_for(edits=[by_hand(9501, of="awards", **values)])
+
+    assert edited(plan) == [
+        (9501, "AWap", 3, 1),
+        (9501, "AWxa", None, 21),
+        (9501, "AWmi", 9201, 9203),
+    ]
+
+
+def test_an_award_cannot_be_made(plan_for):
+    with pytest.raises(FormatError, match="a new award cannot be made"):
+        plan_for(new=[{"kind": "award", "set": {"name": "Example Award"}}])
+
+
 def test_a_query_can_move_clubs_to_a_division(plan_for):
     plan = plan_for(edits=[asked("SELECT uid, 9203 AS division_uid FROM clubs", of="clubs")])
 

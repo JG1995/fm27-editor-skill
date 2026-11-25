@@ -129,11 +129,32 @@ COMPETITION = synthetic.definition_file(
     synthetic.field_definition("PLgn", "Player Gender", *GENDERS),
 )
 
+PREVIOUS_WINNER = (
+    "enum",
+    '<list id="enum_values">'
+    '<record enum="0"><string id="name" value="Not Set" /></record>'
+    '<record enum="1"><string id="name" value="Never" /></record>'
+    '<record enum="3"><string id="name" value="Yes" /></record></list>',
+)
+AWARD = synthetic.definition_file(
+    "awar",
+    synthetic.field_definition("dbnm", "Name", "string"),
+    synthetic.field_definition("AWna", "Name", "string", synthetic.flag("is_client_field")),
+    synthetic.field_definition("AWsn", "Short Name", "string", synthetic.flag("is_client_field")),
+    synthetic.field_definition("AWci", "Continent", *synthetic.reference("continent")),
+    synthetic.field_definition("AWni", "Nation", *synthetic.reference("nation")),
+    synthetic.field_definition("AWmi", "Competition", *synthetic.reference("competition")),
+    synthetic.field_definition("AWxa", "Maximum Age", "integer", synthetic.number_range(10, 99)),
+    synthetic.field_definition(
+        "AWap", "Allow Previous Winner", *PREVIOUS_WINNER, synthetic.flag("is_client_field")
+    ),
+)
+
 STADIUM = synthetic.definition_file(
     "stad", synthetic.field_definition("Secy", "Seating Capacity", "integer")
 )
 SHARED_CHOICES = synthetic.enum_file(
-    dbts={1: "Person", 3: "Club", 21: "Stadium", 25: "Competition", 99: "Moon"},
+    dbts={0: "Award", 1: "Person", 3: "Club", 21: "Stadium", 25: "Competition", 99: "Moon"},
     mood={0: "Calm", 2: "Cross"},
     cdbt={0: "Top Division", 2: "Main Cup"},
 )
@@ -154,6 +175,7 @@ def write_definitions(folder: Path, person: bytes = PERSON) -> Path:
         "non player": NON_PLAYER,
         "club": CLUB,
         "comp": COMPETITION,
+        "award": AWARD,
         "stadium": STADIUM,
     }
     path.write_bytes(synthetic.definitions_container(files, SHARED_CHOICES))

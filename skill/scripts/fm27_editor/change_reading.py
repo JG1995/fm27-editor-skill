@@ -28,6 +28,7 @@ class EditError(FormatError):
 class Table(IntEnum):
     """Where a changed record lives, numbered as in the base database."""
 
+    AWARD = 0
     PERSON = 1
     CLUB = 3
     COMPETITION = 25
