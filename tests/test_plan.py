@@ -302,11 +302,24 @@ def test_clubs_that_are_moved_in_and_out_count(plan_for):
     """9101 is in 9201 and 9102 in 9203; one is moved in, the other out."""
     moves = [
         by_hand(9102, of="clubs", division_uid=9201),
-        by_hand(9103, of="clubs", division_uid=9201),
+        by_hand(9104, of="clubs", division_uid=9201),
         by_hand(9101, of="clubs", division_uid=9203),
     ]
 
     assert plan_for(edits=moves, nation_rules=rules_for(9201)).warnings == []
+
+
+def test_womens_clubs_in_a_mens_division_are_pointed_out(plan_for):
+    """9103 is a women's club."""
+    moves = [by_hand(9102, of="clubs", division_uid="@D1")]
+    women = [by_hand(9103, of="clubs", division_uid="@D1")]
+    new_women = ROVERS | {"set": ROVERS["set"] | {"PLgn": 1}}
+
+    assert plan_for(new=[LEAGUE, ROVERS], edits=moves, nation_rules=NATION_RULES).warnings == []
+    (moved,) = plan_for(new=[LEAGUE, ROVERS], edits=women, nation_rules=NATION_RULES).warnings
+    (made,) = plan_for(new=[LEAGUE, new_women], edits=moves, nation_rules=NATION_RULES).warnings
+
+    assert "1 women's club" in moved and "1 women's club" in made
 
 
 def test_sub_divisions_hold_the_clubs_of_a_division(plan_for):
@@ -331,10 +344,12 @@ def test_sub_divisions_hold_the_clubs_of_a_division(plan_for):
             },
             "women",
         ),
+        ({"nation_rules": rules_for(True)}, "True"),
+        ({"nation_rules": rules_for(10**20)}, "100000000000000000000"),
         ({"nation_rules": rules_for("@D1")}, "@D1"),
         ({"new": [LEAGUE, ROVERS | {"as": "R"}], "nation_rules": rules_for("@R")}, "club"),
     ],
-    ids=["existing", "new", "unknown", "not a competition"],
+    ids=["existing", "new", "true", "huge", "unknown", "not a competition"],
 )
 def test_rules_that_cannot_be_written_are_refused(plan_for, request_, complaint):
     with pytest.raises(FormatError, match=complaint):

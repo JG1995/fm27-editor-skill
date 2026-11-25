@@ -109,11 +109,17 @@ def insert_places(
                 _uid(nations, club.nation, "nation"),
                 _uid(nations, club.based_nation, "nation"),
                 _uid(cities, club.city, "city"),
-                *_standing(teams[club.uid], stadiums, divisions),
+                *_standing(_team(teams, club.uid), stadiums, divisions),
             )
             for club in parse_clubs(client[CLUBS])
         ],
     )
+
+
+def _team(teams: Mapping[int, Team], uid: int) -> Team:
+    if uid not in teams:
+        raise PlacesError(f"club {uid} has no team")
+    return teams[uid]
 
 
 def _standing(

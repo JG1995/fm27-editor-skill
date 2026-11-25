@@ -1,11 +1,12 @@
 import copy
 import datetime
+import re
 
 import pytest
 
 from fictional_rules import write_rules
 from fm27_editor.binary import FormatError
-from fm27_editor.change_list import ChangeList, Kind, Property
+from fm27_editor.change_list import ChangeList, Kind, ListItem, Property
 from fm27_editor.change_reading import EditError
 from fm27_editor.nation_rules import check_nation_rules
 from fm27_editor.record_rules import NewReference
@@ -160,7 +161,7 @@ def test_sub_divisions_are_noticed(checked):
 
 def test_places_of_a_division_count_for_all_its_sub_divisions_together(checked):
     """The Editor: promoted teams "should be divisible by number of sub-competitions"."""
-    rules = copy.deepcopy(RULES)
+    rules = changed(cup_comps=[])
     rules["league_comps"][0]["relegation_places"] = 2
     rules["league_comps"][1] |= {
         "promotion_places": 2,
@@ -230,6 +231,13 @@ def test_a_round_of_two_legs_has_two_dates_and_no_stadium(checked):
             "get_specific_team",
         ),
         (with_round(0, stadium_rules="specific"), "specific"),
+        (changed(cup_comps=None), "cup_comps has no value"),
+        (with_division(promotion_places=None), "promotion_places has no value"),
+        (with_round(0, number_extra_teams=None), "number_extra_teams has no value"),
+        (with_round(0, number_legs=2, date_2="2026-10-28"), "round 2.*before"),
+        (with_round(0, date="2026-07-31"), "cup_comps 1.*season"),
+        (with_round(2, date="2029-05-22"), "cup_comps 1.*season"),
+        (changed(cup_comps=[SUPER_CUP | {"date": "2025-08-08"}]), "cup_comps 1.*season"),
         (with_cup(rounds=[]), "rounds"),
         (with_round(1, number_matches=3), "round 2"),
         (with_round(2, number_matches=2, number_extra_teams=2), "one match"),
@@ -262,9 +270,45 @@ def test_unequal_promotion_and_relegation_is_pointed_out(checked):
 def test_relegation_that_does_not_divide_over_the_sub_divisions_is_pointed_out(checked):
     parts = [{"competition": 9205}, {"competition": 9206}]
 
-    (warning,) = checked(with_division(child_competitions=parts)).warnings
+    (warning,) = checked(with_division(child_competitions=parts) | {"cup_comps": []}).warnings
 
     assert "1 go down" in warning and "2 sub-divisions" in warning
+
+
+@pytest.mark.parametrize(
+    ("entrants", "complaint"),
+    [
+        ([("@D1", 5), ("@D2", 1)], "5 teams.*@D1.*4"),
+        ([("@D1", 4), (9207, 2)], "9207"),
+    ],
+    ids=["more than there are", "from elsewhere"],
+)
+def test_entrants_that_the_divisions_do_not_have_are_pointed_out(checked, entrants, complaint):
+    teams = [{"competition": c, "number_teams": number} for c, number in entrants]
+
+    (warning,) = checked(with_cup(teams=teams)).warnings
+
+    assert re.search(complaint, warning)
+
+
+def test_entrants_come_from_the_parts_of_a_division(checked):
+    rules = with_division(child_competitions=[{"competition": 9205}])
+
+    (warning,) = checked(rules).warnings
+
+    assert "@D1" in warning
+
+
+def test_a_super_cup_between_competitions_of_other_rules_is_pointed_out(checked):
+    (warning,) = checked(changed(cup_comps=[SUPER_CUP | {"comp_2": 9208}])).warnings
+
+    assert "9208" in warning
+
+
+def test_a_second_leg_can_start_at_midnight(checked):
+    rules = with_round(0, number_legs=2, date_2="2026-09-30", time_2=0)
+
+    assert checked(rules).values["cup_comps"][0]["rounds"][0]["time_2"] == 0
 
 
 def test_a_season_too_short_for_its_matches_is_pointed_out(checked):
@@ -360,6 +404,31 @@ def test_a_super_cup_is_stored_with_its_two_competitions(checked):
         Property("comp", Kind.ID, D1),
     ]
     assert cup["ntms"] == Property("ntms", Kind.NULL, b"")
+
+
+@pytest.mark.parametrize(
+    "other",
+    [
+        Property("cnrl", Kind.NESTED, []),
+        Property("inrl", Kind.NESTED, []),
+        Property("vrrl", Kind.NESTED, []),
+        Property("fles", Kind.LIST, [ListItem(Kind.NESTED, [])]),
+    ],
+    ids=lambda item: item.tag,
+)
+def test_a_file_with_other_kinds_of_rules_is_refused(checked, other):
+    changes = ChangeList(general=[Property("dchc", Kind.COUNT, bytes(8))], editor=[other])
+
+    with pytest.raises(FormatError, match="rules already"):
+        add_rules(changes, checked(RULES), NEW)
+
+
+def test_an_empty_list_of_advanced_rules_does_not_matter(checked):
+    changes = ChangeList(
+        general=[Property("dchc", Kind.COUNT, bytes(8))], editor=[Property("fles", Kind.LIST, [])]
+    )
+
+    add_rules(changes, checked(RULES), NEW)
 
 
 def test_a_file_has_rules_for_one_nation(checked):

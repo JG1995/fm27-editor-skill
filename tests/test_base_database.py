@@ -4,6 +4,7 @@ import sqlite3
 import pytest
 
 import fictional_editor
+import synthetic
 from fictional_editor import write_database
 from fm27_editor import base_database
 from fm27_editor.base_database import DatabaseError, open_database
@@ -192,4 +193,15 @@ def test_a_reference_outside_its_table_is_an_error(editor, tmp_path, monkeypatch
     write_database(editor)
 
     with pytest.raises(PlacesError, match="nation"):
+        open_database(editor, tmp_path / "cache.sqlite")
+
+
+def test_a_club_without_a_team_is_an_error(editor, tmp_path, monkeypatch):
+    teams = [(uid, synthetic.team_record()) for uid in list(fictional_editor.CLUBS)[1:]]
+    competitions = fictional_editor.server_tables()[1]
+    tables = [("table_24", synthetic.record_table(teams)), competitions]
+    monkeypatch.setattr(fictional_editor, "server_tables", lambda: tables)
+    write_database(editor)
+
+    with pytest.raises(PlacesError, match="9101"):
         open_database(editor, tmp_path / "cache.sqlite")

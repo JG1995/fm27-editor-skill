@@ -109,6 +109,13 @@ def test_competition_tables_that_disagree_are_an_error():
         parse_competitions(client, server)
 
 
+def test_competition_tables_of_different_length_are_an_error():
+    client = synthetic.record_table([(9201, synthetic.competition_record())])
+
+    with pytest.raises(PlacesError):
+        parse_competitions(client, synthetic.record_table([]))
+
+
 def test_a_gender_other_than_two_is_an_error():
     client = synthetic.record_table([(9201, synthetic.competition_record())])
     server = synthetic.record_table([(9201, b"\x07" * 179)])

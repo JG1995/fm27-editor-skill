@@ -5,14 +5,14 @@ does not add up is an error, and what may be meant is a warning.
 """
 
 import datetime
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass, field
 from itertools import pairwise
 from typing import Any
 
 from fm27_editor.change_reading import EditError
 from fm27_editor.definition_files import FieldDefinitionError
-from fm27_editor.record_rules import NewReference
+from fm27_editor.record_rules import NEW_MARK, NewReference
 from fm27_editor.rule_definitions import Rule, RuleDefinitions
 from fm27_editor.rule_shapes import (
     CHOICES_LEFT_OUT,
@@ -73,7 +73,8 @@ def check_nation_rules(given: Any, definitions: RuleDefinitions, refer: Refer) -
     if not values["league_comps"]:
         raise EditError("nation_rules needs a division in league_comps")
     _check_season(values)
-    checked = NationRules(values, _warnings(values["league_comps"]), definitions)
+    warnings = [*_league_warnings(values["league_comps"]), *_cup_warnings(values)]
+    checked = NationRules(values, warnings, definitions)
     _check_once(checked.competitions)
     return checked
 
@@ -98,13 +99,15 @@ class _Checker:
     def _check_names(
         self, where: str, shape: Shape, rules: Mapping[str, Rule], given: Mapping[str, Any]
     ) -> None:
-        for name in given:
+        for name, value in given.items():
+            if name in shape.offered and value is None:
+                raise EditError(f"{where}: {name} has no value")
             if name in shape.offered:
                 continue
             if name in rules:
                 raise EditError(f"{where}: {name} cannot be set yet")
             raise EditError(f"{where} has no rule {name}")
-        missing = [name for name in shape.needed if given.get(name) is None]
+        missing = [name for name in shape.needed if name not in given]
         if missing:
             raise EditError(f"{where} needs {', '.join(missing)}")
 
@@ -124,7 +127,7 @@ class _Checker:
             case "list" | "database_record_list" | "cash" if value in ([], 0):
                 return value  # the shape always stores these as they are
             case "date_fields" if part is not None:
-                return self.shape(where, part, _date_rules(rule), _as_date_parts(where, value))
+                return self.shape(where, part, _date_rules(), _as_date_parts(where, value))
             case "database_record_unique_id":
                 return self._refer(rule.points_to or "", where, value)
         return _simple_value(where, rule, value)
@@ -246,7 +249,7 @@ def _as_date_parts(where: str, value: Any) -> Any:
     return {"day_of_month": day.day, "month": MONTHS[day.month - 1], "year": day.year}
 
 
-def _date_rules(rule: Rule) -> dict[str, Rule]:
+def _date_rules() -> dict[str, Rule]:
     """The Editor has these parts of a date built in."""
     limits = {"day_of_month": (1, 31), "month": (None, None), "year": (2000, 2100)}
     return {
@@ -271,7 +274,7 @@ def _counted_cup(where: str, values: Values) -> Values:
     if left != 1:
         raise EditError(f"{where}: rounds must end with one match")
     for number, (earlier, later) in enumerate(pairwise(rounds), 2):
-        if later["date"] <= earlier["date"]:
+        if later["date"] <= (earlier["date_2"] or earlier["date"]):
             raise EditError(f"{where}: round {number} is not after the one before it")
     entering = sum(given["number_extra_teams"] for given in rounds)
     entrants = sum(given["number_teams"] for given in values["teams"])
@@ -288,20 +291,32 @@ def _legs(where: str, values: Values) -> Values:
     if values["date_2"] is None:
         raise EditError(f"{where} needs date_2")
     _check_order(where, values, "date", "date_2")
-    return values | {"time_2": values["time_2"] or values["time"], "stadium_rules": None}
+    second = values["time"] if values["time_2"] is None else values["time_2"]
+    return values | {"time_2": second, "stadium_rules": None}
 
 
 def _check_season(values: Values) -> None:
     _check_order("nation_rules", values, "start_date", "end_date")
     for number, division in enumerate(values["league_comps"], 1):
-        if (
-            division["start_date"] < values["start_date"]
-            or division["end_date"] > values["end_date"]
-        ):
-            raise EditError(f"league_comps {number} is not played within the season")
+        _check_within(
+            values, f"league_comps {number}", division["start_date"], division["end_date"]
+        )
+    for number, cup in enumerate(values["cup_comps"], 1):
+        dates = [day for part in (cup, *cup.get("rounds", [])) for day in _dates(part)]
+        _check_within(values, f"cup_comps {number}", min(dates), max(dates))
     for number, window in enumerate(values["transfer_windows"], 1):
         if _day(window["end_date"]) < _day(window["start_date"]):
             raise EditError(f"transfer_windows {number} ends before it starts")
+
+
+def _dates(values: Values) -> list[datetime.date]:
+    found = (values.get(name) for name in ("date", "date_2"))
+    return [day for day in found if day is not None]
+
+
+def _check_within(season: Values, what: str, first: datetime.date, last: datetime.date) -> None:
+    if first < season["start_date"] or last > season["end_date"]:
+        raise EditError(f"{what} is not played within the season")
 
 
 def _day(parts: Values) -> tuple[int, int, int]:
@@ -316,15 +331,26 @@ def _check_order(where: str, values: Values, first: str, second: str) -> None:
 def _check_once(competitions: list[int | NewReference]) -> None:
     for competition in competitions:
         if competitions.count(competition) > 1:
-            called = competition.name if isinstance(competition, NewReference) else competition
-            raise EditError(f"nation_rules has competition {called} twice")
+            raise EditError(f"nation_rules has competition {_called(competition)} twice")
+
+
+def _called(competition: int | NewReference) -> str:
+    is_new = isinstance(competition, NewReference)
+    return f"{NEW_MARK}{competition.name}" if is_new else str(competition)
 
 
 def _parts(division: Values) -> int:
     return len(division["child_competitions"] or []) or 1
 
 
-def _warnings(divisions: list[Values]) -> list[str]:
+def leagues(divisions: list[Values]) -> Iterator[tuple[int | NewReference, Values]]:
+    """The competitions that clubs play in: the parts of a division that has any, or itself."""
+    for division in divisions:
+        for part in division["child_competitions"] or [division]:
+            yield part["competition"], division
+
+
+def _league_warnings(divisions: list[Values]) -> list[str]:
     warnings = []
     for number, division in enumerate(divisions, 1):
         down, parts = division["relegation_places"], _parts(division)
@@ -339,4 +365,28 @@ def _warnings(divisions: list[Values]) -> list[str]:
         down, up = upper["relegation_places"], lower["promotion_places"]
         if down != up:
             warnings.append(f"{down} go down from division {number}, but {up} come up to it")
+    return warnings
+
+
+def _cup_warnings(values: Values) -> list[str]:
+    """Entrants that the divisions do not have, and super cups between other competitions."""
+    warnings = []
+    played_in = dict(leagues(values["league_comps"]))
+    made = {*played_in, *(cup["competition"] for cup in values["cup_comps"])}
+    made |= {division["competition"] for division in values["league_comps"]}
+    for number, cup in enumerate(values["cup_comps"], 1):
+        for entrants in cup.get("teams", []):
+            competition, teams = entrants["competition"], entrants["number_teams"]
+            called = _called(competition)
+            if competition not in played_in:
+                warnings.append(f"cup {number} takes teams from {called}, where no clubs play")
+            elif teams > played_in[competition]["maximum_number_teams"]:
+                most = played_in[competition]["maximum_number_teams"]
+                warnings.append(f"cup {number} takes {teams} teams from {called}, which has {most}")
+        others = [cup[name] for name in ("comp_1", "comp_2") if name in cup]
+        warnings += [
+            f"cup {number} is for {_called(other)}, which these rules do not play"
+            for other in others
+            if other not in made
+        ]
     return warnings
