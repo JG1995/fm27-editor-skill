@@ -16,6 +16,7 @@ from fm27_editor.binary import FormatError, Reader, text_bytes, unpack_frame
 
 LIST_TAG = b"\x03\x01cbd.\x06\x00\x00"
 CHANGE_COUNT_TAG = "dchc"
+MAX_BODY_SIZE = 1024 * 1024 * 1024
 
 
 class ChangeListError(FormatError):
@@ -106,7 +107,7 @@ def read_body(content: bytes) -> bytes:
     """The uncompressed body."""
     if content[: len(LIST_TAG)] != LIST_TAG:
         raise ChangeListError("not an editor change list")
-    return unpack_frame(content[len(LIST_TAG) :], "the change list", ChangeListError)
+    return unpack_frame(content[len(LIST_TAG) :], "the change list", ChangeListError, MAX_BODY_SIZE)
 
 
 def change_list_body(changes: ChangeList) -> bytes:
