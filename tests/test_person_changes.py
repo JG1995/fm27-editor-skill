@@ -6,61 +6,13 @@ import sqlite3
 import pytest
 
 import synthetic
+from fictional_editor import write_definitions
 from fm27_editor.change_list import ChangeList, Kind, Property
 from fm27_editor.people import PersonKind
-from fm27_editor.person_changes import new_person
+from fm27_editor.person_changes import edit_person, new_person
 from fm27_editor.person_rules import PersonRules
 from fm27_editor.record_changes import EditError, NewIds
 
-PERSON = synthetic.definition_file(
-    "pers",
-    synthetic.field_definition("Ptyp", "Person Type", "enum"),
-    synthetic.field_definition("Pfna", "First Name", "string"),
-    synthetic.field_definition("Psna", "Second Name", "string"),
-    synthetic.field_definition("Pdob", "Date Of Birth", "date"),
-    synthetic.field_definition(
-        "Pnti",
-        "Nation",
-        "database_record_unique_id",
-        '<flags id="database_table_type" value="nation" />',
-    ),
-    synthetic.field_definition(
-        "Pcti",
-        "Club",
-        "database_record_unique_id",
-        '<flags id="database_table_type" value="team" />',
-    ),
-    synthetic.field_definition(
-        "Pcbi",
-        "City Of Birth",
-        "database_record_unique_id",
-        '<flags id="database_table_type" value="city" />',
-    ),
-    synthetic.field_definition("Page", "Age", "integer", synthetic.number_range(0, 99)),
-    synthetic.field_definition("Phes", "Height", "integer", synthetic.number_range(0, 210)),
-)
-PLAYER = synthetic.definition_file(
-    "play",
-    synthetic.field_definition(
-        "PCAB", "Current Ability", "integer", synthetic.number_range(0, 200)
-    ),
-    synthetic.field_definition(
-        "PPAB", "Potential Ability", "integer", synthetic.number_range(-100, 200)
-    ),
-    synthetic.field_definition(
-        "PPAR",
-        "Potential Ability Range",
-        "enum",
-        '<list id="enum_values"><record enum="-8" /><record enum="-95" /></list>',
-    ),
-    synthetic.field_definition("PDfn", "Finishing", "attribute"),
-)
-NON_PLAYER = synthetic.definition_file(
-    "nnpl",
-    synthetic.field_definition(
-        "Ncra", "Current Ability", "integer", synthetic.number_range(0, 200)
-    ),
-)
 BASICS = {
     "Pfna": "Testy",
     "Psna": "McTestface",
@@ -71,15 +23,7 @@ BASICS = {
 
 @pytest.fixture
 def editor(tmp_path):
-    return editor_folder(tmp_path, PERSON)
-
-
-def editor_folder(path, person):
-    definitions = path / "shared" / "data" / "editor.fmf"
-    definitions.parent.mkdir(parents=True)
-    files = {"person": person, "player": PLAYER, "non player": NON_PLAYER}
-    definitions.write_bytes(synthetic.definitions_container(files, synthetic.enum_file()))
-    return path
+    return write_definitions(tmp_path)
 
 
 def lookup():
@@ -114,6 +58,24 @@ def test_the_person_is_added_before_its_fields_are_set(editor):
 
     assert tagged(added)["prty"].value == "ADDR"
     assert [tagged(change)["prty"].value for change in fields] == ["Pfna", "Psna", "Pdob", "Pnti"]
+
+
+def test_an_existing_person_is_addressed_by_its_unique_id_twice(editor):
+    with lookup() as database:
+        settings = PersonRules(editor, database).settings(PersonKind.PLAYER, {"finishing": 17})
+        changes = edit_person(776, settings, NewIds(ChangeList(), random.Random(1)))
+
+    (change,) = changes
+    assert tagged(change)["duni"].value == b"\x08\x03\x00\x00" * 2
+    assert tagged(change)["prty"].value == "PDfn"
+    assert tagged(change)["nwvl"].value == "17"
+
+
+def test_an_existing_person_needs_no_name_or_birth_date(editor):
+    with lookup() as database:
+        (setting,) = PersonRules(editor, database).settings(PersonKind.PLAYER, {"ca": 99})
+
+    assert (setting.field.code, setting.value) == ("PCAB", 99)
 
 
 def test_every_field_is_addressed_to_the_new_person(editor):
@@ -157,7 +119,7 @@ def test_a_person_needs_a_name_a_birth_date_and_a_nation(editor, name):
 
 def test_an_editor_without_a_required_field_is_reported(tmp_path):
     first_name = synthetic.field_definition("Pfna", "First Name", "string")
-    editor = editor_folder(tmp_path, synthetic.definition_file("pers", first_name))
+    editor = write_definitions(tmp_path, synthetic.definition_file("pers", first_name))
 
     with pytest.raises(EditError, match="Pdob"):
         create(editor, PersonKind.PLAYER, {"Pfna": "Testy"})

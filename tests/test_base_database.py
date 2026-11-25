@@ -1,66 +1,16 @@
 import datetime
 import sqlite3
-from pathlib import Path
 
 import pytest
 
-import synthetic
+from fictional_editor import write_database
 from fm27_editor import base_database
 from fm27_editor.base_database import DatabaseError, open_database
 
 
-def write_editor(folder: Path, people=None) -> Path:
-    database = folder / "shared/data/database/db/2700/2700_fm"
-    database.mkdir(parents=True, exist_ok=True)
-    people = people or [
-        (0, 100, "Alfa Striker", 2004, 120, (51, 9002), (1, 9101)),
-        (1, 101, "Bravo Keeper", 2008, 60, (41, 9001), (0, 9102)),
-    ]
-    basic = [
-        synthetic.basic_person(
-            2, index, uid, ca=ca, pa=ca + 20, nation=nation, club=club, birth_year=year
-        )
-        for index, uid, _, year, ca, nation, club in people
-    ]
-    records = [
-        synthetic.person_record(
-            index, uid, full_name=name, year=year, nation=nation, attributes={52: 15, 84: 13}
-        )
-        for index, uid, name, year, ca, nation, club in people
-    ]
-    (database / "basic_people_db.dat").write_bytes(
-        synthetic.dat_file(synthetic.basic_people(basic))
-    )
-    (database / "people_db.dat").write_bytes(
-        synthetic.dat_file(synthetic.people_stream(records, len(records)))
-    )
-    (database / "client_db.dat").write_bytes(
-        synthetic.dat_container(
-            "client_db",
-            [
-                ("name_table_extra_0", synthetic.string_table({1: "Testy"})),
-                ("name_table_extra_1", synthetic.string_table({2: "McTestface"})),
-                ("name_table_extra_2", synthetic.string_table({5: "Testo"})),
-                (
-                    "table_3",
-                    synthetic.club_table(
-                        [(9101, "Fictional City", "Fic City"), (9102, "Example United", "Example")]
-                    ),
-                ),
-            ],
-        )
-    )
-    (database / "lang_db.dat").write_bytes(
-        synthetic.dat_container(
-            "lang_db", [("8_9", synthetic.nation_names({9001: "Englandia", 9002: "Norwegia"}))]
-        )
-    )
-    return folder
-
-
 @pytest.fixture
 def editor(tmp_path):
-    return write_editor(tmp_path / "editor")
+    return write_database(tmp_path / "editor")
 
 
 def test_lookup_joins_people_with_nation_and_club(editor, tmp_path):
@@ -91,7 +41,7 @@ def test_cache_is_reused_until_the_editor_files_change(editor, tmp_path):
     open_database(editor, cache).close()
     assert cache.stat().st_mtime_ns == built
 
-    write_editor(editor, [(0, 100, "Charlie Changed", 2004, 100, (41, 9001), (0, 9101))])
+    write_database(editor, [(0, 100, "Charlie Changed", 2004, 100, (41, 9001), (0, 9101))])
 
     with open_database(editor, cache) as db:
         assert db.execute("SELECT name FROM people").fetchall() == [("Charlie Changed",)]
@@ -124,7 +74,9 @@ def test_a_missing_editor_folder_is_reported(tmp_path):
 
 
 def test_unmatched_clubs_and_nations_are_kept_with_an_empty_name(tmp_path):
-    editor = write_editor(tmp_path / "editor", [(0, 100, "Solo", 2004, 100, (1, 999), (1, 12345))])
+    editor = write_database(
+        tmp_path / "editor", [(0, 100, "Solo", 2004, 100, (1, 999), (1, 12345))]
+    )
 
     with open_database(editor, tmp_path / "cache.sqlite") as db:
         assert db.execute("SELECT name, nation, club FROM people").fetchall() == [
@@ -154,8 +106,8 @@ def test_a_file_that_is_not_a_cache_is_not_replaced(editor, tmp_path):
 
 
 def test_the_newest_database_is_used_when_the_editor_has_several(tmp_path):
-    editor = write_editor(tmp_path / "editor")
-    newer = write_editor(
+    editor = write_database(tmp_path / "editor")
+    newer = write_database(
         tmp_path / "newer", [(0, 100, "Newer Person", 2004, 100, (1, 9001), (1, 9101))]
     )
     source = newer / "shared/data/database/db/2700"
