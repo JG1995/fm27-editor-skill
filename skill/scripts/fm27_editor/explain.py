@@ -5,6 +5,7 @@ from collections import Counter
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
+from fm27_editor.base_database import record_name
 from fm27_editor.change_list import Kind, ListItem, Property
 from fm27_editor.change_reading import (
     ADD_RECORD,
@@ -26,6 +27,7 @@ from fm27_editor.field_definitions import (
     read_shared_choices,
 )
 from fm27_editor.list_changes import LIST_REFERENCE_TAGS
+from fm27_editor.record_changes import REFERENCE_TAGS
 from fm27_editor.record_kinds import COMPETITION, GROUPS, PLAYER, STAFF
 from fm27_editor.record_rules import LOOKUP_TABLES
 from fm27_editor.rule_changes import read_rules
@@ -105,6 +107,14 @@ class _Words:
         if len(record) < ID_SIZE:
             return record.hex()
         return f"{self._new_names.get(record[KEPT_HALF], uid_of(record))} (new)"
+
+    def referred(self, tag: str, record: bytes) -> str:
+        """A record that a value refers to; a national team has the uid of its nation."""
+        table = TABLE_OF_TAG.get(tag)
+        is_team = tag == REFERENCE_TAGS["team"] and is_existing(record)
+        if is_team and record_name(self._lookup, table, uid_of(record)) is None:
+            table = LOOKUP_TABLES["nation"]
+        return self.record(table, record)
 
     def _read_fields(self, kind: str) -> dict[str, str]:
         return self._read(kind, read_field_names)
@@ -254,7 +264,7 @@ def _value(value: Property | ListItem | None, words: _Words) -> str:
         if reference is None:
             return "a change to a list"
         tag, record = reference
-        return words.record(TABLE_OF_TAG.get(tag), record)
+        return words.referred(tag, record)
     try:
         plain = read_plain(value)
     except EditError:

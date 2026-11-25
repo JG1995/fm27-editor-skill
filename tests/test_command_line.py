@@ -5,6 +5,7 @@ import pytest
 from fictional_editor import STAFF_KIND, write_editor
 from fm27_editor.command_line import main
 from fm27_editor.editor_file import load_editor_file
+from fm27_editor.record_rules import RecordRules
 
 TEAM = [
     (0, 100, "Alfa Striker", 2004, 120, (51, 9002), (1, 9101)),
@@ -119,6 +120,15 @@ def test_what_can_be_given_for_past_winners_is_listed(run):
     (places,) = [line for line in lines if line.startswith("places: ")]
     assert "points: 1 to 5000; age: 14 to 120" in places
     assert "team_uid: the uid of a club, or of a nation for its national team" in places
+
+
+def test_an_editor_without_the_history_of_awards_is_reported(run, monkeypatch):
+    monkeypatch.setattr(RecordRules, "fields", lambda *_: {})
+
+    status, _, error = run("fields", "award_history")
+
+    assert status == 1
+    assert "does not define the history of awards" in error
 
 
 def test_fields_can_be_searched_by_name_or_code(run):

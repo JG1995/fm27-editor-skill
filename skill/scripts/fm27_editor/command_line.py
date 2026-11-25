@@ -8,7 +8,7 @@ import sys
 from contextlib import closing
 from pathlib import Path
 
-from fm27_editor.award_history import HISTORY_CODE
+from fm27_editor.award_history import history_field
 from fm27_editor.base_database import open_database
 from fm27_editor.binary import FormatError
 from fm27_editor.editor_file import load_editor_file, save_editor_file
@@ -106,7 +106,7 @@ def _fields(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str
         lines = offered_lines(options.kind, RuleDefinitions(options.editor))
     elif options.kind == HISTORY_KEY:
         fields = RecordRules(options.editor, lookup).fields(AWARD)
-        lines = offered_history_lines(fields[HISTORY_CODE])
+        lines = offered_history_lines(history_field(fields))
     else:
         lines = field_lines(kind_named(options.kind), RecordRules(options.editor, lookup))
     matching = [line for line in lines if options.text.lower() in line.lower()]

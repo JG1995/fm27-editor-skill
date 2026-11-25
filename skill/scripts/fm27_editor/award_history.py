@@ -87,9 +87,7 @@ def check_award_history(
     """The history of each award that a request gives years for."""
     if not isinstance(given, list):
         raise EditError("award_history must be a list of years")
-    if HISTORY_CODE not in fields:
-        raise FieldDefinitionError("the Editor does not define the history of awards")
-    checker = _Checker(fields[HISTORY_CODE], lookup)
+    checker = _Checker(history_field(fields), lookup)
     wanted: dict[int, dict[int, Mapping[str, Any]]] = {}
     for entry in given:
         award, year = checker.entry(entry)
@@ -98,6 +96,20 @@ def check_award_history(
             raise EditError(f"{_called(award, year)} is given twice")
         years[year] = entry
     return [checker.history(award, years) for award, years in wanted.items()]
+
+
+def history_field(fields: Mapping[str, Field]) -> Field:
+    """The history among the fields of an award."""
+    if HISTORY_CODE not in fields:
+        raise FieldDefinitionError("the Editor does not define the history of awards")
+    return fields[HISTORY_CODE]
+
+
+def history_part(field: Field, code: str) -> Field:
+    for part in field.items:
+        if part.code == code:
+            return part
+    raise FieldDefinitionError(f"the Editor does not define {code} of an award's history")
 
 
 def history_change(history: AwardHistory, ids: NewIds) -> Change:
@@ -128,7 +140,6 @@ class _Checker:
 
     def __init__(self, field: Field, lookup: sqlite3.Connection):
         self._field = field
-        self._parts = {part.code: part for part in field.items}
         self._lookup = lookup
 
     def entry(self, given: Any) -> tuple[int, int]:
@@ -139,7 +150,7 @@ class _Checker:
             raise EditError(f"a year of award_history needs {', '.join(missing)}")
         award = given[AWARD]
         self._check_exists("award_history", award, "award")
-        part = self._part(YEAR_CODE)
+        part = history_part(self._field, YEAR_CODE)
         year = checked_number("year of award_history", given[YEAR], part.lowest, part.highest)
         if (PLACES_KEY in given) == (NOT_HELD in given):
             raise EditError(f"{_called(award, year)} needs either places or not_held")
@@ -191,9 +202,9 @@ class _Checker:
         return replace(kept, **values)
 
     def _check_value(self, where: str, name: str, number: int, value: Any) -> None:
-        part = self._part(PLACE_CODES[name].format(number))
+        part = history_part(self._field, PLACE_CODES[name].format(number))
         if name == "person_uid":
-            if type(value) is not int or self._person_name(value) is None:
+            if not _is_uid(value) or self._person_name(value) is None:
                 raise EditError(f"{where}: there is no person {value!r}")
         elif name == "team_uid":
             self._check_exists(where, value, "club", "nation")
@@ -206,8 +217,9 @@ class _Checker:
                 raise EditError(f"{where}: {error}") from error
 
     def _check_exists(self, where: str, uid: Any, *tables: str) -> None:
-        is_uid = type(uid) is int and 0 < uid <= HIGHEST_UID
-        if not is_uid or all(record_name(self._lookup, table, uid) is None for table in tables):
+        if not _is_uid(uid) or all(
+            record_name(self._lookup, table, uid) is None for table in tables
+        ):
             raise EditError(f"{where}: there is no {' or '.join(tables)} {uid!r}")
 
     def _person_name(self, uid: int) -> str | None:
@@ -219,11 +231,6 @@ class _Checker:
         ).fetchone()
         return record_name(self._lookup, "person", uid) if row is None else row[0]
 
-    def _part(self, code: str) -> Field:
-        if code not in self._parts:
-            raise FieldDefinitionError(f"the Editor does not define {code} of an award's history")
-        return self._parts[code]
-
 
 def _check_keys(where: str, given: Any, known: set[str]) -> None:
     if not isinstance(given, Mapping):
@@ -231,6 +238,10 @@ def _check_keys(where: str, given: Any, known: set[str]) -> None:
     unknown = given.keys() - known
     if unknown:
         raise EditError(f"{where} has no part named {', '.join(sorted(unknown))}")
+
+
+def _is_uid(given: Any) -> bool:
+    return type(given) is int and 0 < given <= HIGHEST_UID
 
 
 def _only(award: int, number: int, years: list[Year]) -> Year | None:
