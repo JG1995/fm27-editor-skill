@@ -226,7 +226,7 @@ def test_an_award_cannot_be_made(plan_for):
         plan_for(new=[{"kind": "award", "set": {"name": "Example Award"}}])
 
 
-PAST = {"award": 9501, "year": 2024, "places": [{"keep": 2}, {"keep": 1}]}
+PAST = {"award_uid": 9501, "year": 2024, "places": [{"keep": 2}, {"keep": 1}]}
 
 
 def test_past_winners_alone_are_a_request(plan_for):
@@ -249,7 +249,7 @@ def test_the_history_is_written_behind_the_settings(plan_for):
 
 
 def test_past_winners_that_are_so_already_change_nothing(plan_for):
-    so_already = {"award": 9501, "year": 2023, "places": [{"keep": 1}]}
+    so_already = {"award_uid": 9501, "year": 2023, "places": [{"keep": 1}]}
 
     with pytest.raises(RequestError, match="changes nothing"):
         plan_for(award_history=[so_already])
@@ -267,9 +267,12 @@ def test_a_history_that_the_starting_file_changes_cannot_be_changed_again(plan_f
     plan = plan_for(award_history=[PAST])
     path = tmp_path / "History.fmf"
     save_editor_file(build_file(plan, approval_code(plan), TODAY), path)
-    other_award = {"award": 9502, "year": 2025, "places": [{"name": "New Star"}]}
+    other_award = {"award_uid": 9502, "year": 2025, "places": [{"name": "New Star"}]}
 
-    assert plan_for(start_from=str(path), award_history=[other_award]).histories
+    so_already = {"award_uid": 9501, "year": 2023, "places": [{"keep": 1}]}
+    plan = plan_for(start_from=str(path), award_history=[other_award, so_already])
+
+    assert [edit.award.uid for edit in plan.histories] == [9502]
     with pytest.raises(RequestError, match="history of Example Player of the Year"):
         plan_for(start_from=str(path), award_history=[PAST])
 

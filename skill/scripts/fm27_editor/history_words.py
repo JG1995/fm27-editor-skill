@@ -4,7 +4,7 @@ import sqlite3
 from collections.abc import Sequence
 
 from fm27_editor.award_history import (
-    AWARD,
+    AWARD_UID,
     KEEP,
     NOT_HELD,
     OFFERED,
@@ -15,12 +15,14 @@ from fm27_editor.award_history import (
     AwardHistory,
     Place,
     Year,
+    history_field,
     history_part,
 )
 from fm27_editor.awards import PLACES
-from fm27_editor.base_database import record_name
 from fm27_editor.field_definitions import Field
-from fm27_editor.words import accepted, counted
+from fm27_editor.record_kinds import AWARD
+from fm27_editor.record_rules import RecordRules
+from fm27_editor.words import accepted, counted, named, named_team
 
 # What can be given where the Editor's definition does not say it all.
 IN_WORDS = {
@@ -29,11 +31,12 @@ IN_WORDS = {
 }
 
 
-def offered_history_lines(field: Field) -> list[str]:
+def offered_history_lines(rules: RecordRules) -> list[str]:
     """What can be given for a year of an award."""
+    field = history_field(rules.fields(AWARD))
     offered = "; ".join(f"{name}: {_accepted(name, field)}" for name in OFFERED)
     return [
-        f"{AWARD}: the uid of an award, needed",
+        f"{AWARD_UID}: the uid of an award, needed",
         f"{YEAR}: {accepted(history_part(field, YEAR_CODE))}, needed",
         f"{PLACES_KEY}: a list of one to three, the first first, each of ({KEEP}: 1 to {PLACES}, "
         f"the place of who stands in the history of that year; {offered})",
@@ -53,8 +56,6 @@ def history_heading(described: str, history: AwardHistory) -> str:
         says.append(f"{other} with another winner")
     if added:
         says.append(f"{added} new")
-    if history.already_so:
-        says.append(f"{history.already_so} asked for and so already")
     others = "; the others stay as they are" if changed < len(history.years) else ""
     return f"History of {described}: {', '.join(says)}{others}"
 
@@ -97,9 +98,9 @@ class _Words:
             person = "no person" if place.person_uid is None else place.person_uid
             said.append(f"{place.name or ''} ({person})".strip())
         if place.team_uid is not None:
-            said.append(self._named(place.team_uid, "club", "nation"))
+            said.append(named_team(self._lookup, place.team_uid))
         if place.nation_uid is not None:
-            said.append(self._named(place.nation_uid, "nation"))
+            said.append(named(self._lookup, "nation", place.nation_uid))
         if place.points is not None:
             said.append(counted(place.points, "point", "points"))
         if place.more_points is not None:
@@ -113,10 +114,6 @@ class _Words:
     def _position(self, number: int, position: int) -> str:
         part = history_part(self._field, PLACE_CODES["position"].format(number))
         return (part.choices or {}).get(position, f"position {position}")
-
-    def _named(self, uid: int, *tables: str) -> str:
-        names = (record_name(self._lookup, table, uid) for table in tables)
-        return next((name for name in names if name is not None), str(uid))
 
 
 def _accepted(name: str, field: Field) -> str:

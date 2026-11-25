@@ -17,14 +17,16 @@ from fm27_editor.base_database import record_name
 from fm27_editor.change_reading import Change, EditError, Table, existing_record
 from fm27_editor.definition_files import FieldDefinitionError
 from fm27_editor.field_definitions import Field
-from fm27_editor.list_changes import Item, list_change
+from fm27_editor.list_changes import LIST_REFERENCE_TAGS, Item, list_change
 from fm27_editor.record_changes import (
-    HIGHEST_UID,
     REFERENCE,
     NewIds,
     checked_number,
+    is_uid,
+    refusal,
     stored_value,
 )
+from fm27_editor.record_rules import LOOKUP_TABLES, check_exists
 
 HISTORY_CODE = "AWsh"
 YEAR_CODE, NO_DATA_CODE, NOT_HELD_CODE = "AHye", "AHnd", "Ahnt"
@@ -39,8 +41,8 @@ PLACE_CODES = {
     "nation_uid": "AH{}c",
     "position": "AHp{}",
 }
-AWARD, YEAR, PLACES_KEY, NOT_HELD, KEEP = "award", "year", "places", "not_held", "keep"
-ENTRY_KEYS = {AWARD, YEAR, PLACES_KEY, NOT_HELD}
+AWARD_UID, YEAR, PLACES_KEY, NOT_HELD, KEEP = "award_uid", "year", "places", "not_held", "keep"
+ENTRY_KEYS = {AWARD_UID, YEAR, PLACES_KEY, NOT_HELD}
 OFFERED = ("person_uid", "name", "team_uid", "points", "age", "nation_uid")
 NAMING = {KEEP, "person_uid", "name", "team_uid"}
 
@@ -100,14 +102,21 @@ def check_award_history(
 
 def history_field(fields: Mapping[str, Field]) -> Field:
     """The history among the fields of an award."""
-    if HISTORY_CODE not in fields:
+    field = fields.get(HISTORY_CODE)
+    if field is None or field.type != "list":
         raise FieldDefinitionError("the Editor does not define the history of awards")
-    return fields[HISTORY_CODE]
+    if not field.is_editable:
+        raise EditError("the history of awards cannot be edited in the Editor")
+    return field
 
 
 def history_part(field: Field, code: str) -> Field:
+    """A part of a year that can be given a value."""
     for part in field.items:
         if part.code == code:
+            reason = refusal(part, LIST_REFERENCE_TAGS)
+            if reason is not None:
+                raise EditError(f"{part.name} ({code}) {reason}")
             return part
     raise FieldDefinitionError(f"the Editor does not define {code} of an award's history")
 
@@ -145,11 +154,11 @@ class _Checker:
     def entry(self, given: Any) -> tuple[int, int]:
         """The award and the year that are meant."""
         _check_keys("award_history", given, ENTRY_KEYS)
-        missing = [name for name in (AWARD, YEAR) if name not in given]
+        missing = [name for name in (AWARD_UID, YEAR) if name not in given]
         if missing:
             raise EditError(f"a year of award_history needs {', '.join(missing)}")
-        award = given[AWARD]
-        self._check_exists("award_history", award, "award")
+        award = given[AWARD_UID]
+        check_exists(self._lookup, "award_history", award, "award")
         part = history_part(self._field, YEAR_CODE)
         year = checked_number("year of award_history", given[YEAR], part.lowest, part.highest)
         if (PLACES_KEY in given) == (NOT_HELD in given):
@@ -204,23 +213,17 @@ class _Checker:
     def _check_value(self, where: str, name: str, number: int, value: Any) -> None:
         part = history_part(self._field, PLACE_CODES[name].format(number))
         if name == "person_uid":
-            if not _is_uid(value) or self._person_name(value) is None:
+            if not is_uid(value) or self._person_name(value) is None:
                 raise EditError(f"{where}: there is no person {value!r}")
         elif name == "team_uid":
-            self._check_exists(where, value, "club", "nation")
+            check_exists(self._lookup, where, value, "club", "nation")
         elif part.type == REFERENCE:
-            self._check_exists(where, value, part.points_to)
+            check_exists(self._lookup, where, value, LOOKUP_TABLES[part.points_to])
         else:
             try:
                 stored_value(part, value)
             except EditError as error:
                 raise EditError(f"{where}: {error}") from error
-
-    def _check_exists(self, where: str, uid: Any, *tables: str) -> None:
-        if not _is_uid(uid) or all(
-            record_name(self._lookup, table, uid) is None for table in tables
-        ):
-            raise EditError(f"{where}: there is no {' or '.join(tables)} {uid!r}")
 
     def _person_name(self, uid: int) -> str | None:
         """The name that most awards use, which is often shorter than the lookup's own."""
@@ -238,10 +241,6 @@ def _check_keys(where: str, given: Any, known: set[str]) -> None:
     unknown = given.keys() - known
     if unknown:
         raise EditError(f"{where} has no part named {', '.join(sorted(unknown))}")
-
-
-def _is_uid(given: Any) -> bool:
-    return type(given) is int and 0 < given <= HIGHEST_UID
 
 
 def _only(award: int, number: int, years: list[Year]) -> Year | None:

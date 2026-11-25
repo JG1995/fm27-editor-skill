@@ -13,17 +13,23 @@ from functools import partial
 from pathlib import Path
 from typing import Any
 
-from fm27_editor.award_history import HISTORY_CODE, check_award_history, history_change
+from fm27_editor.award_history import history_change
 from fm27_editor.change_list import ChangeList
-from fm27_editor.change_reading import is_existing, read_change, uid_of
 from fm27_editor.editor_file import EditorFile, load_editor_file
-from fm27_editor.history_plan import history_warnings
+from fm27_editor.history_plan import history_warnings, plan_histories
 from fm27_editor.nation_rules import NationRules
 from fm27_editor.new_file import new_editor_file
-from fm27_editor.planned import Addition, Edit, HistoryEdit, KnownRecord
+from fm27_editor.planned import (
+    Addition,
+    Edit,
+    HistoryEdit,
+    KnownRecord,
+    StartingFile,
+    known_record,
+)
 from fm27_editor.potential import ABILITY, POTENTIAL, has_more_ability_than_potential
-from fm27_editor.record_changes import HIGHEST_UID, NewIds, stored_value
-from fm27_editor.record_kinds import AWARD, RecordGroup, RecordKind, kind_of
+from fm27_editor.record_changes import NewIds, stored_value
+from fm27_editor.record_kinds import RecordKind
 from fm27_editor.record_rules import NewReference, RecordRules, Setting
 from fm27_editor.request import (
     HISTORY_KEY,
@@ -45,13 +51,6 @@ CODE_LENGTH = 12
 
 
 @dataclass(frozen=True)
-class StartingFile:
-    path: Path
-    file: EditorFile
-    digest: str
-
-
-@dataclass(frozen=True)
 class Plan:
     start: StartingFile | None
     edits: list[Edit]
@@ -59,6 +58,8 @@ class Plan:
     histories: list[HistoryEdit]
     already_so: int
     """Requested values that records have already, which are left out."""
+    years_already_so: int
+    """Requested years of a history that are so already."""
     replaced: int
     """Edits of a field that the starting file changes as well."""
     rules: NationRules | None
@@ -73,9 +74,10 @@ def make_plan(request: Any, editor_dir: Path, lookup: sqlite3.Connection) -> Pla
     new = {addition.name: addition.kind for addition in additions if addition.name is not None}
     planned = list(_planned(wanted_edits(request, lookup), new, rules, lookup))
     edits = [edit for edit in planned if edit.old != edit.setting.as_the_lookup_says]
-    histories = []
+    found = []
     if HISTORY_KEY in request:
-        histories = _histories(request[HISTORY_KEY], rules, lookup, start)
+        found = plan_histories(request[HISTORY_KEY], rules, lookup, start)
+    histories = [edit for edit in found if edit.history.changed]
     nation_rules = None
     if RULES_KEY in request:
         if start is not None:
@@ -92,6 +94,7 @@ def make_plan(request: Any, editor_dir: Path, lookup: sqlite3.Connection) -> Pla
         additions,
         histories,
         already_so=len(planned) - len(edits),
+        years_already_so=sum(edit.history.already_so for edit in found),
         replaced=_replaced(start, edits),
         rules=nation_rules,
         warnings=[
@@ -112,8 +115,8 @@ def approval_code(plan: Plan) -> str:
     for addition in plan.additions:
         parts.append(f"{addition.kind.name} {addition.name}")
         parts += [_written(setting) for setting in addition.settings]
-    parts += [f"{_address(edit.record)} {_written(edit.setting)}" for edit in plan.edits]
-    parts += [f"{_address(edit.award)} {edit.history.years!r}" for edit in plan.histories]
+    parts += [f"{edit.record.address} {_written(edit.setting)}" for edit in plan.edits]
+    parts += [f"{edit.award.address} {edit.history.years!r}" for edit in plan.histories]
     parts.append("" if plan.rules is None else repr(plan.rules.values))
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:CODE_LENGTH]
 
@@ -146,10 +149,6 @@ def _add_changes(file: ChangeList, plan: Plan) -> None:
     file.changes += [history_change(edit.history, ids) for edit in plan.histories]
     if plan.rules is not None:
         add_rules(file, plan.rules, new)
-
-
-def _address(record: KnownRecord) -> tuple[int, int]:
-    return record.kind.group.table, record.uid
 
 
 def _written(setting: Setting) -> str:
@@ -187,26 +186,14 @@ def _planned(
 ) -> Iterator[Edit]:
     seen = set()
     for edit in wanted:
-        record = _known(edit.group, edit.uid, lookup)
+        record = known_record(edit.group, edit.uid, lookup)
         _check_values(record, edit.values)
         for setting in rules.settings(record.kind, edit.values, new):
             field = setting.field
-            if (_address(record), field.code) in seen:
+            if (record.address, field.code) in seen:
                 raise RequestError(f"{field.name} of {record.name} ({record.uid}) is set twice")
-            seen.add((_address(record), field.code))
+            seen.add((record.address, field.code))
             yield Edit(record, setting, record.facts.get(record.kind.names.get(field.code, "")))
-
-
-def _known(group: RecordGroup, uid: Any, lookup: sqlite3.Connection) -> KnownRecord:
-    cursor = lookup.cursor()
-    cursor.row_factory = sqlite3.Row
-    row = None
-    if type(uid) is int and 0 < uid <= HIGHEST_UID:
-        row = cursor.execute(f"SELECT * FROM {group.view} WHERE uid = ?", (uid,)).fetchone()
-    if row is None:
-        raise RequestError(f"the lookup has no {group.one} with uid {uid!r}")
-    facts = dict(row)
-    return KnownRecord(facts["uid"], kind_of(group, facts), facts)
 
 
 def _check_values(record: KnownRecord, values: Mapping[str, Any]) -> None:
@@ -223,7 +210,7 @@ def _check_values(record: KnownRecord, values: Mapping[str, Any]) -> None:
 def _potential_warnings(edits: list[Edit], additions: list[Addition]) -> list[str]:
     edited: dict[tuple[int, int], list[Edit]] = {}
     for edit in edits:
-        edited.setdefault(_address(edit.record), []).append(edit)
+        edited.setdefault(edit.record.address, []).append(edit)
     above = []
     for of_one in edited.values():
         kind, facts = of_one[0].record.kind, of_one[0].record.facts
@@ -245,39 +232,10 @@ def _by_code(settings: Iterable[Setting]) -> list[tuple[str, object]]:
 
 
 def _replaced(start: StartingFile | None, edits: list[Edit]) -> int:
-    changed = _changed_by(start)
-    wanted = ((*_address(edit.record), edit.setting.field.code) for edit in edits)
-    return sum(key in changed for key in wanted)
-
-
-def _histories(
-    given: Any, rules: RecordRules, lookup: sqlite3.Connection, start: StartingFile | None
-) -> list[HistoryEdit]:
-    """A history is stored whole, so one that the starting file has as well would be lost."""
-    edits = [
-        HistoryEdit(_known(AWARD.group, history.award_uid, lookup), history)
-        for history in check_award_history(given, rules.fields(AWARD), lookup)
-        if history.changed
-    ]
-    changed = _changed_by(start)
-    for edit in edits:
-        if (*_address(edit.award), HISTORY_CODE) in changed:
-            raise RequestError(
-                f"the file to start from changes the history of {edit.award.name} already"
-            )
-    return edits
-
-
-def _changed_by(start: StartingFile | None) -> set[tuple[int, int, str]]:
-    """The table, uid, and field of everything in the database that a file changes."""
     if start is None:
-        return set()
-    changes = map(read_change, start.file.changes.changes)
-    return {
-        (change.table, uid_of(change.record), change.code)
-        for change in changes
-        if is_existing(change.record)
-    }
+        return 0
+    wanted = ((edit.record.address, edit.setting.field.code) for edit in edits)
+    return sum(key in start.changed for key in wanted)
 
 
 def _copy(file: EditorFile) -> EditorFile:

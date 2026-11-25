@@ -1,10 +1,38 @@
-"""What stands out in the history that a request gives an award."""
+"""Planning the histories that a request gives awards, and what stands out in them."""
 
+import sqlite3
 from collections.abc import Iterable, Iterator
 from itertools import pairwise
+from typing import Any
 
-from fm27_editor.award_history import Year
-from fm27_editor.planned import HistoryEdit
+from fm27_editor.award_history import HISTORY_CODE, Year, check_award_history
+from fm27_editor.planned import HistoryEdit, StartingFile, known_record
+from fm27_editor.record_kinds import AWARD
+from fm27_editor.record_rules import RecordRules
+from fm27_editor.request import RequestError
+
+
+def plan_histories(
+    given: Any, rules: RecordRules, lookup: sqlite3.Connection, start: StartingFile | None
+) -> list[HistoryEdit]:
+    """The history of each award that is asked for, also when nothing in it is to change."""
+    edits = [
+        HistoryEdit(known_record(AWARD.group, history.award_uid, lookup), history)
+        for history in check_award_history(given, rules.fields(AWARD), lookup)
+    ]
+    for edit in edits:
+        _check_not_changed_before(edit, start)
+    return edits
+
+
+def _check_not_changed_before(edit: HistoryEdit, start: StartingFile | None) -> None:
+    """A history is stored whole, so the one in the starting file would be lost."""
+    if start is None or not edit.history.changed:
+        return
+    if (edit.award.address, HISTORY_CODE) in start.changed:
+        raise RequestError(
+            f"the file to start from changes the history of {edit.award.name} already"
+        )
 
 
 def history_warnings(edits: Iterable[HistoryEdit]) -> Iterator[str]:

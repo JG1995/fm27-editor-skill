@@ -66,6 +66,12 @@ def named(lookup: sqlite3.Connection, table: str | None, uid: int) -> str:
     return str(uid) if name is None else f"{name} ({uid})"
 
 
+def named_team(lookup: sqlite3.Connection, uid: int) -> str:
+    """A club, or a national team, which has the uid of its nation."""
+    is_club = record_name(lookup, "club", uid) is not None
+    return named(lookup, "club" if is_club else "nation", uid)
+
+
 def named_reference(
     lookup: sqlite3.Connection, table: str | None, record: int | NewReference
 ) -> str:

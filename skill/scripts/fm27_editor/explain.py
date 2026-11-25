@@ -5,7 +5,6 @@ from collections import Counter
 from collections.abc import Callable, Iterator
 from pathlib import Path
 
-from fm27_editor.base_database import record_name
 from fm27_editor.change_list import Kind, ListItem, Property
 from fm27_editor.change_reading import (
     ADD_RECORD,
@@ -17,6 +16,7 @@ from fm27_editor.change_reading import (
     read_change,
     read_plain,
     referred_to,
+    says_nothing,
     uid_of,
 )
 from fm27_editor.definition_files import NoDefinitionsError
@@ -31,7 +31,7 @@ from fm27_editor.record_changes import REFERENCE_TAGS
 from fm27_editor.record_kinds import COMPETITION, GROUPS, PLAYER, STAFF
 from fm27_editor.record_rules import LOOKUP_TABLES
 from fm27_editor.rule_changes import read_rules
-from fm27_editor.words import counted, named
+from fm27_editor.words import counted, named, named_team
 
 KINDS_OF_RECORD = "dbts"
 FIELDS_SHOWN = 12
@@ -53,8 +53,7 @@ TABLE_OF_KIND = {
     "City": "city",
     "Stadium": "stadium",
 }
-TABLE_OF_REFERENCE = LOOKUP_TABLES | {"person": "person"}
-TABLE_OF_TAG = {tag: TABLE_OF_REFERENCE.get(kind) for kind, tag in LIST_REFERENCE_TAGS.items()}
+TABLE_OF_TAG = {tag: LOOKUP_TABLES.get(kind) for kind, tag in LIST_REFERENCE_TAGS.items()}
 
 
 def explain_lines(
@@ -109,12 +108,10 @@ class _Words:
         return f"{self._new_names.get(record[KEPT_HALF], uid_of(record))} (new)"
 
     def referred(self, tag: str, record: bytes) -> str:
-        """A record that a value refers to; a national team has the uid of its nation."""
-        table = TABLE_OF_TAG.get(tag)
-        is_team = tag == REFERENCE_TAGS["team"] and is_existing(record)
-        if is_team and record_name(self._lookup, table, uid_of(record)) is None:
-            table = LOOKUP_TABLES["nation"]
-        return self.record(table, record)
+        """A record that a value refers to."""
+        if tag == REFERENCE_TAGS["team"] and is_existing(record):
+            return named_team(self._lookup, uid_of(record))
+        return self.record(TABLE_OF_TAG.get(tag), record)
 
     def _read_fields(self, kind: str) -> dict[str, str]:
         return self._read(kind, read_field_names)
@@ -245,13 +242,8 @@ def _list_item(item: ReadChange, entry: ListItem, words: _Words) -> str:
     return ", ".join(
         f"{words.part(kind, item.code, part.tag)} {_value(part, words)}"
         for part in entry.value
-        if not _says_nothing(part)
+        if not says_nothing(part)
     )
-
-
-def _says_nothing(part: Property) -> bool:
-    is_no = part.kind is Kind.BOOL and not part.value[0]
-    return part.kind is Kind.NULL or is_no or (part.kind is Kind.TEXT and not part.value)
 
 
 def _value(value: Property | ListItem | None, words: _Words) -> str:

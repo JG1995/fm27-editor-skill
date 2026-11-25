@@ -15,9 +15,9 @@ from fm27_editor.change_reading import EditError
 from fm27_editor.field_definitions import Field, read_fields
 from fm27_editor.potential import check_potential, with_ranges
 from fm27_editor.record_changes import (
-    HIGHEST_UID,
     FieldValue,
     checked_date,
+    is_uid,
     refusal,
     stored_value,
 )
@@ -31,6 +31,7 @@ LOOKUP_TABLES = {
     "competition": "competition",
     "city": "city",
     "stadium": "stadium",
+    "person": "person",
 }
 NEW_MARK = "@"
 
@@ -154,16 +155,17 @@ class RecordRules:
         """A record that exists or is new, for something called `called` that points to it."""
         if is_new_reference(given):
             return _new_reference(points_to, called, given, new)
-        self._check_exists(points_to, called, given)
-        return given
-
-    def _check_exists(self, points_to: str, called: str, uid: object) -> None:
         table = LOOKUP_TABLES.get(points_to)
         if table is None:
             raise EditError(f"{called} points to a {points_to}, which the lookup does not hold")
-        is_uid = type(uid) is int and 0 < uid <= HIGHEST_UID
-        if not is_uid or record_name(self._lookup, table, uid) is None:
-            raise EditError(f"{called}: there is no {table} {uid!r}")
+        check_exists(self._lookup, called, given, table)
+        return given
+
+
+def check_exists(lookup: sqlite3.Connection, called: str, uid: object, *tables: str) -> None:
+    """Something called `called` points to a record of one of these tables of the lookup."""
+    if not is_uid(uid) or all(record_name(lookup, table, uid) is None for table in tables):
+        raise EditError(f"{called}: there is no {' or '.join(tables)} {uid!r}")
 
 
 def is_new_reference(given: object) -> bool:
