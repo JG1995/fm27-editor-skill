@@ -1,0 +1,100 @@
+"""The Editor's codes for the facts that the lookup names.
+
+The sweeper position has no code: the FM27 Editor no longer offers it.
+"""
+
+from fm27_editor.people import PersonKind
+
+COMMON = {
+    "birth_date": "Pdob",
+    "nation_uid": "Pnti",
+    "club_uid": "Pcti",
+    "adaptability": "Pada",
+    "ambition": "Pamb",
+    "loyalty": "Ploy",
+    "pressure": "Ppre",
+    "professionalism": "Ppro",
+    "sportsmanship": "Pspo",
+    "temperament": "Ptem",
+    "controversy": "Pcvy",
+}
+
+PLAYER = {
+    "ca": "PCAB",
+    "pa": "PPAB",
+    "corners": "PDcs",
+    "crossing": "PDcr",
+    "dribbling": "PDdr",
+    "finishing": "PDfn",
+    "first_touch": "PDft",
+    "free_kicks": "PDfk",
+    "heading": "PDhd",
+    "long_shots": "PDls",
+    "long_throws": "PDlt",
+    "marking": "PDmr",
+    "passing": "PDps",
+    "penalty_taking": "PDpn",
+    "tackling": "PDtk",
+    "technique": "PDtc",
+    "aggression": "PDag",
+    "anticipation": "PDan",
+    "bravery": "PDbr",
+    "composure": "PDcp",
+    "concentration": "PDcc",
+    "decisions": "PDdc",
+    "determination": "PDde",
+    "flair": "PDfl",
+    "leadership": "PDld",
+    "off_the_ball": "PDmv",
+    "positioning": "PDpt",
+    "teamwork": "PDtm",
+    "vision": "PDvs",
+    "work_rate": "PDwr",
+    "acceleration": "PDac",
+    "agility": "PDal",
+    "balance": "PDbl",
+    "jumping_reach": "PDjm",
+    "natural_fitness": "PDnf",
+    "pace": "PDpc",
+    "stamina": "PDsm",
+    "strength": "PDst",
+    "aerial_reach": "PDae",
+    "command_of_area": "PDca",
+    "communication": "PDcm",
+    "eccentricity": "PDec",
+    "handling": "PDhn",
+    "kicking": "PDkc",
+    "one_on_ones": "PDoo",
+    "punching": "PDtp",
+    "reflexes": "PDrf",
+    "rushing_out": "PDro",
+    "throwing": "PDth",
+    "consistency": "PDcy",
+    "dirtiness": "PDdt",
+    "important_matches": "PDim",
+    "injury_proneness": "PDij",
+    "versatility": "PDvt",
+    "left_foot": "PDlf",
+    "right_foot": "PDri",
+    "position_gk": "Pgoa",
+    "position_dl": "Pdls",
+    "position_dc": "Pdce",
+    "position_dr": "Pdrs",
+    "position_dm": "Pdmc",
+    "position_ml": "Pmls",
+    "position_mc": "Pmce",
+    "position_mr": "Pmrs",
+    "position_aml": "Paml",
+    "position_amc": "Pamc",
+    "position_amr": "Pamr",
+    "position_st": "Pace",
+    "position_wbl": "Pwbl",
+    "position_wbr": "Pwbr",
+}
+
+STAFF = {"ca": "Ncra", "pa": "Npta"}
+
+
+def person_codes(kind: PersonKind) -> dict[str, str]:
+    """Codes by the lookup's names, for players or for staff."""
+    return COMMON | (PLAYER if kind is PersonKind.PLAYER else STAFF)
