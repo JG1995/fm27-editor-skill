@@ -102,3 +102,20 @@ def test_a_frame_that_is_cut_short_is_rejected_even_when_the_size_fits():
 def test_bytes_after_the_last_frame_are_an_error():
     with pytest.raises(ContainerError):
         read_container(synthetic.container("T", FILES) + b"\x00\x00\x00\x00")
+
+
+def test_reads_the_unencrypted_containers_of_the_base_database():
+    for storage in (3, 0):
+        container = read_container(
+            synthetic.container("client_db", FILES, storage=storage, encrypted=False)
+        )
+
+        assert [(m.name, m.extension, m.data) for m in container.root.members] == FILES
+        assert container.encrypted is False
+
+
+def test_unencrypted_containers_are_never_written():
+    container = read_container(synthetic.container("client_db", FILES, encrypted=False))
+
+    with pytest.raises(ContainerError, match="unencrypted"):
+        write_container(container)

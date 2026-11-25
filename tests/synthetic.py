@@ -49,14 +49,18 @@ def container(
     folder: tuple[str, list[tuple[str, str, bytes]]] | None = None,
     size_prefix: bool = False,
     declared_unpacked: int | None = None,
-    magic: bytes = b"\x02\x01afe.",
+    encrypted: bool = True,
+    magic: bytes | None = None,
     version: int = 8,
 ) -> bytes:
     region = b""
 
     def record(name: str, extension: str, data: bytes) -> bytes:
         nonlocal region
-        stored = stored_member(data, compressed=storage == 3, size_prefix=size_prefix)
+        if encrypted:
+            stored = stored_member(data, compressed=storage == 3, size_prefix=size_prefix)
+        else:
+            stored = zstd_frame(data) if storage == 3 else data
         unpacked = len(data) if declared_unpacked is None else declared_unpacked
         entry = member_record(name, extension, len(region), len(stored), unpacked)
         region += stored
@@ -74,6 +78,8 @@ def container(
     if size_prefix:
         frame = struct.pack("<I", len(frame)) + frame
     index_at = 26 + len(region)
+    if magic is None:
+        magic = b"\x02\x01afe." if encrypted else b"\x02\x01fmf."
     header = magic + struct.pack("<HB", version, 0)
     header += struct.pack("<QQ", index_at - 9, 17) + bytes([storage])
     return header + region + b"\x02\x01fmf.\x08\x00\x00" + frame
@@ -112,3 +118,26 @@ def capacity_change(new: int) -> bytes:
         prop("vers", 0x12, b"\xaa\x0e"),
         prop("odvl", 0x01, struct.pack("<i", 50_000)),
     )
+
+
+# --- base database -------------------------------------------------------------------------
+
+DAT_PREFIX = b"\x03\x01tad." + b"\xa0\x0f\xa9\x0e\x09\x00"
+
+
+def dat_file(content: bytes) -> bytes:
+    """A database file whose body is one compressed stream."""
+    return DAT_PREFIX + zstd_frame(content)
+
+
+def dat_container(root: str, tables: list[tuple[str, bytes]]) -> bytes:
+    """A database file whose body is a container of tables."""
+    files = [(name, ".dat", data) for name, data in tables]
+    return DAT_PREFIX + container(root, files, encrypted=False)
+
+
+def string_table(entries: dict[int, str]) -> bytes:
+    table = b"\x03\x01tad.\xa0\x0f" + struct.pack("<I", len(entries))
+    for uid, value in entries.items():
+        table += struct.pack("<I", uid) + text(value)
+    return table
