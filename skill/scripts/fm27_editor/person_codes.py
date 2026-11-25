@@ -4,8 +4,8 @@ The sweeper position has no code: the FM27 Editor no longer offers it. Nor has t
 from the common name, or from the first and second name.
 """
 
+from fm27_editor.change_reading import EditError
 from fm27_editor.people import PersonKind
-from fm27_editor.record_changes import EditError
 
 COMMON = {
     "full_name": "Pfln",
@@ -99,12 +99,21 @@ STAFF = {"ca": "Ncra", "pa": "Npta"}
 
 
 CODES = {PersonKind.PLAYER: COMMON | PLAYER, PersonKind.STAFF: COMMON | STAFF}
-
+NAMES = {kind: {code: name for name, code in codes.items()} for kind, codes in CODES.items()}
 POTENTIALS = {PLAYER["pa"], STAFF["pa"]}
 
 
 def person_codes(kind: PersonKind) -> dict[str, str]:
     """Codes by the lookup's names."""
-    if kind not in CODES:
+    return _of_kind(CODES, kind)
+
+
+def names_by_code(kind: PersonKind) -> dict[str, str]:
+    """The lookup's names by code."""
+    return _of_kind(NAMES, kind)
+
+
+def _of_kind(tables: dict[PersonKind, dict[str, str]], kind: PersonKind) -> dict[str, str]:
+    if kind not in tables:
         raise EditError(f"the codes of {kind.name.lower()} people are not known")
-    return CODES[kind]
+    return tables[kind]

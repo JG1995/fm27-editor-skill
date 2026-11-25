@@ -24,6 +24,10 @@ class FieldDefinitionError(FormatError):
     """The Editor's field definitions are missing or do not follow the known layout."""
 
 
+class NoDefinitionsError(FieldDefinitionError):
+    """The Editor has no definitions for this kind of record."""
+
+
 @dataclass(frozen=True)
 class Field:
     code: str
@@ -54,14 +58,14 @@ def read_fields(editor_dir: Path, record_kind: str) -> dict[str, Field]:
 
 
 def read_field_names(editor_dir: Path, record_kind: str) -> dict[str, str]:
-    """The names of the fields of one kind of record; the first one where a code has several."""
-    names = {}
+    """The names of the fields of one kind of record, without codes that have several names."""
+    names: dict[str, set[str]] = {}
     folder = _folder(_format_folder(editor_dir), DATABASE_FOLDER)
     for element in _field_elements(_parse(folder, record_kind)):
-        code = _value(element, "field")
-        if code is not None:
-            names.setdefault(code, _name(element))
-    return names
+        code, name = _value(element, "field"), _name(element)
+        if code is not None and name:
+            names.setdefault(code, set()).add(name)
+    return {code: found.pop() for code, found in names.items() if len(found) == 1}
 
 
 def read_shared_choices(editor_dir: Path, name: str) -> dict[int, str]:
@@ -97,7 +101,7 @@ def _parse(folder: Folder, name: str) -> Element:
                 return ElementTree.fromstring(member.data)
             except ElementTree.ParseError as error:
                 raise FieldDefinitionError(f"{name}.xml cannot be read: {error}") from error
-    raise FieldDefinitionError(f"{DEFINITIONS_FILE.name} has no {name}.xml")
+    raise NoDefinitionsError(f"{DEFINITIONS_FILE.name} has no {name}.xml")
 
 
 def _field_elements(root: Element) -> list[Element]:

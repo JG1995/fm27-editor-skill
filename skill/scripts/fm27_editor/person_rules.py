@@ -9,10 +9,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass, replace
 from pathlib import Path
 
+from fm27_editor.base_database import record_name
+from fm27_editor.change_reading import EditError
 from fm27_editor.field_definitions import Field, read_fields
 from fm27_editor.people import PersonKind
-from fm27_editor.person_codes import person_codes
-from fm27_editor.record_changes import EditError, FieldValue, refusal, stored_value
+from fm27_editor.person_codes import POTENTIALS, person_codes
+from fm27_editor.record_changes import FieldValue, refusal, stored_value
 
 DEFINED_IN = {PersonKind.PLAYER: "player", PersonKind.STAFF: "non player"}
 # The record itself says the person type, and potential covers its ranges. The Editor works out the
@@ -24,6 +26,8 @@ NOT_SET_BY_HAND = {
     *(f"BR{position:02}" for position in range(1, 15)),
 }
 PLAYER_POTENTIAL, POTENTIAL_RANGE = "PPAB", "PPAR"
+NAME_CODES = ("Pfna", "Psna")
+SETTABLE_KINDS = list(DEFINED_IN)
 LOOKUP_TABLES = {"nation": "nation", "team": "club", "club": "club"}
 REQUIRED = {
     "Pfna": "First Name",
@@ -39,6 +43,28 @@ class Setting:
 
     field: Field
     value: FieldValue
+
+    @property
+    def as_the_lookup_says(self) -> str | int:
+        return self.value.isoformat() if isinstance(self.value, datetime.date) else self.value
+
+
+def is_range(field: Field, value: object) -> bool:
+    """Whether a potential stands for a range of the Editor: those are below 0."""
+    return field.code in POTENTIALS and isinstance(value, int) and value < 0
+
+
+def has_more_ability_than_potential(
+    kind: PersonKind, settings: list[Setting], ca: int | None, pa: int | None
+) -> bool:
+    """Whether the settings would leave a person, who has `ca` and `pa` now, above potential.
+
+    A range is not compared, and neither is a potential that is not known.
+    """
+    codes = person_codes(kind)
+    set_to = {setting.field.code: setting.value for setting in settings}
+    ca, pa = set_to.get(codes["ca"], ca), set_to.get(codes["pa"], pa)
+    return ca is not None and pa is not None and 0 < pa < ca
 
 
 class PersonRules:
@@ -93,6 +119,7 @@ class PersonRules:
         fields = read_fields(self._editor_dir, DEFINED_IN[kind])
         fields |= read_fields(self._editor_dir, "person")
         if PLAYER_POTENTIAL in fields and POTENTIAL_RANGE in fields:
+            # The Editor shows potential as two fields, a number and a choice of ranges.
             ranges = fields[POTENTIAL_RANGE].choices
             fields[PLAYER_POTENTIAL] = replace(fields[PLAYER_POTENTIAL], choices=ranges)
         return {code: field for code, field in fields.items() if code not in NOT_SET_BY_HAND}
@@ -118,14 +145,13 @@ class PersonRules:
                 f"{field.name} ({field.code}) points to a {field.points_to}, "
                 "which the lookup does not hold"
             )
-        query = f"SELECT 1 FROM {table} WHERE uid = ?"
-        if self._lookup.execute(query, (value,)).fetchone() is None:
+        if record_name(self._lookup, table, value) is None:
             raise EditError(f"{field.name} ({field.code}): there is no {table} {value!r}")
 
 
 def _check_potential(field: Field, value: FieldValue) -> None:
     """A negative potential stands for a range, and only some numbers do."""
-    if value < 0 and value not in (field.choices or {}):
+    if is_range(field, value) and value not in (field.choices or {}):
         raise EditError(f"{value} is not one of the Editor's potential ranges")
 
 

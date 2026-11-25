@@ -1,13 +1,11 @@
 """A plan in plain words, for the user to approve."""
 
-import datetime
 import sqlite3
 from collections.abc import Iterable
 
-from fm27_editor.field_definitions import Field
-from fm27_editor.person_codes import POTENTIALS
-from fm27_editor.person_rules import LOOKUP_TABLES, Setting
+from fm27_editor.person_rules import Setting, is_range
 from fm27_editor.plan import Edit, KnownPerson, Plan, approval_code
+from fm27_editor.words import counted, shown
 
 
 def preview_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list[str]:
@@ -18,10 +16,6 @@ def preview_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list
         *_warning_lines(plan),
         f"Approval code: {approval_code(plan)}",
     ]
-
-
-def counted(number: int, one: str, many: str) -> str:
-    return f"{number:,} {one if number == 1 else many}"
 
 
 def _starting_lines(plan: Plan) -> list[str]:
@@ -45,9 +39,9 @@ def _edit_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list[s
     if plan.already_so:
         values = counted(plan.already_so, "value", "values")
         lines.append(f"Left out: {values} that people have already")
-    shown = _spread(plan.edits, examples)
-    lines.append(f"Examples, {len(shown)} of {len(plan.edits):,}:")
-    return lines + [_example_line(edit, lookup) for edit in shown]
+    chosen = _spread(plan.edits, examples)
+    lines.append(f"Examples, {len(chosen)} of {len(plan.edits):,}:")
+    return lines + [_example_line(edit, lookup) for edit in chosen]
 
 
 def _by_field(edits: Iterable[Edit]) -> list[list[Edit]]:
@@ -83,9 +77,8 @@ def _direction(edits: list[Edit]) -> list[str]:
 
 
 def _has_range(edit: Edit) -> bool:
-    """Whether the old or new value is a potential that stands for a range."""
-    values = (edit.old, edit.setting.value)
-    return edit.setting.field.code in POTENTIALS and any(v is not None and v < 0 for v in values)
+    field = edit.setting.field
+    return is_range(field, edit.old) or is_range(field, edit.setting.value)
 
 
 def _spread(edits: list[Edit], count: int) -> list[Edit]:
@@ -99,8 +92,8 @@ def _spread(edits: list[Edit], count: int) -> list[Edit]:
 
 def _example_line(edit: Edit, lookup: sqlite3.Connection) -> str:
     field = edit.setting.field
-    old = "unknown" if edit.old is None else _shown(field, edit.old, lookup)
-    new = _shown(field, edit.setting.value, lookup)
+    old = "unknown" if edit.old is None else shown(field, edit.old, lookup)
+    new = shown(field, edit.setting.value, lookup)
     return f"  {_described(edit.person)}: {field.name} {old} -> {new}"
 
 
@@ -129,16 +122,4 @@ def _warning_lines(plan: Plan) -> list[str]:
 
 
 def _setting(setting: Setting, lookup: sqlite3.Connection) -> str:
-    return f"{setting.field.name} {_shown(setting.field, setting.value, lookup)}"
-
-
-def _shown(field: Field, value: object, lookup: sqlite3.Connection) -> str:
-    if isinstance(value, datetime.date):
-        return value.isoformat()
-    if field.points_to is not None:
-        table = LOOKUP_TABLES[field.points_to]
-        row = lookup.execute(f"SELECT name FROM {table} WHERE uid = ?", (value,)).fetchone()
-        return f"{row[0]} ({value})" if row else str(value)
-    if field.choices and value in field.choices:
-        return f"{field.choices[value]} ({value})"
-    return str(value)
+    return f"{setting.field.name} {shown(setting.field, setting.value, lookup)}"

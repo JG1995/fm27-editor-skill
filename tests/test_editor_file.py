@@ -125,6 +125,11 @@ def test_saving_over_an_existing_file_is_refused(source):
     assert source.read_bytes() == editor_file_bytes()
 
 
+def test_a_name_the_editor_would_not_list_is_refused(source, tmp_path):
+    with pytest.raises(EditorFileError, match=".fmf"):
+        save_editor_file(load_editor_file(source), tmp_path / "copy.dat")
+
+
 def test_a_file_that_does_not_read_back_the_same_is_not_kept(source, tmp_path, monkeypatch):
     edited = load_editor_file(source)
     set_new_value(edited, 53_123)

@@ -5,8 +5,9 @@ import pytest
 import synthetic
 from fictional_editor import write_editor
 from fm27_editor.base_database import open_database
+from fm27_editor.change_reading import EditError
 from fm27_editor.editor_file import load_editor_file
-from fm27_editor.explain import ExplainError, explain_lines
+from fm27_editor.explain import explain_lines
 
 PERSON, STADIUM = 1, 21
 
@@ -133,7 +134,7 @@ def test_records_and_fields_without_a_known_name_go_by_number_and_code(lines_for
 
 
 def test_a_change_that_does_not_say_what_it_changes_is_reported(lines_for):
-    with pytest.raises(ExplainError, match="prty"):
+    with pytest.raises(EditError, match="prty"):
         lines_for(
             synthetic.change(
                 synthetic.prop("dtty", 0x11, b"\x01"), synthetic.prop("duni", 0x0F, b"\x01" * 8)
@@ -150,12 +151,12 @@ def test_a_change_that_does_not_say_what_it_changes_is_reported(lines_for):
     ids=["not a record", "no ID"],
 )
 def test_an_added_record_of_unknown_shape_is_reported(lines_for, new):
-    with pytest.raises(ExplainError, match="adds a record"):
+    with pytest.raises(EditError, match="adds a record"):
         lines_for(synthetic.record_change(55, 1, "ADDR", new))
 
 
 def test_a_name_without_a_record_is_reported(lines_for):
-    with pytest.raises(ExplainError, match="duni"):
+    with pytest.raises(EditError, match="duni"):
         lines_for(
             synthetic.change(
                 synthetic.prop("dtty", 0x11, b"\x01"),

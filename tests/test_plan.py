@@ -5,9 +5,10 @@ import pytest
 import synthetic
 from fictional_editor import PEOPLE, STAFF_KIND, write_editor
 from fm27_editor.base_database import open_database
+from fm27_editor.binary import FormatError
 from fm27_editor.person_rules import PersonRules
 from fm27_editor.plan import approval_code, build_file, make_plan
-from fm27_editor.record_changes import EditError
+from fm27_editor.request import RequestError
 
 TODAY = datetime.date(2026, 11, 12)
 BOTH_KIND = 3
@@ -118,12 +119,12 @@ def test_people_are_described_the_way_the_lookup_knows_them(plan_for):
     ],
 )
 def test_an_edit_that_cannot_be_made_is_refused_with_a_reason(plan_for, edit, complaint):
-    with pytest.raises(EditError, match=complaint):
+    with pytest.raises(FormatError, match=complaint):
         plan_for(edits=[edit])
 
 
 def test_the_same_field_of_one_person_cannot_be_set_twice(plan_for):
-    with pytest.raises(EditError, match="Alfa Striker"):
+    with pytest.raises(FormatError, match="Alfa Striker"):
         plan_for(edits=[by_hand(100, finishing=3), by_hand(100, finishing=4)])
 
 
@@ -143,7 +144,7 @@ def test_the_same_field_of_one_person_cannot_be_set_twice(plan_for):
     ],
 )
 def test_a_request_that_is_empty_or_misspelt_is_refused(plan_for, request_):
-    with pytest.raises(EditError):
+    with pytest.raises(FormatError):
         plan_for(**request_)
 
 
@@ -184,7 +185,7 @@ def codes(file):
 def test_the_file_holds_the_planned_changes(plan_for):
     plan = plan_for(edits=[by_hand(100, finishing=3)], new_people=[NEW_PLAYER])
 
-    file = build_file(plan, TODAY)
+    file = build_file(plan, approval_code(plan), TODAY)
 
     assert codes(file) == ["PDfn", "ADDR", "Pfna", "Psna", "Pdob", "Pnti"]
 
@@ -192,7 +193,7 @@ def test_the_file_holds_the_planned_changes(plan_for):
 def test_changes_are_added_behind_those_of_the_file_to_start_from(plan_for, started):
     plan = plan_for(start_from=str(started), edits=[by_hand(100, finishing=3)])
 
-    assert codes(build_file(plan, TODAY)) == ["Phes", "PDfn"]
+    assert codes(build_file(plan, approval_code(plan), TODAY)) == ["Phes", "PDfn"]
 
 
 def test_fields_the_starting_file_changes_already_are_counted(plan_for, started):
@@ -202,17 +203,26 @@ def test_fields_the_starting_file_changes_already_are_counted(plan_for, started)
 
 
 def test_a_starting_file_that_does_not_exist_is_reported(plan_for, tmp_path):
-    with pytest.raises(EditError, match="Nowhere.fmf"):
+    with pytest.raises(FormatError, match="Nowhere.fmf"):
         plan_for(start_from=str(tmp_path / "Nowhere.fmf"), edits=[by_hand(100, finishing=3)])
 
 
 def test_building_twice_gives_the_new_person_different_ids_but_the_same_code(plan_for):
     plan = plan_for(new_people=[NEW_PLAYER])
+    code = approval_code(plan)
 
-    first, second = build_file(plan, TODAY), build_file(plan, TODAY)
+    first, second = build_file(plan, code, TODAY), build_file(plan, code, TODAY)
 
     assert first.changes.changes != second.changes.changes
-    assert approval_code(plan) == approval_code(plan)
+    assert approval_code(plan) == code
+
+
+def test_a_file_is_only_built_for_the_plan_that_was_approved(plan_for):
+    shown = plan_for(edits=[by_hand(100, finishing=3)])
+    other = plan_for(edits=[by_hand(100, finishing=4)])
+
+    with pytest.raises(RequestError, match="approved"):
+        build_file(other, approval_code(shown), TODAY)
 
 
 def test_the_same_request_has_the_same_code_each_time(plan_for):

@@ -8,14 +8,21 @@ error, and so is a type of field that was not seen in those files.
 import datetime
 import random
 import struct
-from enum import IntEnum
 
-from fm27_editor.binary import FormatError
 from fm27_editor.change_list import ChangeList, Kind, Property, Value
+from fm27_editor.change_reading import (
+    ADD_RECORD,
+    Change,
+    EditError,
+    Table,
+    added_record,
+    adds_record,
+    existing_record,
+    uid_of,
+)
 from fm27_editor.field_definitions import Field
 
 EDITOR_DATA_VERSION = 3756  # written by the Editor build fm27-rel-04-update1
-ADD_RECORD = "ADDR"
 LOWEST_ATTRIBUTE, HIGHEST_ATTRIBUTE = 0, 20
 RANDOM_NUMBERS = 1_000_000_000
 CLIENT_NUMBERS = 10_000_000
@@ -35,19 +42,7 @@ REFERENCE_TAGS = {
     "competition": "comp",
 }
 
-type Change = list[Property]
 type FieldValue = str | int | bool | datetime.date
-
-
-class EditError(FormatError):
-    """The requested edit is not one the Editor would accept."""
-
-
-class Table(IntEnum):
-    """Where a changed record lives, numbered as in the base database."""
-
-    PERSON = 1
-    DATABASE = 55  # the table of tables; records are added to it
 
 
 class NewIds:
@@ -55,7 +50,8 @@ class NewIds:
 
     def __init__(self, changes: ChangeList, source: random.Random | None = None):
         self._source = source or random.SystemRandom()
-        self._used = {_uid(record) for record in _added_records(changes)}
+        added = filter(adds_record, changes.changes)
+        self._used = {uid_of(added_record(change)) for change in added}
 
     def record(self) -> bytes:
         """The ID of a new record; its first half is the uid, which no other new record has."""
@@ -67,10 +63,6 @@ class NewIds:
 
     def below(self, limit: int) -> int:
         return self._source.randrange(limit)
-
-
-def existing_record(uid: int) -> bytes:
-    return struct.pack("<II", uid, uid)
 
 
 def add_record(table: Table, record_type: int, record: bytes, ids: NewIds) -> Change:
@@ -180,7 +172,7 @@ def _stored(field: Field, value: FieldValue) -> tuple[Kind, Value]:
             return Kind.BOOL, bytes([value])
         case "date" if type(value) is datetime.date:
             return Kind.DATE, date_bytes(value)
-        case "database_record_unique_id":
+        case _ if field.type == REFERENCE:
             return Kind.NESTED, _reference(field, value)
     raise _refused(field, f"is a {field.type}, not {value!r}")
 
@@ -227,25 +219,3 @@ def _reference(field: Field, value: FieldValue) -> list[Property]:
 
 def _refused(field: Field, reason: str) -> EditError:
     return EditError(f"{field.name} ({field.code}) {reason}")
-
-
-def _added_records(changes: ChangeList) -> list[bytes]:
-    """The IDs of the records that the list adds."""
-    return [_added_record(change) for change in changes.changes if _adds_record(change)]
-
-
-def _adds_record(change: Change) -> bool:
-    return any(item.tag == "prty" and item.value == ADD_RECORD for item in change)
-
-
-def _added_record(change: Change) -> bytes:
-    for item in change:
-        if item.tag == "nwvl" and item.kind is Kind.NESTED:
-            for inner in item.value:
-                if inner.tag == "duni" and inner.kind is Kind.ID:
-                    return inner.value
-    raise EditError("a change that adds a record does not say which")
-
-
-def _uid(record: bytes) -> int:
-    return struct.unpack_from("<I", record)[0]

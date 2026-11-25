@@ -164,15 +164,16 @@ def test_a_definitions_file_of_another_version_is_reported_by_name(tmp_path):
         read_fields(tmp_path, "person")
 
 
-def test_names_are_read_even_where_a_code_is_defined_twice(tmp_path):
+def test_names_leave_out_a_code_that_has_two_of_them(tmp_path):
     folder = editor_folder(
         tmp_path,
         synthetic.field_definition("Ztwo", "First", "string"),
         synthetic.field_definition("Ztwo", "Second", "string"),
         synthetic.field_definition("Zone", "Single", "string"),
+        synthetic.field_definition("Zone", "Single", "string"),
     )
 
-    assert read_field_names(folder, "person") == {"Ztwo": "First", "Zone": "Single"}
+    assert read_field_names(folder, "person") == {"Zone": "Single"}
 
 
 def test_shared_choices_are_read_by_name(tmp_path):

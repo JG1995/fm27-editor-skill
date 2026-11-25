@@ -20,6 +20,7 @@ from fm27_editor.container import (
 )
 from fm27_editor.details import new_details, renamed_details
 
+EDITOR_FILE_ENDING = ".fmf"
 CHANGE_LIST_EXTENSION = ".dbc"
 DETAILS_FOLDER = "_data"
 DETAILS_NAME = "details"
@@ -54,6 +55,8 @@ def save_editor_file(file: EditorFile, path: Path) -> None:
     The bytes are decoded again and compared first, so a file that does not read back as intended
     never reaches the disk. A write that fails partway removes what it wrote.
     """
+    if path.suffix != EDITOR_FILE_ENDING:
+        raise EditorFileError(f"the name of an editor file ends in {EDITOR_FILE_ENDING}")
     if path.exists():
         raise EditorFileError(f"{path.name} already exists")
     container = _container_to_save(file, path.stem)

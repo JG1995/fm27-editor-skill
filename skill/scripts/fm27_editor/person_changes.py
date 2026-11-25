@@ -1,15 +1,9 @@
 """The changes that create a person or edit one. Creating adds the record, then sets its fields."""
 
+from fm27_editor.change_reading import Change, Table, existing_record
 from fm27_editor.people import PersonKind
 from fm27_editor.person_rules import Setting
-from fm27_editor.record_changes import (
-    Change,
-    NewIds,
-    Table,
-    add_record,
-    existing_record,
-    field_change,
-)
+from fm27_editor.record_changes import NewIds, add_record, field_change
 
 
 def new_person(kind: PersonKind, settings: list[Setting], ids: NewIds) -> list[Change]:
