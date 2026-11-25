@@ -37,24 +37,9 @@ PERSON = synthetic.definition_file(
     synthetic.field_definition("Pfna", "First Name", "string"),
     synthetic.field_definition("Psna", "Second Name", "string"),
     synthetic.field_definition("Pdob", "Date Of Birth", "date"),
-    synthetic.field_definition(
-        "Pnti",
-        "Nation",
-        "database_record_unique_id",
-        '<flags id="database_table_type" value="nation" />',
-    ),
-    synthetic.field_definition(
-        "Pcti",
-        "Club",
-        "database_record_unique_id",
-        '<flags id="database_table_type" value="team" />',
-    ),
-    synthetic.field_definition(
-        "Pcbi",
-        "City Of Birth",
-        "database_record_unique_id",
-        '<flags id="database_table_type" value="city" />',
-    ),
+    synthetic.field_definition("Pnti", "Nation", *synthetic.reference("nation")),
+    synthetic.field_definition("Pcti", "Club", *synthetic.reference("team")),
+    synthetic.field_definition("Pcbi", "City Of Birth", *synthetic.reference("city")),
     synthetic.field_definition("Page", "Age", "integer", synthetic.number_range(0, 99)),
     synthetic.field_definition("Phes", "Height", "integer", synthetic.number_range(0, 210)),
 )
@@ -83,11 +68,36 @@ NON_PLAYER = synthetic.definition_file(
     ),
 )
 
+CLUB = synthetic.definition_file(
+    "club",
+    synthetic.field_definition("dbnm", "Name", "string"),
+    synthetic.field_definition("Cnam", "Name", "string", synthetic.flag("is_client_field")),
+    synthetic.field_definition("Csnm", "Short Name", "string"),
+    synthetic.field_definition("Cnti", "Nation", *synthetic.reference("nation")),
+    synthetic.field_definition("Cdvi", "Division", *synthetic.reference("competition")),
+    synthetic.field_definition("Csti", "Stadium", *synthetic.reference("stadium")),
+    synthetic.field_definition("Crep", "Reputation", "integer", synthetic.number_range(0, 10_000)),
+    synthetic.field_definition("ttcl", "Foreground Colour", "colour"),
+    synthetic.field_definition("Snam", "Stadium Name", "string"),
+    synthetic.field_definition("CHAa", "Highest", "integer", synthetic.number_range(0, 100)),
+)
+COMPETITION = synthetic.definition_file(
+    "comp",
+    synthetic.field_definition("cnam", "Name", "string"),
+    synthetic.field_definition("csnm", "Short Name", "string"),
+    synthetic.field_definition("cnti", "Nation", *synthetic.reference("nation")),
+    synthetic.field_definition("cpcm", "Parent Competition", *synthetic.reference("competition")),
+    synthetic.field_definition("dbty", "Type", "enum", '<flags id="enum_values" value="cdbt" />'),
+    synthetic.field_definition("levl", "Level", "integer", synthetic.number_range(1, 20)),
+)
+
 STADIUM = synthetic.definition_file(
     "stad", synthetic.field_definition("Secy", "Seating Capacity", "integer")
 )
 SHARED_CHOICES = synthetic.enum_file(
-    dbts={1: "Person", 21: "Stadium", 99: "Moon"}, mood={0: "Calm", 2: "Cross"}
+    dbts={1: "Person", 3: "Club", 21: "Stadium", 25: "Competition", 99: "Moon"},
+    mood={0: "Calm", 2: "Cross"},
+    cdbt={0: "Top Division", 2: "Main Cup"},
 )
 
 
@@ -99,7 +109,14 @@ def write_editor(folder: Path, people=None) -> Path:
 def write_definitions(folder: Path, person: bytes = PERSON) -> Path:
     path = folder / "shared" / "data" / "editor.fmf"
     path.parent.mkdir(parents=True, exist_ok=True)
-    files = {"person": person, "player": PLAYER, "non player": NON_PLAYER, "stadium": STADIUM}
+    files = {
+        "person": person,
+        "player": PLAYER,
+        "non player": NON_PLAYER,
+        "club": CLUB,
+        "comp": COMPETITION,
+        "stadium": STADIUM,
+    }
     path.write_bytes(synthetic.definitions_container(files, SHARED_CHOICES))
     return folder
 

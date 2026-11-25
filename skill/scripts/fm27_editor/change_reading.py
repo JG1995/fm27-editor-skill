@@ -29,6 +29,8 @@ class Table(IntEnum):
     """Where a changed record lives, numbered as in the base database."""
 
     PERSON = 1
+    CLUB = 3
+    COMPETITION = 25
     DATABASE = 55  # the table of tables; records are added to it
 
 
@@ -108,13 +110,13 @@ def read_date(raw: bytes) -> datetime.date:
     return date
 
 
-def referred_to(value: Property) -> tuple[str, int] | None:
-    """The tag and uid of the record a value refers to, if that is all it says."""
+def referred_to(value: Property) -> tuple[str, bytes] | None:
+    """The tag and ID of the record a value refers to, if that is all it says."""
     if value.kind is not Kind.NESTED or len(value.value) > 3:
         return None
     for part in value.value:
         if part.kind is Kind.ID:
-            return part.tag, uid_of(part.value)
+            return part.tag, part.value
     return None
 
 

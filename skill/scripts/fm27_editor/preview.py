@@ -3,9 +3,10 @@
 import sqlite3
 from collections.abc import Iterable
 
-from fm27_editor.plan import Edit, KnownRecord, Plan, approval_code
+from fm27_editor.plan import Addition, Edit, KnownRecord, Plan, approval_code
 from fm27_editor.potential import is_range
-from fm27_editor.record_rules import Setting
+from fm27_editor.record_kinds import GROUPS, RecordGroup
+from fm27_editor.record_rules import NEW_MARK, Setting
 from fm27_editor.words import counted, shown
 
 
@@ -33,16 +34,25 @@ def _starting_lines(plan: Plan) -> list[str]:
 def _edit_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list[str]:
     if not plan.edits:
         return []
-    people = len({edit.record.uid for edit in plan.edits})
-    changes = counted(len(plan.edits), "change", "changes")
-    lines = [f"Edits: {changes} to {counted(people, 'person', 'people')}"]
-    lines += [_field_line(edits) for edits in _by_field(plan.edits)]
+    lines = []
+    for group in GROUPS.values():
+        edits = [edit for edit in plan.edits if edit.record.kind.group is group]
+        lines += _group_lines(group, edits)
     if plan.already_so:
-        values = counted(plan.already_so, "value", "values")
-        lines.append(f"Left out: {values} that people have already")
+        values = counted(plan.already_so, "value that is", "values that are")
+        lines.append(f"Left out: {values} so already")
     chosen = _spread(plan.edits, examples)
     lines.append(f"Examples, {len(chosen)} of {len(plan.edits):,}:")
     return lines + [_example_line(edit, lookup) for edit in chosen]
+
+
+def _group_lines(group: RecordGroup, edits: list[Edit]) -> list[str]:
+    if not edits:
+        return []
+    records = len({edit.record.uid for edit in edits})
+    changes = counted(len(edits), "change", "changes")
+    heading = f"Edits: {changes} to {counted(records, group.one, group.view)}"
+    return [heading, *(_field_line(group, alike) for alike in _by_field(edits))]
 
 
 def _by_field(edits: Iterable[Edit]) -> list[list[Edit]]:
@@ -52,9 +62,9 @@ def _by_field(edits: Iterable[Edit]) -> list[list[Edit]]:
     return list(by_code.values())
 
 
-def _field_line(edits: list[Edit]) -> str:
+def _field_line(group: RecordGroup, edits: list[Edit]) -> str:
     field = edits[0].setting.field
-    parts = [counted(len(edits), "person", "people")]
+    parts = [counted(len(edits), group.one, group.view)]
     if field.type in ("integer", "attribute"):
         parts += _direction(edits)
         numbers = [edit.setting.value for edit in edits if not _has_range(edit)]
@@ -108,15 +118,22 @@ def _described(record: KnownRecord) -> str:
 
 
 def _addition_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list[str]:
-    if not plan.additions:
-        return []
-    lines = [f"New people: {len(plan.additions):,}"]
-    for addition in plan.additions[:examples]:
-        settings = "; ".join(_setting(setting, lookup) for setting in addition.settings)
-        lines.append(f"  {addition.kind.name}: {settings}")
-    if len(plan.additions) > examples:
-        lines.append(f"  and {len(plan.additions) - examples:,} more")
+    lines = []
+    for group in GROUPS.values():
+        additions = [new for new in plan.additions if new.kind.group is group]
+        if not additions:
+            continue
+        lines.append(f"New {group.view}: {len(additions):,}")
+        lines += [_addition_line(addition, lookup) for addition in additions[:examples]]
+        if len(additions) > examples:
+            lines.append(f"  and {len(additions) - examples:,} more")
     return lines
+
+
+def _addition_line(addition: Addition, lookup: sqlite3.Connection) -> str:
+    name = "" if addition.name is None else f" {NEW_MARK}{addition.name}"
+    settings = "; ".join(_setting(setting, lookup) for setting in addition.settings)
+    return f"  {addition.kind.name}{name}: {settings}"
 
 
 def _warning_lines(plan: Plan) -> list[str]:

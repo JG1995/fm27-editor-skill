@@ -11,7 +11,7 @@ TEAM = [
     (1, 101, "Bravo Keeper", 2008, 60, (41, 9001), (0, 9102)),
     (2, 102, "Charlie Coach", 1980, 110, (41, 9001), (0, 9102), STAFF_KIND),
 ]
-REQUEST = {"edits": [{"uid": 100, "set": {"finishing": 17}}]}
+REQUEST = {"edits": [{"of": "people", "uid": 100, "set": {"finishing": 17}}]}
 
 
 @pytest.fixture
@@ -83,7 +83,15 @@ def test_fields_are_listed_with_name_code_and_range(run):
 def test_fields_that_cannot_be_written_are_not_listed(run):
     _, lines, _ = run("fields", "player")
 
-    assert not [line for line in lines if "Ptyp" in line or "Pcbi" in line or "Page" in line]
+    assert not [line for line in lines if "Ptyp" in line or "Page" in line]
+
+
+def test_the_fields_of_clubs_and_competitions_are_listed_by_the_lookups_names(run):
+    _, clubs, _ = run("fields", "club", "division")
+    _, competitions, _ = run("fields", "competition", "type")
+
+    assert clubs == ["division_uid (Cdvi): Division, the uid of a competition"]
+    assert competitions == ["dbty: Type, one of 0 Top Division, 2 Main Cup"]
 
 
 def test_fields_can_be_searched_by_name_or_code(run):
@@ -130,7 +138,9 @@ def test_write_makes_the_file_that_was_previewed(run, request_file, tmp_path):
 
 def test_write_refuses_a_request_that_is_not_the_one_previewed(run, request_file, tmp_path):
     _, preview, _ = run("preview", request_file)
-    request_file.write_text(json.dumps({"edits": [{"uid": 100, "set": {"finishing": 20}}]}))
+    request_file.write_text(
+        json.dumps({"edits": [{"of": "people", "uid": 100, "set": {"finishing": 20}}]})
+    )
     target = tmp_path / "Sharper.fmf"
 
     status, _, error = run("write", request_file, target, "--approved", code_in(preview))
@@ -181,7 +191,7 @@ def test_explain_says_what_a_file_does(run, request_file, tmp_path):
 
 
 @pytest.mark.parametrize(
-    "content", ["{", "[]", '{"edits": [{"uid": 4242, "set": {"finishing": 3}}]}']
+    "content", ["{", "[]", '{"edits": [{"of": "people", "uid": 4242, "set": {"finishing": 3}}]}']
 )
 def test_a_request_that_cannot_be_used_is_an_error(run, request_file, content):
     request_file.write_text(content)
@@ -193,7 +203,9 @@ def test_a_request_that_cannot_be_used_is_an_error(run, request_file, content):
 
 
 def test_a_name_given_twice_in_a_request_is_an_error(run, request_file):
-    request_file.write_text('{"edits": [{"uid": 100, "set": {"finishing": 3, "finishing": 4}}]}')
+    request_file.write_text(
+        '{"edits": [{"of": "people", "uid": 100, "set": {"finishing": 3, "finishing": 4}}]}'
+    )
 
     status, _, error = run("preview", request_file)
 

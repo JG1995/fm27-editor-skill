@@ -117,9 +117,23 @@ def test_entries_without_a_code_or_type_are_skipped(tmp_path):
     assert list(read_fields(folder, "person")) == ["Zord"]
 
 
-def test_a_code_defined_twice_is_refused(tmp_path):
-    field = synthetic.field_definition("Ztwo", "Twice", "string")
-    folder = editor_folder(tmp_path, field, field)
+def test_a_code_defined_twice_alike_is_one_field_with_the_marks_of_both(tmp_path):
+    first = synthetic.field_definition(
+        "Ztwo", "Colour", "colour", synthetic.flag("is_client_field")
+    )
+    second = synthetic.field_definition("Ztwo", "Title Colour", "colour")
+
+    for number, fields in enumerate([(first, second), (second, first)]):
+        (field,) = read_fields(editor_folder(tmp_path / str(number), *fields), "person").values()
+        assert field.is_client_field
+
+
+def test_a_code_defined_twice_differently_is_refused(tmp_path):
+    folder = editor_folder(
+        tmp_path,
+        synthetic.field_definition("Ztwo", "Twice", "string"),
+        synthetic.field_definition("Ztwo", "Twice", "integer"),
+    )
 
     with pytest.raises(FieldDefinitionError, match="Ztwo"):
         read_fields(folder, "person")

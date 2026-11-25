@@ -7,11 +7,13 @@ error, and so is a type of field that was not seen in those files.
 
 import datetime
 import random
+import re
 import struct
 
 from fm27_editor.change_list import ChangeList, Kind, Property, Value
 from fm27_editor.change_reading import (
     ADD_RECORD,
+    ID_SIZE,
     Change,
     EditError,
     Table,
@@ -33,16 +35,20 @@ NEW_UIDS = range(100_000_000, 2_000_000_000)
 HIGHEST_UID = 2**31 - 1  # no real file refers to a higher one
 INTEGER_KINDS = [(Kind.INT8, 1), (Kind.INT16, 2), (Kind.INT32, 4), (Kind.INT64, 8)]
 REFERENCE = "database_record_unique_id"
-WRITTEN_TYPES = {"string", "attribute", "integer", "enum", "boolean", "date", REFERENCE}
+WRITTEN_TYPES = {"string", "attribute", "integer", "enum", "boolean", "date", "colour", REFERENCE}
 REFERENCE_TAGS = {
     "nation": "Nnat",
     "team": "Ttea",
     "city": "city",
     "language": "lang",
     "competition": "comp",
+    "stadium": "stad",
 }
+COLOUR = re.compile("#[0-9a-fA-F]{6}")
+OPAQUE = b"\xff"
 
-type FieldValue = str | int | bool | datetime.date
+type FieldValue = str | int | bool | datetime.date | bytes
+"""What a field is set to; a record is given by its uid, or by its whole ID when it is new."""
 
 
 class NewIds:
@@ -65,12 +71,19 @@ class NewIds:
         return self._source.randrange(limit)
 
 
-def add_record(table: Table, record_type: int, record: bytes, ids: NewIds) -> Change:
-    """The change that adds an empty record; changes to its fields follow it."""
+def add_record(table: Table, person_type: int | None, record: bytes, ids: NewIds) -> Change:
+    """The change that adds an empty record; changes to its fields follow it.
+
+    Only people have a type. Other records have a 0 in its place, stored as a number.
+    """
+    if person_type is None:
+        record_type = number("dcty", 0)
+    else:
+        record_type = Property("dcty", Kind.CODE, "\x00\x00\x00" + chr(person_type))
     described = [
         Property("id  ", Kind.CODE, "nwvl"),
         number("dtty", table),
-        Property("dcty", Kind.CODE, "\x00\x00\x00" + chr(record_type)),
+        record_type,
         Property("duni", Kind.ID, record),
     ]
     new_value = Property("nwvl", Kind.NESTED, described)
@@ -172,6 +185,10 @@ def _stored(field: Field, value: FieldValue) -> tuple[Kind, Value]:
             return Kind.BOOL, bytes([value])
         case "date" if type(value) is datetime.date:
             return Kind.DATE, date_bytes(value)
+        case "colour" if isinstance(value, str) and COLOUR.fullmatch(value):
+            return Kind.COLOUR_2, bytes.fromhex(value[1:])[::-1] + OPAQUE
+        case "colour":
+            raise _refused(field, f"needs a colour such as #480024, not {value!r}")
         case _ if field.type == REFERENCE:
             return Kind.NESTED, _reference(field, value)
     raise _refused(field, f"is a {field.type}, not {value!r}")
@@ -209,11 +226,14 @@ def _checked_choice(field: Field, value: FieldValue) -> int:
 
 
 def _reference(field: Field, value: FieldValue) -> list[Property]:
-    uid = _checked_number(field, value, 1, HIGHEST_UID)
+    if isinstance(value, bytes) and len(value) == ID_SIZE:
+        record = value
+    else:
+        record = existing_record(_checked_number(field, value, 1, HIGHEST_UID))
     return [
         Property("id  ", Kind.CODE, "nwvl"),
-        Property(REFERENCE_TAGS[field.points_to], Kind.ID, existing_record(uid)),
-        number("DBID", uid),
+        Property(REFERENCE_TAGS[field.points_to], Kind.ID, record),
+        number("DBID", uid_of(record)),
     ]
 
 

@@ -133,6 +133,7 @@ def test_a_date_is_stored_as_year_and_day_of_the_year(day, raw):
         ("city", "city"),
         ("language", "lang"),
         ("competition", "comp"),
+        ("stadium", "stad"),
     ],
 )
 def test_a_reference_names_the_other_record(table, tag):
@@ -145,9 +146,30 @@ def test_a_reference_names_the_other_record(table, tag):
     ]
 
 
+def test_a_reference_to_a_new_record_carries_its_whole_id():
+    field = a_field("database_record_unique_id", points_to="competition")
+
+    assert new_value(field, b"\x08\x03\x00\x00\x09\x09\x09\x09").value[1:] == [
+        Property("comp", Kind.ID, b"\x08\x03\x00\x00\x09\x09\x09\x09"),
+        Property("DBID", Kind.INT16, b"\x08\x03"),
+    ]
+
+
+def test_a_colour_is_stored_blue_first():
+    stored = new_value(a_field("colour"), "#480024")
+
+    assert (stored.kind, stored.value) == (Kind.COLOUR_2, b"\x24\x00\x48\xff")
+
+
 @pytest.mark.parametrize(
     ("field", "value"),
     [
+        (a_field("colour"), "claret"),
+        (a_field("colour"), "#48002"),
+        (a_field("colour"), "480024"),
+        (a_field("colour"), "#48002g"),
+        (a_field("colour"), 5),
+        (a_field("database_record_unique_id", points_to="competition"), b"\x08\x03"),
         (a_field("integer", lowest=0, highest=20), 21),
         (a_field("integer", lowest=0, highest=20), -1),
         (a_field("integer"), 5),
@@ -206,6 +228,16 @@ def test_a_new_record_is_added_to_the_table_of_everything():
         ),
     ]
     assert tags(change)[4:] == ["vers", "rdui", "ISCF", "DBCI"]
+
+
+def test_a_record_that_is_not_a_person_has_no_type():
+    change = add_record(Table.CLUB, None, RECORD, NewIds(ChangeList(), random.Random(1)))
+
+    (described,) = [item.value for item in change if item.tag == "nwvl"]
+    assert described[1:3] == [
+        Property("dtty", Kind.INT8, b"\x03"),
+        Property("dcty", Kind.INT8, b"\x00"),
+    ]
 
 
 def test_new_record_ids_lie_between_those_of_the_database_and_those_of_the_editor():

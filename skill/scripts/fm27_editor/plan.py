@@ -12,19 +12,20 @@ from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any
 
-from fm27_editor.change_reading import existing_record, read_change
+from fm27_editor.change_reading import Change, existing_record, read_change
 from fm27_editor.editor_file import EditorFile, load_editor_file
 from fm27_editor.new_file import new_editor_file
 from fm27_editor.potential import ABILITY, POTENTIAL, has_more_ability_than_potential
 from fm27_editor.record_changes import HIGHEST_UID, NewIds, stored_value
-from fm27_editor.record_kinds import PEOPLE, RecordGroup, RecordKind, kind_named
-from fm27_editor.record_rules import RecordRules, Setting
+from fm27_editor.record_kinds import RecordGroup, RecordKind, kind_of
+from fm27_editor.record_rules import NEW_MARK, NewReference, RecordRules, Setting
 from fm27_editor.request import (
     RequestError,
-    Values,
+    WantedEdit,
+    WantedRecord,
     check_request,
     wanted_edits,
-    wanted_people,
+    wanted_records,
 )
 from fm27_editor.setting_changes import edit_record, new_record
 
@@ -55,6 +56,8 @@ class Edit:
 @dataclass(frozen=True)
 class Addition:
     kind: RecordKind
+    name: str | None
+    """What the request calls it, for other records to refer to."""
     settings: list[Setting]
 
 
@@ -81,13 +84,10 @@ class Plan:
 def make_plan(request: Any, rules: RecordRules, lookup: sqlite3.Connection) -> Plan:
     check_request(request)
     start = _starting_file(request.get("start_from"))
-    wanted = list(wanted_edits(request, lookup))
-    planned = list(_planned(wanted, rules, lookup))
+    additions = _additions(wanted_records(request), rules)
+    new = {addition.name: addition.kind for addition in additions if addition.name is not None}
+    planned = list(_planned(wanted_edits(request, lookup), new, rules, lookup))
     edits = [edit for edit in planned if edit.old != edit.setting.as_the_lookup_says]
-    additions = [
-        Addition(kind, rules.new_record_settings(kind, values))
-        for kind, values in wanted_people(request)
-    ]
     if not edits and not additions:
         raise RequestError("the request changes nothing")
     already_so = len(planned) - len(edits)
@@ -98,10 +98,10 @@ def make_plan(request: Any, rules: RecordRules, lookup: sqlite3.Connection) -> P
 def approval_code(plan: Plan) -> str:
     """Stands for everything the plan writes, leaving out the random numbers."""
     parts = ["" if plan.start is None else plan.start.digest]
-    parts += [f"{_address(edit.record)} {_written(edit.setting)}" for edit in plan.edits]
     for addition in plan.additions:
-        parts.append(addition.kind.name)
+        parts.append(f"{addition.kind.name} {addition.name}")
         parts += [_written(setting) for setting in addition.settings]
+    parts += [f"{_address(edit.record)} {_written(edit.setting)}" for edit in plan.edits]
     return hashlib.sha256("\n".join(parts).encode()).hexdigest()[:CODE_LENGTH]
 
 
@@ -116,13 +116,21 @@ def build_file(plan: Plan, approved: str, today: datetime.date) -> EditorFile:
             f"this plan ({code}) is not the one that was approved ({approved}); preview it again"
         )
     file = new_editor_file(today) if plan.start is None else _copy(plan.start.file)
-    ids = NewIds(file.changes)
-    for edit in plan.edits:
-        record = edit.record
-        file.changes.changes += edit_record(record.kind, record.uid, [edit.setting], ids)
-    for addition in plan.additions:
-        file.changes.changes += new_record(addition.kind, addition.settings, ids)
+    file.changes.changes += _changes(plan, NewIds(file.changes))
     return file
+
+
+def _changes(plan: Plan, ids: NewIds) -> list[Change]:
+    """New records first, in the order of the request, because what follows may refer to them."""
+    changes, new = [], {}
+    for addition in plan.additions:
+        record = ids.record()
+        if addition.name is not None:
+            new[addition.name] = record
+        changes += new_record(addition.kind, record, addition.settings, new, ids)
+    for edit in plan.edits:
+        changes += edit_record(edit.record.kind, edit.record.uid, [edit.setting], new, ids)
+    return changes
 
 
 def _address(record: KnownRecord) -> tuple[int, int]:
@@ -130,6 +138,8 @@ def _address(record: KnownRecord) -> tuple[int, int]:
 
 
 def _written(setting: Setting) -> str:
+    if isinstance(setting.value, NewReference):
+        return f"{setting.field.code} {NEW_MARK}{setting.value.name}"
     return f"{setting.field.code} {stored_value(setting.field, setting.value)!r}"
 
 
@@ -143,17 +153,31 @@ def _starting_file(path: str | None) -> StartingFile | None:
     return StartingFile(source, load_editor_file(source), digest)
 
 
+def _additions(wanted: Iterable[WantedRecord], rules: RecordRules) -> list[Addition]:
+    additions: list[Addition] = []
+    new: dict[str, RecordKind] = {}
+    for record in wanted:
+        settings = rules.new_record_settings(record.kind, record.values, new)
+        additions.append(Addition(record.kind, record.name, settings))
+        if record.name is not None:
+            new[record.name] = record.kind
+    return additions
+
+
 def _planned(
-    wanted: list[tuple[int, Values]], rules: RecordRules, lookup: sqlite3.Connection
+    wanted: Iterable[WantedEdit],
+    new: Mapping[str, RecordKind],
+    rules: RecordRules,
+    lookup: sqlite3.Connection,
 ) -> Iterator[Edit]:
     seen = set()
-    for uid, values in wanted:
-        record = _known(PEOPLE, uid, lookup)
-        _check_values(record, values)
-        for setting in rules.settings(record.kind, values):
+    for edit in wanted:
+        record = _known(edit.group, edit.uid, lookup)
+        _check_values(record, edit.values)
+        for setting in rules.settings(record.kind, edit.values, new):
             field = setting.field
             if (_address(record), field.code) in seen:
-                raise RequestError(f"{field.name} of {record.name} ({uid}) is set twice")
+                raise RequestError(f"{field.name} of {record.name} ({record.uid}) is set twice")
             seen.add((_address(record), field.code))
             yield Edit(record, setting, record.facts.get(record.kind.names.get(field.code, "")))
 
@@ -166,10 +190,11 @@ def _known(group: RecordGroup, uid: Any, lookup: sqlite3.Connection) -> KnownRec
         row = cursor.execute(f"SELECT * FROM {group.view} WHERE uid = ?", (uid,)).fetchone()
     if row is None:
         raise RequestError(f"the lookup has no {group.one} with uid {uid!r}")
-    return KnownRecord(row["uid"], kind_named(row["kind"]), dict(row))
+    facts = dict(row)
+    return KnownRecord(facts["uid"], kind_of(group, facts), facts)
 
 
-def _check_values(record: KnownRecord, values: Values) -> None:
+def _check_values(record: KnownRecord, values: Mapping[str, Any]) -> None:
     if not values:
         raise RequestError(f"nothing is set on {record.name} ({record.uid})")
     for name, value in values.items():

@@ -36,8 +36,12 @@ def plan_for(editor, tmp_path):
     lookup.close()
 
 
-def by_hand(uid, **values):
-    return {"uid": uid, "set": values}
+def by_hand(uid, of="people", **values):
+    return {"of": of, "uid": uid, "set": values}
+
+
+def asked(query, of="people"):
+    return {"of": of, "query": query}
 
 
 def edited(plan):
@@ -47,7 +51,7 @@ def edited(plan):
 def test_a_query_gives_each_person_the_values_of_its_columns(plan_for):
     query = "SELECT uid, min(pa + 5, 144) AS pa, 18 AS finishing FROM people WHERE kind = 'player'"
 
-    plan = plan_for(edits=[{"query": query}])
+    plan = plan_for(edits=[asked(query)])
 
     assert edited(plan) == [
         (100, "PPAB", 140, 144),
@@ -98,24 +102,27 @@ def test_people_are_described_the_way_the_lookup_knows_them(plan_for):
         (by_hand("100", finishing=3), "'100'"),
         (by_hand(True, finishing=3), "True"),
         (by_hand(10**20, finishing=3), "100000000000000000000"),
-        ({"uid": 100, "set": 5}, "set"),
-        ({"query": 5}, "query"),
-        ({"query": "SELECT uid, 5 AS pa FROM people; SELECT 1"}, "one statement"),
+        ({"of": "people", "uid": 100, "set": 5}, "set"),
+        ({"of": "moons", "uid": 100, "set": {}}, "moons"),
+        ({"of": ["people"], "uid": 100, "set": {}}, "people"),
+        ({"uid": 100, "set": {"finishing": 3}}, "of"),
+        (asked(5), "query"),
+        (asked("SELECT uid, 5 AS pa FROM people; SELECT 1"), "one statement"),
         (by_hand(100), "nothing"),
         (by_hand(100, sprint=3), "sprint"),
         (by_hand(100, finishing=21), "PDfn"),
         (by_hand(100, birth_date="soon"), "soon"),
         (by_hand(103, finishing=3), "both"),
-        ({"uid": 100}, "query"),
-        ({"query": "SELECT 1", "uid": 100, "set": {}}, "query"),
-        ({"query": "SELECT uid FROM people"}, "nothing"),
-        ({"query": "SELECT pa FROM people"}, "uid"),
-        ({"query": "SELECT uid, pa, ca AS pa FROM people"}, "pa"),
-        ({"query": "SELECT uid, pa * 1.5 AS pa FROM people"}, "whole number"),
-        ({"query": "SELECT uid, NULL AS pa FROM people"}, "no value for pa"),
-        ({"query": "SELECT uid, pa FROM nowhere"}, "nowhere"),
-        ({"query": "DELETE FROM person"}, "readonly"),
-        ({"query": "SELECT uid, 5 AS pa FROM people WHERE 0"}, "no one"),
+        ({"of": "people", "uid": 100}, "query"),
+        ({"of": "people", "query": "SELECT 1", "uid": 100, "set": {}}, "query"),
+        (asked("SELECT uid FROM people"), "nothing"),
+        (asked("SELECT pa FROM people"), "uid"),
+        (asked("SELECT uid, pa, ca AS pa FROM people"), "pa"),
+        (asked("SELECT uid, pa * 1.5 AS pa FROM people"), "whole number"),
+        (asked("SELECT uid, NULL AS pa FROM people"), "no value for pa"),
+        (asked("SELECT uid, pa FROM nowhere"), "nowhere"),
+        (asked("DELETE FROM person"), "readonly"),
+        (asked("SELECT uid, 5 AS pa FROM people WHERE 0"), "finds nothing"),
     ],
 )
 def test_an_edit_that_cannot_be_made_is_refused_with_a_reason(plan_for, edit, complaint):
@@ -137,10 +144,15 @@ def test_the_same_field_of_one_person_cannot_be_set_twice(plan_for):
         {"edit": [by_hand(100, finishing=3)]},
         {"edits": by_hand(100, finishing=3)},
         {"start_from": 5, "edits": [by_hand(100, finishing=3)]},
-        {"new_people": [{"kind": "player"}]},
-        {"new_people": [{"kind": "player", "set": 5}]},
-        {"new_people": [{"kind": "wizard", "set": {}}]},
-        {"new_people": [NEW_PLAYER | {"extra": 1}]},
+        {"new": [{"kind": "player"}]},
+        {"new": [{"kind": "player", "set": 5}]},
+        {"new": [{"kind": "wizard", "set": {}}]},
+        {"new": [NEW_PLAYER | {"extra": 1}]},
+        {"new": [NEW_PLAYER | {"as": 5}]},
+        {"new": [NEW_PLAYER | {"as": "two words"}]},
+        {"new": [NEW_PLAYER | {"as": "One"}, NEW_PLAYER | {"as": "One"}]},
+        {"new": [NEW_PLAYER | {"kind": ["player"]}]},
+        {"new_people": [NEW_PLAYER]},
     ],
 )
 def test_a_request_that_is_empty_or_misspelt_is_refused(plan_for, request_):
@@ -149,10 +161,81 @@ def test_a_request_that_is_empty_or_misspelt_is_refused(plan_for, request_):
 
 
 def test_new_people_are_planned_with_their_settings(plan_for):
-    (addition,) = plan_for(new_people=[NEW_PLAYER]).additions
+    (addition,) = plan_for(new=[NEW_PLAYER]).additions
 
     assert addition.kind.name == "player"
     assert [s.field.code for s in addition.settings] == ["Pfna", "Psna", "Pdob", "Pnti"]
+
+
+# --- clubs and competitions ---------------------------------------------------------------
+
+LEAGUE = {
+    "kind": "competition",
+    "as": "D1",
+    "set": {"name": "Test League", "short_name": "League", "nation_uid": 9001, "dbty": 0},
+}
+ROVERS = {
+    "kind": "club",
+    "set": {
+        "name": "Test Rovers",
+        "short_name": "Rovers",
+        "nation_uid": 9001,
+        "division_uid": "@D1",
+    },
+}
+
+
+def test_clubs_are_edited_as_clubs_also_when_a_person_has_the_same_unique_id(plan_for):
+    plan = plan_for(edits=[by_hand(9101, of="clubs", reputation=6_000)])
+
+    assert edited(plan) == [(9101, "Crep", 5_000, 6_000)]
+    assert plan.edits[0].record.kind.name == "club"
+
+
+def test_competitions_are_edited_by_the_lookups_names(plan_for):
+    plan = plan_for(edits=[by_hand(9203, of="competitions", level=3, parent_uid=9202)])
+
+    assert edited(plan) == [(9203, "levl", 2, 3), (9203, "cpcm", 9201, 9202)]
+
+
+def test_a_query_can_move_clubs_to_a_division(plan_for):
+    plan = plan_for(edits=[asked("SELECT uid, 9203 AS division_uid FROM clubs", of="clubs")])
+
+    assert [(uid, new) for uid, _, _, new in edited(plan)] == [
+        (9101, 9203),
+        (9103, 9203),
+        (9104, 9203),
+    ]
+    assert plan.already_so == 1
+
+
+def test_a_new_club_and_an_existing_one_can_play_in_a_new_competition(plan_for):
+    query = "SELECT uid, '@D1' AS division_uid FROM clubs WHERE uid = 9102"
+    plan = plan_for(new=[LEAGUE, ROVERS], edits=[asked(query, of="clubs")])
+
+    file = build_file(plan, approval_code(plan), TODAY)
+
+    league = next(i.value for i in file.changes.changes[0] if i.tag == "nwvl")[-1].value
+    divisions = [
+        next(i for i in change if i.tag == "nwvl").value[1].value
+        for change in file.changes.changes
+        if any(i.value == "Cdvi" for i in change)
+    ]
+    assert divisions == [league, league]
+
+
+def test_a_new_record_is_named_before_it_is_referred_to(plan_for):
+    with pytest.raises(FormatError, match="@D1"):
+        plan_for(new=[ROVERS, LEAGUE])
+
+
+def test_the_code_covers_which_new_record_is_meant(plan_for):
+    second = LEAGUE | {"as": "D2"}
+    to_second = ROVERS | {"set": ROVERS["set"] | {"division_uid": "@D2"}}
+
+    plans = [plan_for(new=[LEAGUE, second, club]) for club in (ROVERS, to_second)]
+
+    assert len({approval_code(plan) for plan in plans}) == 2
 
 
 # --- the file -----------------------------------------------------------------------------
@@ -183,11 +266,11 @@ def codes(file):
 
 
 def test_the_file_holds_the_planned_changes(plan_for):
-    plan = plan_for(edits=[by_hand(100, finishing=3)], new_people=[NEW_PLAYER])
+    plan = plan_for(edits=[by_hand(100, finishing=3)], new=[NEW_PLAYER])
 
     file = build_file(plan, approval_code(plan), TODAY)
 
-    assert codes(file) == ["PDfn", "ADDR", "Pfna", "Psna", "Pdob", "Pnti"]
+    assert codes(file) == ["ADDR", "Pfna", "Psna", "Pdob", "Pnti", "PDfn"]
 
 
 def test_changes_are_added_behind_those_of_the_file_to_start_from(plan_for, started):
@@ -208,7 +291,7 @@ def test_a_starting_file_that_does_not_exist_is_reported(plan_for, tmp_path):
 
 
 def test_building_twice_gives_the_new_person_different_ids_but_the_same_code(plan_for):
-    plan = plan_for(new_people=[NEW_PLAYER])
+    plan = plan_for(new=[NEW_PLAYER])
     code = approval_code(plan)
 
     first, second = build_file(plan, code, TODAY), build_file(plan, code, TODAY)
@@ -226,7 +309,7 @@ def test_a_file_is_only_built_for_the_plan_that_was_approved(plan_for):
 
 
 def test_the_same_request_has_the_same_code_each_time(plan_for):
-    request = {"edits": [by_hand(100, finishing=3)], "new_people": [NEW_PLAYER]}
+    request = {"edits": [by_hand(100, finishing=3)], "new": [NEW_PLAYER]}
 
     assert approval_code(plan_for(**request)) == approval_code(plan_for(**request))
 
@@ -238,8 +321,8 @@ def test_any_difference_in_what_is_written_changes_the_code(plan_for, started):
         plan_for(edits=[by_hand(100, finishing=4)]),
         plan_for(edits=[by_hand(101, finishing=3)]),
         plan_for(edits=[by_hand(100, ca=3)]),
-        plan_for(new_people=[NEW_PLAYER]),
-        plan_for(new_people=[other_player]),
+        plan_for(new=[NEW_PLAYER]),
+        plan_for(new=[other_player]),
         plan_for(start_from=str(started), edits=[by_hand(100, finishing=3)]),
     ]
 

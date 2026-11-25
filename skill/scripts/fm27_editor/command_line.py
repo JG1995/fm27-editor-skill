@@ -46,7 +46,7 @@ def _parser() -> argparse.ArgumentParser:
     find.add_argument("--limit", type=_one_or_more, default=40)
     find.set_defaults(command=_find)
 
-    fields = commands.add_parser("fields", help="list the fields that can be set on a person")
+    fields = commands.add_parser("fields", help="list the fields that can be set")
     fields.add_argument("kind", choices=list(KINDS))
     fields.add_argument("text", nargs="?", default="", help="part of a name or code")
     fields.set_defaults(command=_fields)

@@ -5,7 +5,7 @@ Editor accepts.
 """
 
 import xml.etree.ElementTree as ElementTree
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from xml.etree.ElementTree import Element
 
@@ -51,9 +51,10 @@ def read_fields(editor_dir: Path, record_kind: str) -> dict[str, Field]:
         field = _field(element, shared)
         if field is None:
             continue
-        if field.code in fields:
-            raise FieldDefinitionError(f"{record_kind}.xml defines {field.code} twice")
-        fields[field.code] = field
+        known = fields.get(field.code)
+        if known is not None and not _is_same(known, field):
+            raise FieldDefinitionError(f"{record_kind}.xml defines {field.code} in two ways")
+        fields[field.code] = field if known is None else _joined(known, field)
     return fields
 
 
@@ -124,6 +125,25 @@ def _field(element: Element, shared: dict[str, dict[int, str] | None]) -> Field 
         is_client_field=_is_set(element, "is_client_field"),
         is_language_field=_is_set(element, "is_language_field"),
         is_editable=not any(_is_set(element, mark) for mark in NOT_OFFERED),
+    )
+
+
+def _is_same(first: Field, second: Field) -> bool:
+    """Whether two definitions differ at most in their names and in the marks of a change."""
+    return first == replace(
+        second,
+        name=first.name,
+        is_client_field=first.is_client_field,
+        is_language_field=first.is_language_field,
+    )
+
+
+def _joined(first: Field, second: Field) -> Field:
+    """The colours of a club are defined twice, and real changes to them carry the client mark."""
+    return replace(
+        first,
+        is_client_field=first.is_client_field or second.is_client_field,
+        is_language_field=first.is_language_field or second.is_language_field,
     )
 
 

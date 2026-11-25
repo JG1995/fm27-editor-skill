@@ -6,7 +6,7 @@ import sqlite3
 from fm27_editor.base_database import record_name
 from fm27_editor.field_definitions import Field
 from fm27_editor.record_changes import HIGHEST_ATTRIBUTE, LOWEST_ATTRIBUTE, REFERENCE
-from fm27_editor.record_rules import LOOKUP_TABLES
+from fm27_editor.record_rules import LOOKUP_TABLES, NEW_MARK, NewReference
 
 
 def counted(number: int, one: str, many: str) -> str:
@@ -28,6 +28,8 @@ def accepted(field: Field) -> str:
             return "true or false"
         case "date":
             return "a date such as 2008-04-25"
+        case "colour":
+            return "a colour such as #480024, red first"
         case "enum":
             return f"one of {_listed(field.choices)}"
         case _ if field.type == REFERENCE:
@@ -36,6 +38,8 @@ def accepted(field: Field) -> str:
 
 
 def shown(field: Field, value: object, lookup: sqlite3.Connection) -> str:
+    if isinstance(value, NewReference):
+        return f"{NEW_MARK}{value.name}"
     if isinstance(value, datetime.date):
         return value.isoformat()
     if field.points_to is not None:

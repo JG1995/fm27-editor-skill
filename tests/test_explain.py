@@ -9,7 +9,7 @@ from fm27_editor.change_reading import EditError
 from fm27_editor.editor_file import load_editor_file
 from fm27_editor.explain import explain_lines
 
-PERSON, STADIUM = 1, 21
+PERSON, CLUB, STADIUM, COMPETITION = 1, 3, 21, 25
 
 
 def number(value):
@@ -98,12 +98,7 @@ def test_every_kind_of_value_is_shown_in_plain_words(lines_for, value, shown):
 
 def test_new_people_are_counted_and_named_by_the_file_itself(lines_for):
     def named(code, value):
-        return synthetic.change(
-            synthetic.prop("dtty", 0x11, b"\x01"),
-            synthetic.prop("duni", 0x0F, struct.pack("<II", 7001, 77)),
-            synthetic.prop("prty", 0x02, code.encode()[::-1]),
-            text(value),
-        )
+        return synthetic.record_change(PERSON, struct.pack("<II", 7001, 77), code, text(value))
 
     lines = lines_for(
         synthetic.added_person(7001), named("Pfna", "Testy"), named("Psna", "Newcomer")
@@ -111,6 +106,24 @@ def test_new_people_are_counted_and_named_by_the_file_itself(lines_for):
 
     assert "Adds 1 record: Person 1" in lines
     assert "  Testy Newcomer (new): First Name = Testy" in lines
+
+
+def test_a_new_club_is_named_and_so_is_the_new_competition_it_plays_in(lines_for):
+    """The Editor renumbers new records when it saves, and keeps the second half of their IDs."""
+    league, rovers = struct.pack("<II", 7001, 77), struct.pack("<II", 7002, 78)
+    renumbered = struct.pack("<II", 2_000_000_001, 77)
+    division = synthetic.props(synthetic.prop("comp", 0x0F, renumbered))
+
+    lines = lines_for(
+        synthetic.record_change(COMPETITION, league, "cnam", text("Test League")),
+        synthetic.record_change(CLUB, rovers, "Cnam", text("Test Rovers")),
+        synthetic.record_change(CLUB, rovers, "Cdvi", synthetic.prop("nwvl", 0x0A, division)),
+        synthetic.record_change(CLUB, 9101, "Cdvi", reference("comp", 9203)),
+    )
+
+    assert "  Test League (new): Name = Test League" in lines
+    assert "  Test Rovers (new): Division = Test League (new)" in lines
+    assert "  Fictional City (9101): Division = Example League North (9203)" in lines
 
 
 def test_removed_records_are_counted(lines_for):
