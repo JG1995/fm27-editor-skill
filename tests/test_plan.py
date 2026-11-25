@@ -1,4 +1,5 @@
 import datetime
+import re
 
 import pytest
 
@@ -223,6 +224,75 @@ def test_awards_are_edited_by_the_lookups_names(plan_for):
 def test_an_award_cannot_be_made(plan_for):
     with pytest.raises(FormatError, match="a new award cannot be made"):
         plan_for(new=[{"kind": "award", "set": {"name": "Example Award"}}])
+
+
+PAST = {"award": 9501, "year": 2024, "places": [{"keep": 2}, {"keep": 1}]}
+
+
+def test_past_winners_alone_are_a_request(plan_for):
+    (edit,) = plan_for(award_history=[PAST]).histories
+
+    assert (edit.award.uid, edit.award.name) == (9501, "Example Player of the Year")
+    assert [new.year for _, new in edit.history.changed] == [2024]
+
+
+def test_the_history_is_written_behind_the_settings(plan_for):
+    edits = [by_hand(9501, of="awards", previous_winner=1)]
+    plan = plan_for(edits=edits, award_history=[PAST])
+
+    file = build_file(plan, approval_code(plan), TODAY)
+
+    changes = [{part.tag: part for part in change} for change in file.changes.changes]
+    assert [change["prty"].value for change in changes] == ["AWap", "AWsh"]
+    assert [change["duni"].value for change in changes] == [b"\x1d\x25\x00\x00" * 2] * 2
+    assert len(changes[1]["nwvl"].value) == 3
+
+
+def test_past_winners_that_are_so_already_change_nothing(plan_for):
+    so_already = {"award": 9501, "year": 2023, "places": [{"keep": 1}]}
+
+    with pytest.raises(RequestError, match="changes nothing"):
+        plan_for(award_history=[so_already])
+
+
+def test_the_code_covers_the_history(plan_for):
+    other = PAST | {"places": [{"keep": 2}, {"keep": 1, "points": 8}]}
+
+    codes = {approval_code(plan_for(award_history=[past])) for past in (PAST, other)}
+
+    assert len(codes) == 2
+
+
+def test_a_history_that_the_starting_file_changes_cannot_be_changed_again(plan_for, tmp_path):
+    plan = plan_for(award_history=[PAST])
+    path = tmp_path / "History.fmf"
+    save_editor_file(build_file(plan, approval_code(plan), TODAY), path)
+    other_award = {"award": 9502, "year": 2025, "places": [{"name": "New Star"}]}
+
+    assert plan_for(start_from=str(path), award_history=[other_award]).histories
+    with pytest.raises(RequestError, match="history of Example Player of the Year"):
+        plan_for(start_from=str(path), award_history=[PAST])
+
+
+@pytest.mark.parametrize(
+    ("places", "complaint"),
+    [
+        ([{"name": "A", "points": 5}, {"name": "B", "points": 6}], "more points in 2024"),
+        ([{"name": "A"}, {"name": "B"}, {"name": "A"}], "placed twice in 2024"),
+        ([{"person_uid": 100}, {"person_uid": 100, "name": "Other Name"}], "placed twice in 2024"),
+    ],
+)
+def test_places_that_look_wrong_are_pointed_out(plan_for, places, complaint):
+    plan = plan_for(award_history=[PAST | {"places": places}])
+
+    (warning,) = plan.warnings
+    assert re.search(complaint, warning)
+
+
+def test_places_without_points_are_not_compared(plan_for):
+    places = [{"name": "A"}, {"name": "B", "points": 6}, {"name": "C", "points": 6}]
+
+    assert plan_for(award_history=[PAST | {"places": places}]).warnings == []
 
 
 def test_a_query_can_move_clubs_to_a_division(plan_for):
