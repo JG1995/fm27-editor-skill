@@ -106,6 +106,8 @@ CHOICES_LEFT_OUT = {
     "stadium_rules": {"specific"},
     "id": {"get_specific_team", "get_last_winner", "get_last_runnerup"},
 }
+# Rules that are worked out from the others.
+COMPUTED = {"has_sub_divisions", "number_teams"}
 MONTHS = ("jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec")
 DAYS = ("sun", "mon", "tue", "wed", "thu", "fri", "sat")
 NOTHING: Mapping[str, Any] = {}

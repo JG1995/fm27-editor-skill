@@ -96,7 +96,7 @@ A new person needs `Pfna` (first name), `Psna` (second name), `birth_date`, and 
 
 ## Create clubs and competitions
 
-A new club needs `name`, `short_name`, and `nation_uid`. Also set `based_nation_uid`, `city_uid`, `reputation`, `division_uid`, the status (`Cprs`), the year founded (`Cyfn`), short forms of the name (`Csxn`, `Cl3n`), and its colours (`ttcl` in front of `tbcl`). For a women's club, set `PLgn` to 1. Compare `reputation` with clubs of the same division.
+A new club needs `name`, `short_name`, and `nation_uid`. Also set `based_nation_uid`, `city_uid`, `reputation`, `division_uid`, the status (`Cprs`), the year founded (`Cyfn`), short forms of the name (`Csxn`, `Cl3n`), and its colours (`ttcl` in front of `tbcl`). For a women's club, set `gender` to `female`. Compare `reputation` with clubs of the same division.
 
 A new competition needs `name`, `short_name`, `nation_uid`, and its type (`dbty`). Also set `crep` and, for a division, `level`, where 1 is the top. A regional part of a division has that division as `parent_uid`.
 

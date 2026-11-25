@@ -110,6 +110,8 @@ def test_people_are_described_the_way_the_lookup_knows_them(plan_for):
         (by_hand(100), "nothing"),
         (by_hand(100, sprint=3), "sprint"),
         (by_hand(100, finishing=21), "PDfn"),
+        (by_hand(100, finishing=[3]), "PDfn"),
+        (by_hand(9101, of="clubs", gender="both"), "PLgn"),
         (by_hand(100, birth_date="soon"), "soon"),
         (by_hand(103, finishing=3), "both"),
         ({"of": "people", "uid": 100}, "query"),
@@ -182,6 +184,15 @@ ROVERS = {
         "division_uid": "@D1",
     },
 }
+
+
+def test_the_gender_of_a_club_is_given_and_compared_the_way_the_lookup_says_it(plan_for):
+    edits = [by_hand(uid, of="clubs", gender="female") for uid in (9101, 9103)]
+
+    plan = plan_for(edits=edits)
+
+    assert edited(plan) == [(9101, "PLgn", "male", 1)]
+    assert plan.already_so == 1
 
 
 def test_clubs_are_edited_as_clubs_also_when_a_person_has_the_same_unique_id(plan_for):
@@ -313,7 +324,7 @@ def test_womens_clubs_in_a_mens_division_are_pointed_out(plan_for):
     """9103 is a women's club."""
     moves = [by_hand(9102, of="clubs", division_uid="@D1")]
     women = [by_hand(9103, of="clubs", division_uid="@D1")]
-    new_women = ROVERS | {"set": ROVERS["set"] | {"PLgn": 1}}
+    new_women = ROVERS | {"set": ROVERS["set"] | {"gender": "female"}}
 
     assert plan_for(new=[LEAGUE, ROVERS], edits=moves, nation_rules=NATION_RULES).warnings == []
     (moved,) = plan_for(new=[LEAGUE, ROVERS], edits=women, nation_rules=NATION_RULES).warnings
@@ -339,7 +350,7 @@ def test_sub_divisions_hold_the_clubs_of_a_division(plan_for):
         ({"nation_rules": rules_for(9202)}, "women"),
         (
             {
-                "new": [LEAGUE | {"set": LEAGUE["set"] | {"PLgn": 1}}],
+                "new": [LEAGUE | {"set": LEAGUE["set"] | {"gender": "female"}}],
                 "nation_rules": rules_for("@D1"),
             },
             "women",

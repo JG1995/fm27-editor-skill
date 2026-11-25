@@ -28,11 +28,11 @@ def _set_fields(
     kind: RecordKind, record: bytes, settings: list[Setting], new: NewRecords, ids: NewIds
 ) -> list[Change]:
     return [
-        field_change(kind.group.table, record, setting.field, _value(setting, new), ids)
+        field_change(kind.group.table, record, setting.field, resolved(setting.value, new), ids)
         for setting in settings
     ]
 
 
-def _value(setting: Setting, new: NewRecords) -> FieldValue:
-    value = setting.value
+def resolved(value: FieldValue | NewReference, new: NewRecords) -> FieldValue:
+    """The value with the ID of a new record in the place of its name."""
     return new[value.name] if isinstance(value, NewReference) else value

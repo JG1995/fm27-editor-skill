@@ -1,12 +1,13 @@
 """The kinds of records that can be set, and what sets each apart."""
 
 from collections.abc import Mapping
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import cached_property
 
 from fm27_editor import person_codes
 from fm27_editor.change_reading import EditError, Table
 from fm27_editor.people import PersonKind
+from fm27_editor.places import Gender
 
 
 @dataclass(frozen=True, eq=False)
@@ -37,6 +38,10 @@ class RecordKind:
     left_out_families: tuple[str, ...] = ()
     """What the codes of whole groups of fields start with that are not set by hand either."""
     person_type: int | None = None
+    pointed_to_as: tuple[str, ...] = ()
+    """What the Editor's definitions call a record of this kind that a field points to."""
+    words: Mapping[str, Mapping[str, int]] = field(default_factory=dict)
+    """The numbers of choices that the lookup holds as words, by code."""
 
     @cached_property
     def names(self) -> dict[str, str]:
@@ -52,7 +57,7 @@ PEOPLE = RecordGroup(
     view="people",
     table=Table.PERSON,
     details={"birth_date": "born {}", "nation": "{}", "club": "{}"},
-    name_codes=("Pfna", "Psna"),
+    name_codes=person_codes.NAME_CODES,
 )
 CLUBS = RecordGroup(
     one="club",
@@ -103,6 +108,9 @@ STAFF = RecordKind(
     left_out=PERSON_LEFT_OUT,
     person_type=PersonKind.STAFF,
 )
+GENDER = "gender"
+GENDER_CODE = "PLgn"
+GENDER_WORDS = {GENDER_CODE: {Gender.MALE: 0, Gender.FEMALE: 1}}
 COMPUTED_NAMES = ("dbnm", "dAPw")
 # The record books: highest attendance, biggest win, and so on.
 CLUB_RECORDS = (
@@ -117,6 +125,7 @@ CLUB = RecordKind(
     codes={
         "name": "Cnam",
         "short_name": "Csnm",
+        GENDER: GENDER_CODE,
         "is_extinct": "Cext",
         "nation_uid": "Cnti",
         "based_nation_uid": "Cbni",
@@ -139,6 +148,8 @@ CLUB = RecordKind(
         }
     ),
     left_out_families=CLUB_RECORDS,
+    pointed_to_as=("club", "team"),
+    words=GENDER_WORDS,
 )
 COMPETITION = RecordKind(
     name="competition",
@@ -147,6 +158,7 @@ COMPETITION = RecordKind(
     codes={
         "name": "cnam",
         "short_name": "csnm",
+        GENDER: GENDER_CODE,
         "level": "levl",
         "nation_uid": "cnti",
         "parent_uid": "cpcm",
@@ -154,6 +166,8 @@ COMPETITION = RecordKind(
     needed={"cnam": "Name", "csnm": "Short Name", "cnti": "Nation", "dbty": "Type"},
     left_out=frozenset({*COMPUTED_NAMES, "DBvw"}),
     left_out_families=(*CLUB_RECORDS, "HCA", "LCA"),
+    pointed_to_as=("competition",),
+    words=GENDER_WORDS,
 )
 KINDS = {kind.name: kind for kind in (PLAYER, STAFF, CLUB, COMPETITION)}
 

@@ -129,6 +129,35 @@ def stored_value(field: Field, value: FieldValue) -> Property:
     return Property("nwvl", *_stored(field, value))
 
 
+def reference(tag: str, points_to: str, record: bytes) -> list[Property]:
+    """What a property called `tag` holds to point to a record."""
+    return [
+        Property("id  ", Kind.CODE, tag),
+        Property(REFERENCE_TAGS[points_to], Kind.ID, record),
+        number("DBID", uid_of(record)),
+    ]
+
+
+def check_whole(called: str, value: object) -> None:
+    if not isinstance(value, int) or isinstance(value, bool):
+        raise EditError(f"{called} needs a whole number, not {value!r}")
+
+
+def checked_number(called: str, value: object, lowest: int, highest: int) -> int:
+    check_whole(called, value)
+    if not lowest <= value <= highest:
+        raise EditError(f"{called} must be from {lowest} to {highest}, not {value}")
+    return value
+
+
+def checked_date(called: str, value: object) -> datetime.date:
+    """A date given as text."""
+    try:
+        return datetime.date.fromisoformat(value)
+    except (TypeError, ValueError) as error:
+        raise EditError(f"{called} needs a date such as 2008-04-25, not {value!r}") from error
+
+
 def number(tag: str, value: int) -> Property:
     """A property holding a number in the smallest signed size that fits."""
     for kind, size in INTEGER_KINDS:
@@ -206,19 +235,11 @@ def _checked_text(field: Field, value: FieldValue) -> str:
 
 
 def _checked_number(field: Field, value: FieldValue, lowest: int, highest: int) -> int:
-    _check_whole(field, value)
-    if not lowest <= value <= highest:
-        raise _refused(field, f"must be from {lowest} to {highest}, not {value}")
-    return value
-
-
-def _check_whole(field: Field, value: FieldValue) -> None:
-    if not isinstance(value, int) or isinstance(value, bool):
-        raise _refused(field, f"needs a whole number, not {value!r}")
+    return checked_number(_called(field), value, lowest, highest)
 
 
 def _checked_choice(field: Field, value: FieldValue) -> int:
-    _check_whole(field, value)
+    check_whole(_called(field), value)
     if value not in field.choices:
         options = ", ".join(f"{key} {name}" for key, name in sorted(field.choices.items()))
         raise _refused(field, f"must be one of {options}; not {value}")
@@ -230,12 +251,12 @@ def _reference(field: Field, value: FieldValue) -> list[Property]:
         record = value
     else:
         record = existing_record(_checked_number(field, value, 1, HIGHEST_UID))
-    return [
-        Property("id  ", Kind.CODE, "nwvl"),
-        Property(REFERENCE_TAGS[field.points_to], Kind.ID, record),
-        number("DBID", uid_of(record)),
-    ]
+    return reference("nwvl", field.points_to, record)
+
+
+def _called(field: Field) -> str:
+    return f"{field.name} ({field.code})"
 
 
 def _refused(field: Field, reason: str) -> EditError:
-    return EditError(f"{field.name} ({field.code}) {reason}")
+    return EditError(f"{_called(field)} {reason}")
