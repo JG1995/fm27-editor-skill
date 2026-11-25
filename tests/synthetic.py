@@ -118,6 +118,26 @@ def change_list(*changes: bytes, count: int | None = None) -> bytes:
     return b"\x03\x01cbd.\x06\x00\x00" + zstd_frame(body)
 
 
+def record_change(table: int, uid: int, code: str, new_value: bytes) -> bytes:
+    """A change to a record of the database; `new_value` is a property made with `prop`."""
+    return change(
+        prop("dtty", 0x11, bytes([table])),
+        prop("duni", 0x0F, struct.pack("<II", uid, uid)),
+        prop("prty", 0x02, code.encode()[::-1]),
+        new_value,
+    )
+
+
+def added_person(uid: int, rest: int = 77) -> bytes:
+    described = props(
+        prop("id  ", 0x02, b"lvwn"),
+        prop("dtty", 0x11, b"\x01"),
+        prop("dcty", 0x02, b"\x02\x00\x00\x00"),
+        prop("duni", 0x0F, struct.pack("<II", uid, rest)),
+    )
+    return record_change(55, 1, "ADDR", prop("nwvl", 0x0A, described))
+
+
 def capacity_change(new: int) -> bytes:
     return change(
         prop("dtty", 0x11, b"\x15"),
