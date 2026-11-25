@@ -27,9 +27,10 @@ Where the stack allows it, enforce each rule with a check in the lint or test co
 ## Commands
 Record the exact commands here as soon as they exist, and correct them when the toolchain changes: install, run, test (the whole suite and a single file), typecheck, and lint.
 
-* Install: needs Python 3.14 and `cryptography` (`python3 -m pip install cryptography pytest`); Ruff is the linter.
+* Install: needs Python 3.14, `cryptography`, and `numpy` (`python3 -m pip install cryptography numpy pytest`); Ruff is the linter.
 * Test: `python3 -m pytest`, or one file with `python3 -m pytest tests/test_container.py`.
 * Test against your own editor files (never committed): `FM27_EDITOR_FILES="<folder>" python3 -m pytest tests/test_real_files.py`.
+* Test the lookup against an installed Editor: `FM27_EDITOR_DIR="<Editor folder>" python3 -m pytest tests/test_real_database.py`.
 * Lint and format: `ruff check .` and `ruff format .`.
 * Run and typecheck: none yet.
 
