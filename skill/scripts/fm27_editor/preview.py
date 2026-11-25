@@ -18,6 +18,7 @@ def preview_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list
         *_starting_lines(plan),
         *_edit_lines(plan, lookup, examples),
         *_history_lines(plan, lookup, examples),
+        *_left_out_lines(plan),
         *_addition_lines(plan, lookup, examples),
         *([] if plan.rules is None else rule_lines(plan.rules, lookup)),
         *(f"Warning: {warning}" for warning in plan.warnings),
@@ -43,9 +44,6 @@ def _edit_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list[s
     for group in GROUPS.values():
         edits = [edit for edit in plan.edits if edit.record.kind.group is group]
         lines += _group_lines(group, edits)
-    if plan.already_so:
-        values = counted(plan.already_so, "value that is", "values that are")
-        lines.append(f"Left out: {values} so already")
     chosen = _spread(plan.edits, examples)
     lines.append(f"Examples, {len(chosen)} of {len(plan.edits):,}:")
     return lines + [_example_line(edit, lookup) for edit in chosen]
@@ -120,6 +118,14 @@ def _described(record: KnownRecord) -> str:
         if record.facts[column] is not None
     }
     return ", ".join([f"{record.name} ({record.uid})", *said.values()])
+
+
+def _left_out_lines(plan: Plan) -> list[str]:
+    counts = [
+        (plan.already_so, "value that is", "values that are"),
+        (plan.years_already_so, "year that is", "years that are"),
+    ]
+    return [f"Left out: {counted(n, one, many)} so already" for n, one, many in counts if n]
 
 
 def _history_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list[str]:

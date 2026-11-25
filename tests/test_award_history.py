@@ -1,5 +1,7 @@
 import sqlite3
 from contextlib import closing
+from dataclasses import replace
+from types import SimpleNamespace
 
 import pytest
 
@@ -8,6 +10,7 @@ import synthetic
 from fictional_editor import write_editor
 from fm27_editor.award_history import Place, Year, check_award_history, history_change
 from fm27_editor.base_database import open_database
+from fm27_editor.binary import FormatError
 from fm27_editor.change_list import ChangeList, Kind
 from fm27_editor.change_reading import EditError, read_number
 from fm27_editor.record_changes import NewIds
@@ -35,15 +38,19 @@ NOT_HELD_2020 = Year(2020, {}, not_held=True)
 
 
 @pytest.fixture
-def check(tmp_path):
-    editor = write_editor(tmp_path / "editor")
-    with closing(open_database(editor, tmp_path / "cache.sqlite")) as lookup:
-        rules = RecordRules(editor, lookup)
-        yield lambda *given: check_award_history(list(given), rules.fields(AWARD), lookup)
+def editor(tmp_path):
+    folder = write_editor(tmp_path / "editor")
+    with closing(open_database(folder, tmp_path / "cache.sqlite")) as lookup:
+        yield SimpleNamespace(lookup=lookup, fields=RecordRules(folder, lookup).fields(AWARD))
+
+
+@pytest.fixture
+def check(editor):
+    return lambda *given: check_award_history(list(given), editor.fields, editor.lookup)
 
 
 def year(number, *places, award=9501, **others):
-    given = {"award": award, "year": number, **others}
+    given = {"award_uid": award, "year": number, **others}
     return given | ({"places": list(places)} if places else {})
 
 
@@ -141,8 +148,8 @@ def test_the_years_of_each_award_are_its_own(check):
 @pytest.mark.parametrize(
     ("given", "complaint"),
     [
-        ({"award": 9501}, "year"),
-        ({"year": 2024}, "award"),
+        ({"award_uid": 9501}, "year"),
+        ({"year": 2024}, "award_uid"),
         ("2024", "named parts"),
         (year(2024, {"name": "A"}, award=77), "no award 77"),
         (year(2024, {"name": "A"}, award="Player"), "no award 'Player'"),
@@ -153,8 +160,8 @@ def test_the_years_of_each_award_are_its_own(check):
         (year(1066, {"name": "A"}), "from 1800 to 2100"),
         (year("2024", {"name": "A"}), "whole number"),
         (year(2024, *[{"name": "A"}] * 4), "one to three"),
-        ({"award": 9501, "year": 2024, "places": []}, "one to three"),
-        ({"award": 9501, "year": 2024, "places": {"name": "A"}}, "one to three"),
+        ({"award_uid": 9501, "year": 2024, "places": []}, "one to three"),
+        ({"award_uid": 9501, "year": 2024, "places": {"name": "A"}}, "one to three"),
         (year(2024, "Alfa"), "named parts"),
         (year(2024, {"name": "A", "shirt": 9}), "shirt"),
         (year(2024, {"points": 9}), "needs a name"),
@@ -200,12 +207,35 @@ def test_a_year_that_the_database_has_twice_cannot_be_changed(check, tmp_path, m
             check_award_history([year(2023, {"name": "A"})], fields, lookup)
 
 
+@pytest.mark.parametrize(
+    ("code", "changed", "complaint"),
+    [
+        ("AWsh", {"is_editable": False}, "cannot be edited"),
+        ("AWsh", {"type": "string"}, "does not define"),
+        ("AHye", {"highest": None}, "no range"),
+        ("AH1i", {"is_editable": False}, "cannot be edited"),
+        ("AH1p", {"points_to": "moon"}, "points to a moon"),
+    ],
+)
+def test_what_the_editor_does_not_offer_is_refused(check, editor, code, changed, complaint):
+    field = editor.fields["AWsh"]
+    if code == "AWsh":
+        field = replace(field, **changed)
+    else:
+        items = (replace(p, **changed) if p.code == code else p for p in field.items)
+        field = replace(field, items=tuple(items))
+    given = [year(2024, {"person_uid": 100, "points": 9})]
+
+    with pytest.raises(FormatError, match=complaint):
+        check_award_history(given, {"AWsh": field}, editor.lookup)
+
+
 def test_the_histories_must_be_a_list(check, tmp_path):
     with (
         closing(sqlite3.connect(":memory:")) as lookup,
         pytest.raises(EditError, match="list"),
     ):
-        check_award_history({"award": 9501}, {}, lookup)
+        check_award_history({"award_uid": 9501}, {}, lookup)
 
 
 def test_a_person_goes_by_the_name_that_most_awards_use(tmp_path, monkeypatch):

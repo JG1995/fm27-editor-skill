@@ -179,7 +179,7 @@ def test_awards_are_counted_and_described(lines_for):
 
 
 NEW_2024 = {
-    "award": 9501,
+    "award_uid": 9501,
     "year": 2024,
     "places": [
         {"person_uid": 101, "team_uid": 9102, "nation_uid": 9001, "points": 50, "age": 16},
@@ -196,16 +196,18 @@ def test_a_history_is_shown_with_what_was_there_before(lines_for):
         "1 of 3 years changes, 1 with another winner; the others stay as they are"
     )
     assert lines[at + 1 : at + 3] == [
-        "  2024: 1 Bravo Keeper (101), Example United, Englandia, 50 points, age 16; "
-        "2 Alfa Striker (100), Fictional City, Norwegia, 47 points, age 20, Wing-Back Left",
-        "    was: 1 Alfa Striker (100), Fictional City, Norwegia, 47 points, age 20, "
-        "Wing-Back Left; 2 Old Master (no person), Example United, Englandia, 22 points, "
-        "then 3,000; 3 Cup Hero (no person), Englandia, Englandia, 9 points, age 33",
+        "  2024: 1 Bravo Keeper (101), Example United (9102), Englandia (9001), 50 points, age 16; "
+        "2 Alfa Striker (100), Fictional City (9101), Norwegia (9002), 47 points, age 20, "
+        "Wing-Back Left",
+        "    was: 1 Alfa Striker (100), Fictional City (9101), Norwegia (9002), 47 points, age 20, "
+        "Wing-Back Left; 2 Old Master (no person), Example United (9102), Englandia (9001), "
+        "22 points, then 3,000; 3 Cup Hero (no person), Englandia (9001), Englandia (9001), "
+        "9 points, age 33",
     ]
 
 
 def test_a_history_without_other_years_does_not_mention_them(lines_for):
-    lines = lines_for(award_history=[{"award": 9502, "year": 2024, "not_held": True}])
+    lines = lines_for(award_history=[{"award_uid": 9502, "year": 2024, "not_held": True}])
 
     assert (
         "History of Example Women's Player (9502), female: 1 of 1 year changes, "
@@ -213,11 +215,22 @@ def test_a_history_without_other_years_does_not_mention_them(lines_for):
     ) in lines
 
 
+def test_years_that_are_so_already_are_mentioned(lines_for):
+    so_already = {"award_uid": 9501, "year": 2023, "places": [{"keep": 1}]}
+
+    lines = lines_for(
+        edits=[{"of": "people", "uid": 100, "set": {"finishing": 17}}], award_history=[so_already]
+    )
+
+    assert "Left out: 1 year that is so already" in lines
+    assert not [line for line in lines if line.startswith("History")]
+
+
 def test_years_without_winners_and_new_years_say_so(lines_for):
     lines = lines_for(
         award_history=[
-            {"award": 9501, "year": 2023, "not_held": True},
-            {"award": 9501, "year": 2025, "places": [{"name": "New Star"}]},
+            {"award_uid": 9501, "year": 2023, "not_held": True},
+            {"award_uid": 9501, "year": 2025, "places": [{"name": "New Star"}]},
         ]
     )
 
@@ -228,7 +241,7 @@ def test_years_without_winners_and_new_years_say_so(lines_for):
 
 def test_the_years_of_a_history_are_spread_over_the_examples(lines_for):
     years = [
-        {"award": 9502, "year": year, "places": [{"name": f"Star {year}"}]}
+        {"award_uid": 9502, "year": year, "places": [{"name": f"Star {year}"}]}
         for year in range(2001, 2010)
     ]
 

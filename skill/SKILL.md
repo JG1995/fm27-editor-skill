@@ -136,14 +136,14 @@ A competition without rules exists, but is not played. For it to be played, the 
 
 ## Awards and past winners
 
-The settings of an award are edits of `awards`. `previous_winner` says whether someone can win it again: 1 never, 2 rarely, 3 yes. `fm27 fields award` lists the others, such as voting, ages, and the number of places.
+The settings of an award are edits of `awards`. `fm27 fields award` lists them, such as voting, ages, and the number of places. Whether someone can win it again is `previous_winner`; `fm27 fields award AWap` lists its choices.
 
 `award_history` says who won. Each entry is one year of one award. Years that are not named stay as they are.
 
 ```json
 [
-  {"award": 24680, "year": 1973, "places": [{"keep": 2}, {"name": "Testo Oldmann", "team_uid": 67890, "nation_uid": 12345, "points": 22, "age": 30}, {"person_uid": 1234567, "points": 16}]},
-  {"award": 24680, "year": 2020, "not_held": true}
+  {"award_uid": 24680, "year": 1973, "places": [{"keep": 2}, {"name": "Testo Oldmann", "team_uid": 67890, "nation_uid": 12345, "points": 22, "age": 30}, {"person_uid": 1234567, "points": 16}]},
+  {"award_uid": 24680, "year": 2020, "not_held": true}
 ]
 ```
 

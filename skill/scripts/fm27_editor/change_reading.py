@@ -99,6 +99,11 @@ def read_plain(value: Property) -> PlainValue:
     raise EditError(f"a value of kind {value.kind.name} does not stand for itself")
 
 
+def says_nothing(value: Property) -> bool:
+    """Whether a value is nothing, an empty text, or a no; a number of 0 says something."""
+    return value.kind in (Kind.NULL, Kind.TEXT, Kind.BOOL) and not read_plain(value)
+
+
 def read_date(raw: bytes) -> datetime.date:
     number = struct.unpack("<I", raw)[0]
     year, day = number >> 17, number >> 8 & 0x1FF

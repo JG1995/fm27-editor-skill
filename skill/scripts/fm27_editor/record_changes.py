@@ -9,6 +9,7 @@ import datetime
 import random
 import re
 import struct
+from collections.abc import Mapping
 
 from fm27_editor.change_list import ChangeList, Kind, Property, Value
 from fm27_editor.change_reading import (
@@ -134,8 +135,15 @@ def make_change(
     return change
 
 
-def refusal(field: Field) -> str | None:
-    """Why no value of this field can be written, if that is so."""
+def is_uid(given: object) -> bool:
+    return type(given) is int and 0 < given <= HIGHEST_UID
+
+
+def refusal(field: Field, tags: Mapping[str, str] = REFERENCE_TAGS) -> str | None:
+    """Why no value of this field can be written, if that is so.
+
+    `tags` are what it can refer to.
+    """
     if not field.is_editable:
         return "cannot be edited in the Editor"
     if field.type not in WRITTEN_TYPES:
@@ -144,7 +152,7 @@ def refusal(field: Field) -> str | None:
         return "has choices that the Editor's definitions do not list"
     if field.type == "integer" and (field.lowest is None or field.highest is None):
         return "has no range in the Editor's definitions"
-    if field.type == REFERENCE and field.points_to not in REFERENCE_TAGS:
+    if field.type == REFERENCE and field.points_to not in tags:
         return f"points to a {field.points_to}, which cannot be written yet"
     return None
 
