@@ -12,7 +12,7 @@ from enum import IntEnum
 
 from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
 
-from fm27_editor.binary import ZSTD_MAGIC, FormatError, Reader, text_bytes
+from fm27_editor.binary import FormatError, Reader, text_bytes, unpack_frame
 
 MAGIC = b"\x02\x01afe."
 INDEX_TAG = b"\x02\x01fmf.\x08\x00\x00"
@@ -121,7 +121,9 @@ class _Index:
 
 def _read_index(content: bytes) -> _Index:
     storage, index_at = _read_header(content)
-    index = _decompress(content[index_at + len(INDEX_TAG) :], MAX_INDEX_SIZE, "index")
+    index = unpack_frame(
+        content[index_at + len(INDEX_TAG) :], "index", ContainerError, MAX_INDEX_SIZE
+    )
     reader = Reader(index, ContainerError)
     root = _read_folder_record(reader)
     if not reader.at_end:
@@ -165,7 +167,7 @@ def _decrypt(stored: bytes, what: str) -> bytes:
 
 
 def _unstore(stored: bytes, size: int, storage: Storage, what: str) -> bytes:
-    data = _decompress(stored, size, what) if storage is Storage.ZSTD else stored
+    data = unpack_frame(stored, what, ContainerError, size) if storage is Storage.ZSTD else stored
     if len(data) != size:
         raise ContainerError(f"{what} has {len(data)} bytes, expected {size}")
     return data
@@ -194,20 +196,6 @@ def _write_member(member: Member, storage: Storage, region: bytearray) -> bytes:
 def _aes_ctr(data: bytes, key: bytes, iv: bytes) -> bytes:
     cipher = Cipher(algorithms.AES(key), modes.CTR(iv)).encryptor()
     return cipher.update(data) + cipher.finalize()
-
-
-def _decompress(content: bytes, size_limit: int, what: str) -> bytes:
-    """Unpack a zstd frame; some files put a u32 frame size in front of it."""
-    start = 0 if content[:4] == ZSTD_MAGIC else 4
-    if content[start : start + 4] != ZSTD_MAGIC:
-        raise ContainerError(f"{what} is not compressed data")
-    try:
-        data = zstd.ZstdDecompressor().decompress(content[start:], size_limit + 1)
-    except zstd.ZstdError as error:
-        raise ContainerError(f"{what} cannot be decompressed") from error
-    if len(data) > size_limit:
-        raise ContainerError(f"{what} is larger than {size_limit} bytes")
-    return data
 
 
 def _compress(data: bytes) -> bytes:
