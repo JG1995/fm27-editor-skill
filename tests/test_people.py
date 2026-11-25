@@ -135,3 +135,50 @@ def test_records_without_player_details_are_skipped():
     basic = [synthetic.basic_person(5, 0, 100), synthetic.basic_person(2, 1, 101)]
 
     assert [p.uid for p in read_all(basic, records)] == [101]
+
+
+def test_staff_and_other_kinds_do_not_get_player_fields():
+    """The byte positions were only checked on players."""
+    records = [synthetic.person_record(i, 100 + i, attributes={52: 17}) for i in range(4)]
+    basic = [
+        synthetic.basic_person(kind, index, 100 + index) for index, kind in enumerate([1, 2, 3, 2])
+    ]
+
+    people = {p.uid: p.fields for p in read_all(basic, records)}
+
+    assert people[100] == people[102] == {}
+    assert people[101]["finishing"] == 17
+
+
+def test_a_record_that_does_not_start_with_its_own_index_gets_no_fields():
+    record = bytearray(synthetic.person_record(0, 100, attributes={52: 17}))
+    record[0:4] = (9).to_bytes(4, "little")
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [bytes(record)])
+
+    assert person.fields == {}
+    assert person.full_name == "Testy McTestface"
+
+
+def test_attribute_values_outside_one_to_twenty_are_missing():
+    attributes = {52: 20, 84: 21, 88: 255, 67: 1}
+    record = synthetic.person_record(0, 100, attributes=attributes)
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert person.fields["finishing"] == 20
+    assert person.fields["anticipation"] == 1
+    assert "acceleration" not in person.fields and "pace" not in person.fields
+
+
+def test_ability_of_zero_and_no_club_are_missing():
+    basic = synthetic.basic_person(2, 0, 100, ca=0, pa=0, club=(0xFFFFFFFF, 0xFFFFFFFF))
+
+    (person,) = parse_basic_people(synthetic.basic_people([basic]))
+
+    assert (person.ca, person.pa, person.club_uid) == (None, None, None)
+
+
+@pytest.mark.parametrize(("year", "found"), [(2004, True), (2005, False)])
+def test_day_366_only_exists_in_leap_years(year, found):
+    record = synthetic.person_record(0, 100, day=366, year=year)
+
+    assert bool(read_all([synthetic.basic_person(2, 0, 100)], [record])) is found
