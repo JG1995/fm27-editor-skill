@@ -17,12 +17,9 @@ from fm27_editor.change_reading import (
     referred_to,
     uid_of,
 )
+from fm27_editor.definition_files import NoDefinitionsError
 from fm27_editor.editor_file import EditorFile
-from fm27_editor.field_definitions import (
-    NoDefinitionsError,
-    read_field_names,
-    read_shared_choices,
-)
+from fm27_editor.field_definitions import read_field_names, read_shared_choices
 from fm27_editor.record_changes import REFERENCE_TAGS
 from fm27_editor.record_kinds import GROUPS
 from fm27_editor.record_rules import LOOKUP_TABLES

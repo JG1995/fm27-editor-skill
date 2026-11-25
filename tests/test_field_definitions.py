@@ -1,12 +1,8 @@
 import pytest
 
 import synthetic
-from fm27_editor.field_definitions import (
-    FieldDefinitionError,
-    read_field_names,
-    read_fields,
-    read_shared_choices,
-)
+from fm27_editor.definition_files import FieldDefinitionError
+from fm27_editor.field_definitions import read_field_names, read_fields, read_shared_choices
 
 ENUMS = synthetic.enum_file(mood={0: "Calm", 2: "Cross", -1: "Unknown"})
 
