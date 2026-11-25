@@ -9,14 +9,24 @@ from pathlib import Path
 
 from fm27_editor.binary import FormatError
 from fm27_editor.dat_tables import read_stream, read_string_table, read_tables
-from fm27_editor.people import BasicPerson, Names, Person, iter_people, parse_basic_people
+from fm27_editor.people import Names, Person, iter_people, parse_basic_people
 from fm27_editor.person_fields import FIELD_NAMES
-from fm27_editor.places import parse_clubs, parse_nations
+from fm27_editor.place_lookup import (
+    CLIENT_TABLES,
+    LANGUAGE_TABLES,
+    SCHEMA,
+    SERVER_TABLES,
+    insert_places,
+)
 
 DATABASE_PATTERN = "shared/data/database/db/*/*_fm"
-SOURCE_FILES = ["basic_people_db.dat", "people_db.dat", "client_db.dat", "lang_db.dat"]
-NATION_LANGUAGE_TABLE = "8_9"
-CLUB_TABLE = "table_3"
+SOURCE_FILES = [
+    "basic_people_db.dat",
+    "people_db.dat",
+    "client_db.dat",
+    "server_db.dat",
+    "lang_db.dat",
+]
 BATCH = 5_000
 
 
@@ -95,19 +105,15 @@ def _build(source: Path, cache_path: Path, fingerprint: str) -> None:
 def _fill(path: Path, source: Path, fingerprint: str) -> None:
     basic = parse_basic_people(read_stream(source / "basic_people_db.dat"))
     name_tables = [f"name_table_extra_{i}" for i in range(3)]
-    tables = read_tables(source / "client_db.dat", {*name_tables, CLUB_TABLE})
-    names = Names(*(read_string_table(tables[name]) for name in name_tables))
-    language = read_tables(source / "lang_db.dat", {NATION_LANGUAGE_TABLE})
-    nations = parse_nations(language[NATION_LANGUAGE_TABLE], _nation_uids(basic))
+    client = read_tables(source / "client_db.dat", {*name_tables, *CLIENT_TABLES})
+    server = read_tables(source / "server_db.dat", SERVER_TABLES)
+    language = read_tables(source / "lang_db.dat", LANGUAGE_TABLES)
+    names = Names(*(read_string_table(client[name]) for name in name_tables))
     content = read_stream(source / "people_db.dat")
     with closing(sqlite3.connect(path)) as cache, cache:
         _create_tables(cache)
         cache.execute("INSERT INTO meta VALUES (?)", (fingerprint,))
-        cache.executemany("INSERT INTO nation VALUES (?, ?)", nations.items())
-        cache.executemany(
-            "INSERT INTO club VALUES (?, ?, ?)",
-            [(uid, *names_) for uid, names_ in parse_clubs(tables[CLUB_TABLE]).items()],
-        )
+        insert_places(cache, client, server, language)
         _insert_people(cache, iter_people(basic, content, names))
         cache.executescript(
             "CREATE INDEX person_nation ON person(nation_uid);"
@@ -117,22 +123,18 @@ def _fill(path: Path, source: Path, fingerprint: str) -> None:
         )
 
 
-def _nation_uids(basic: Iterable[BasicPerson]) -> set[int]:
-    return {person.nation_uid for person in basic if person.nation_uid is not None}
-
-
 def _create_tables(cache: sqlite3.Connection) -> None:
     columns = ", ".join(f"{name} INTEGER" for name in FIELD_NAMES)
     cache.executescript(
-        "CREATE TABLE meta(fingerprint TEXT);"
-        "CREATE TABLE nation(uid INTEGER PRIMARY KEY, name TEXT);"
-        "CREATE TABLE club(uid INTEGER PRIMARY KEY, name TEXT, short_name TEXT);"
+        f"CREATE TABLE meta(fingerprint TEXT);{SCHEMA}"
         "CREATE TABLE person(uid INTEGER PRIMARY KEY, kind TEXT, name TEXT, full_name TEXT,"
         " birth_date TEXT, nation_uid INTEGER, club_uid INTEGER, ca INTEGER, pa INTEGER,"
         f" {columns});"
-        "CREATE VIEW people AS SELECT person.*, nation.name AS nation, club.name AS club"
+        "CREATE VIEW people AS SELECT person.*, nation.name AS nation, club.name AS club,"
+        " club.gender AS club_gender, club.division_uid, competition.name AS division"
         " FROM person LEFT JOIN nation ON nation.uid = person.nation_uid"
-        " LEFT JOIN club ON club.uid = person.club_uid;"
+        " LEFT JOIN club ON club.uid = person.club_uid"
+        " LEFT JOIN competition ON competition.uid = club.division_uid;"
     )
 
 

@@ -3,7 +3,9 @@ import pytest
 import synthetic
 from fm27_editor.dat_tables import (
     DatError,
+    Record,
     open_table,
+    read_records,
     read_stream,
     read_string_table,
     read_tables,
@@ -76,3 +78,32 @@ def test_opening_a_table_returns_its_count_and_a_reader_behind_it():
 def test_a_table_without_its_tag_is_refused():
     with pytest.raises(DatError):
         open_table(b"\x00" * 12)
+
+
+def test_reads_the_records_of_a_table():
+    table = synthetic.record_table([(9101, b"first"), (9102, b"\x00" * 5_000), (9103, b"")])
+
+    assert list(read_records(table)) == [
+        Record(9101, b"first"),
+        Record(9102, b"\x00" * 5_000),
+        Record(9103, b""),
+    ]
+
+
+@pytest.mark.parametrize("uid", [5, 9101, 2_000_000_001])
+def test_zeros_before_the_first_id_are_not_read_as_part_of_it(uid):
+    table = synthetic.record_table([(uid, b"\x07\x00\x00\x00\x00"), (9102, b"second")])
+
+    assert [record.uid for record in read_records(table)] == [uid, 9102]
+
+
+def test_records_that_do_not_fill_the_table_are_an_error():
+    with pytest.raises(DatError, match="follow"):
+        list(read_records(synthetic.record_table([(9101, b"only")]) + b"\x00\x00"))
+
+
+def test_a_record_without_an_end_is_an_error():
+    table = synthetic.record_table([(9101, b"first"), (9102, b"second")])
+
+    with pytest.raises(DatError, match="record 1"):
+        list(read_records(table[:-20]))

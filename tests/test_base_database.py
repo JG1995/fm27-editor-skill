@@ -3,9 +3,11 @@ import sqlite3
 
 import pytest
 
+import fictional_editor
 from fictional_editor import write_database
 from fm27_editor import base_database
 from fm27_editor.base_database import DatabaseError, open_database
+from fm27_editor.places import PlacesError
 
 
 @pytest.fixture
@@ -126,3 +128,68 @@ def test_the_newest_database_is_used_when_the_editor_has_several(tmp_path):
 
     with open_database(editor, tmp_path / "cache.sqlite") as db:
         assert db.execute("SELECT name FROM people").fetchall() == [("Newer Person",)]
+
+
+def test_clubs_have_their_place_and_standing(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            "SELECT uid, name, short_name, gender, is_extinct, reputation, last_position, nation,"
+            " nation_uid, based_nation_uid, city, stadium, division, division_uid,"
+            " last_division_uid FROM clubs ORDER BY uid"
+        ).fetchall()
+
+    assert rows == [
+        (9101, "Fictional City", "Fic City", "male", 0, 5_000, 1, "Englandia", 9001, 9002)
+        + ("Testby", "Test Park", "Example League", 9201, 9203),
+        (9102, "Example United", "Example", "male", 0, None, None, "Englandia", 9001, None)
+        + (None, None, "Example League North", 9203, None),
+        (9103, "Fictional City", "Fic Women", "female", 0, None, None, "Englandia", 9001, None)
+        + (None, None, "Example Women's League", 9202, None),
+        (9104, "Gone Town", "Gone", "male", 1, None, None, "Norwegia", 9002, None)
+        + (None, None, None, None, None),
+    ]
+
+
+def test_competitions_say_where_they_belong_and_how_many_clubs_they_have(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            "SELECT uid, name, gender, level, nation, parent, parent_uid, clubs"
+            " FROM competitions ORDER BY uid"
+        ).fetchall()
+
+    assert rows == [
+        (9201, "Example League", "male", 1, "Englandia", None, None, 1),
+        (9202, "Example Women's League", "female", 1, "Englandia", None, None, 1),
+        (9203, "Example League North", "male", 2, "Englandia", "Example League", 9201, 1),
+        (9204, "Example Cup", "male", None, "Englandia", None, None, 0),
+    ]
+
+
+def test_cities_and_stadiums_can_be_found(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        cities = db.execute("SELECT uid, name, nation_uid FROM city ORDER BY uid").fetchall()
+        stadiums = db.execute("SELECT uid, name, city_uid FROM stadium").fetchall()
+
+    assert cities == [(9301, "Testby", 9001), (9302, "Testham", 9002)]
+    assert stadiums == [(9401, "Test Park", 9301)]
+
+
+def test_people_show_the_division_and_gender_of_their_club(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            "SELECT name, division, division_uid, club_gender FROM people ORDER BY uid"
+        ).fetchall()
+
+    assert rows == [
+        ("Alfa Striker", "Example League", 9201, "male"),
+        ("Bravo Keeper", "Example League North", 9203, "male"),
+    ]
+
+
+def test_a_reference_outside_its_table_is_an_error(editor, tmp_path, monkeypatch):
+    broken = {9101: ("Fictional City", "Fic City", {"nation": 7}, {})}
+    monkeypatch.setattr(fictional_editor, "CLUBS", broken)
+    write_database(editor)
+
+    with pytest.raises(PlacesError, match="nation"):
+        open_database(editor, tmp_path / "cache.sqlite")

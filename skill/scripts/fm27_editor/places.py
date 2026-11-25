@@ -1,105 +1,158 @@
-"""Names of clubs and nations in the base database."""
+"""Clubs, competitions, cities, and stadiums in the base database, without their names.
 
-import re
+Records refer to each other by index: the position of a record in its own table.
+"""
+
 import struct
+from dataclasses import dataclass
+from enum import StrEnum
 
-from fm27_editor.binary import FormatError
-from fm27_editor.dat_tables import TABLE_FOOTER_SIZE, open_table
+from fm27_editor.binary import FormatError, Reader
+from fm27_editor.dat_tables import NO_RECORD, read_records
 
-MAX_RECORD_SEARCH = 64 * 1024
-MAX_CLUB_NAME_BYTES = 64
-MAX_NATION_NAME_BYTES = 40
-LENGTH = re.compile(rb"([\x02-\x40])\x00\x00\x00")
-NATION_NAME_END = 0xFF
+CLUB = 0  # other records in the club table are placeholders without a name
+CLUB_HEAD_SIZE, CLUB_TAIL_SIZE = 27, 3
+CLUB_TEAM = b"\x0a\x00"  # the team table also holds national teams
+TEAM_HEAD_SIZE = 21
+COMPETITION_SIZE, NO_LEVEL = 115, 100
+CITY_SIZE, STADIUM_SIZE = 31, 26
 
 
 class PlacesError(FormatError):
-    """The club table does not follow the layout this library knows."""
+    """A record does not follow the layout this library knows."""
 
 
-def parse_clubs(table: bytes) -> dict[int, tuple[str | None, str | None]]:
-    """Name and short name by club ID; a record whose name does not check out keeps None."""
-    reader, count = open_table(table)
-    clubs, position = {}, reader.position
-    for index in range(count):
-        end, uid = _record_end(table, position, index)
-        clubs[uid] = _club_names(table[position:end])
-        position = end + 12
-    if position + TABLE_FOOTER_SIZE != len(table):
-        raise PlacesError(f"{len(table) - position} bytes follow the last club")
+class Gender(StrEnum):
+    MALE = "male"
+    FEMALE = "female"
+
+
+@dataclass(frozen=True, slots=True)
+class Club:
+    uid: int
+    nation: int | None
+    based_nation: int | None
+    city: int | None
+    gender: Gender
+    is_extinct: bool
+
+
+@dataclass(frozen=True, slots=True)
+class Team:
+    """The first team of a club, which has the uid of the club."""
+
+    uid: int
+    reputation: int
+    division: int | None
+    last_division: int | None
+    last_position: int
+    stadium: int | None
+
+
+@dataclass(frozen=True, slots=True)
+class Competition:
+    uid: int
+    nation: int | None
+    parent: int | None
+    level: int | None
+    gender: Gender
+
+
+def parse_clubs(table: bytes) -> list[Club]:
+    clubs = []
+    for record in read_records(table):
+        if record.data[:1] != bytes([CLUB]):
+            continue
+        reader = Reader(record.data, PlacesError)
+        head = reader.take(CLUB_HEAD_SIZE)
+        reader.text()
+        reader.text()
+        tail = reader.take(CLUB_TAIL_SIZE)
+        if not reader.at_end:
+            raise PlacesError(f"club {record.uid} has bytes behind its names")
+        nation, extinct_nation = _index(head, 1), _index(head, 5)
+        clubs.append(
+            Club(
+                record.uid,
+                nation if extinct_nation is None else extinct_nation,
+                based_nation=_index(head, 9),
+                city=_index(head, 17),
+                gender=_gender(tail[-1], record.uid),
+                is_extinct=extinct_nation is not None,
+            )
+        )
     return clubs
 
 
-def parse_nations(table: bytes, uids: set[int]) -> dict[int, str]:
-    """English nation names of `uids` found in the language table."""
-    open_table(table)
-    names = {}
-    for uid in uids:
-        name = _nation_name(table, uid)
-        if name is not None:
-            names[uid] = name
-    return names
-
-
-def _record_end(table: bytes, position: int, index: int) -> tuple[int, int]:
-    """The end of the record for `index`: that index, then the ID twice.
-
-    Zero bytes in front of a small index can make the pair readable a few bytes early, so the last
-    of overlapping readings is the aligned one.
-    """
-    marker = struct.pack("<I", index)
-    limit = position + MAX_RECORD_SEARCH
-    at = table.find(marker, position, limit)
-    while at >= 0:
-        for start in range(at + 3, at - 1, -1):
-            uid = _repeated_id(table, start, marker)
-            if uid is not None:
-                return start, uid
-        at = table.find(marker, at + 1, limit)
-    raise PlacesError(f"club {index} has no readable end")
-
-
-def _repeated_id(table: bytes, at: int, marker: bytes) -> int | None:
-    if at + 12 > len(table) or table[at : at + 4] != marker:
-        return None
-    uid, repeated = struct.unpack_from("<II", table, at + 4)
-    return uid if uid == repeated and uid not in (0, 0xFFFFFFFF) else None
-
-
-def _club_names(record: bytes) -> tuple[str | None, str | None]:
-    for match in LENGTH.finditer(record):
-        name = _text_at(record, match.start(), MAX_CLUB_NAME_BYTES)
-        if name is None:
+def parse_teams(table: bytes) -> list[Team]:
+    teams = []
+    for record in read_records(table):
+        if record.data[: len(CLUB_TEAM)] != CLUB_TEAM:
             continue
-        short_name = _text_at(record, match.end() + len(name.encode()), MAX_CLUB_NAME_BYTES)
-        if short_name is not None:
-            return name, short_name
-    return None, None
+        head = Reader(record.data, PlacesError).take(TEAM_HEAD_SIZE)
+        last_position, reputation = struct.unpack_from("<BH", head, 2)
+        teams.append(
+            Team(
+                record.uid,
+                reputation,
+                division=_index(head, 5),
+                last_division=_index(head, 9),
+                last_position=last_position,
+                stadium=_index(head, 17),
+            )
+        )
+    return teams
 
 
-def _nation_name(table: bytes, uid: int) -> str | None:
-    marker = struct.pack("<I", uid)
-    at = table.find(marker, 12)
-    while at >= 0:
-        name = _text_at(table, at + 4, MAX_NATION_NAME_BYTES)
-        if name is not None:
-            end = at + 8 + len(name.encode())
-            if table[end : end + 1] == bytes([NATION_NAME_END]):
-                return name
-        at = table.find(marker, at + 1)
-    return None
+def parse_competitions(client_table: bytes, server_table: bytes) -> list[Competition]:
+    """Competitions from two tables that list the same ones in the same order."""
+    competitions = []
+    for record, rest in zip(read_records(client_table), read_records(server_table), strict=True):
+        if record.uid != rest.uid:
+            raise PlacesError(f"competition {record.uid} stands where {rest.uid} should")
+        _check_size(record.data, COMPETITION_SIZE, record.uid)
+        level = record.data[16]
+        competitions.append(
+            Competition(
+                record.uid,
+                nation=_index(record.data, 57),
+                parent=_index(record.data, 65),
+                level=None if level == NO_LEVEL else level + 1,
+                gender=_gender(Reader(rest.data, PlacesError).take(121)[120], record.uid),
+            )
+        )
+    return competitions
 
 
-def _text_at(content: bytes, at: int, max_size: int) -> str | None:
-    """Printable text with its length in front, or None when there is none at `at`."""
-    if at + 4 > len(content):
-        return None
-    size = struct.unpack_from("<I", content, at)[0]
-    raw = content[at + 4 : at + 4 + size]
-    if not 2 <= size <= max_size or len(raw) != size:
-        return None
-    try:
-        text = raw.decode()
-    except UnicodeDecodeError:
-        return None
-    return text if text.isprintable() else None
+def parse_cities(table: bytes) -> dict[int, int | None]:
+    """The nation of each city, by the ID of the city."""
+    return _references(table, CITY_SIZE, 11)
+
+
+def parse_stadiums(table: bytes) -> dict[int, int | None]:
+    """The city of each stadium, by the ID of the stadium."""
+    return _references(table, STADIUM_SIZE, 4)
+
+
+def _references(table: bytes, size: int, offset: int) -> dict[int, int | None]:
+    references = {}
+    for record in read_records(table):
+        _check_size(record.data, size, record.uid)
+        references[record.uid] = _index(record.data, offset)
+    return references
+
+
+def _index(data: bytes, offset: int) -> int | None:
+    index = struct.unpack_from("<I", data, offset)[0]
+    return None if index == NO_RECORD else index
+
+
+def _gender(value: int, uid: int) -> Gender:
+    if value not in (0, 1):
+        raise PlacesError(f"record {uid} has gender {value}, only 0 and 1 are known")
+    return Gender.FEMALE if value else Gender.MALE
+
+
+def _check_size(data: bytes, size: int, uid: int) -> None:
+    if len(data) != size:
+        raise PlacesError(f"record {uid} has {len(data)} bytes, expected {size}")
