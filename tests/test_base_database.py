@@ -55,6 +55,14 @@ def test_the_database_is_opened_read_only(editor, tmp_path):
         db.execute("DELETE FROM person")
 
 
+def test_no_other_database_can_be_attached(editor, tmp_path):
+    with (
+        open_database(editor, tmp_path / "cache.sqlite") as db,
+        pytest.raises(sqlite3.OperationalError, match="attached"),
+    ):
+        db.execute("ATTACH ? AS other", (str(tmp_path / "other.sqlite"),))
+
+
 def test_an_interrupted_build_leaves_no_usable_cache(editor, tmp_path, monkeypatch):
     cache = tmp_path / "cache.sqlite"
 

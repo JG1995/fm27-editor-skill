@@ -34,7 +34,10 @@ def open_database(editor_dir: Path, cache_path: Path) -> sqlite3.Connection:
     fingerprint = f"{_code_fingerprint()}|{_fingerprint(source)}"
     if not _is_current(cache_path, fingerprint):
         _build(source, cache_path, fingerprint)
-    return sqlite3.connect(f"{cache_path.resolve().as_uri()}?mode=ro", uri=True)
+    lookup = sqlite3.connect(f"{cache_path.resolve().as_uri()}?mode=ro", uri=True)
+    # Read-only covers this file alone; a query could attach another one and write there.
+    lookup.setlimit(sqlite3.SQLITE_LIMIT_ATTACHED, 0)
+    return lookup
 
 
 def _database_folder(editor_dir: Path) -> Path:
