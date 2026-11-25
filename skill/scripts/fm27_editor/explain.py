@@ -23,13 +23,12 @@ from fm27_editor.field_definitions import read_field_names, read_shared_choices
 from fm27_editor.record_changes import REFERENCE_TAGS
 from fm27_editor.record_kinds import GROUPS
 from fm27_editor.record_rules import LOOKUP_TABLES
-from fm27_editor.rule_changes import RULES_TAG, nation_of
+from fm27_editor.rule_changes import ADVANCED_RULES_TAG, RULES_TAG, nation_of
 from fm27_editor.rule_shapes import CODES
 from fm27_editor.words import counted, named
 
 KINDS_OF_RECORD = "dbts"
 FIELDS_SHOWN = 12
-ADVANCED_RULES = "fles"
 KEPT_HALF = slice(4, ID_SIZE)
 # Where the definition files are not called what the Editor calls the kind of record.
 DEFINED_IN = {
@@ -148,8 +147,8 @@ def _rule_lines(file: EditorFile, lookup: sqlite3.Connection) -> list[str]:
         nation = nation_of(editor[RULES_TAG])
         called = "a nation" if nation is None else named(lookup, "nation", nation)
         lines.append(f"Rules for {called}: {', '.join(counts)}")
-    if ADVANCED_RULES in editor and editor[ADVANCED_RULES].value:
-        files = counted(len(editor[ADVANCED_RULES].value), "set", "sets")
+    if ADVANCED_RULES_TAG in editor and editor[ADVANCED_RULES_TAG].value:
+        files = counted(len(editor[ADVANCED_RULES_TAG].value), "set", "sets")
         lines.append(f"Advanced rules: {files}, which are not spelled out")
     return lines
 

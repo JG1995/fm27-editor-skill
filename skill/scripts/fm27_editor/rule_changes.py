@@ -15,6 +15,10 @@ from fm27_editor.rule_shapes import CODES, CUP_GROUP, DAYS, DIVISION_GROUP, MONT
 from fm27_editor.setting_changes import NewRecords
 
 RULES_TAG = "rlgr"
+# Rules for a nation, a continent, international competitions, and versus competitions. The Editor
+# lets a file have one of these.
+RULES_TAGS = {RULES_TAG, "cnrl", "inrl", "vrrl"}
+ADVANCED_RULES_TAG = "fles"
 ID_TAG = "id  "
 COMPETITION_TAG = "comp"
 # Rules without a value that the Editor stores as nothing; others are left out.
@@ -32,7 +36,10 @@ def add_rules(changes: ChangeList, rules: NationRules, new: NewRecords) -> None:
 
 
 def has_rules(changes: ChangeList) -> bool:
-    return any(item.tag == RULES_TAG for item in (*changes.general, *changes.editor))
+    return any(
+        item.tag in RULES_TAGS or (item.tag == ADVANCED_RULES_TAG and item.value)
+        for item in (*changes.general, *changes.editor)
+    )
 
 
 def nation_of(rules: Property) -> int | None:

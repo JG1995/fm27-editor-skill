@@ -107,7 +107,10 @@ def parse_teams(table: bytes) -> list[Team]:
 def parse_competitions(client_table: bytes, server_table: bytes) -> list[Competition]:
     """Competitions from two tables that list the same ones in the same order."""
     competitions = []
-    for record, rest in zip(read_records(client_table), read_records(server_table), strict=True):
+    records, others = list(read_records(client_table)), list(read_records(server_table))
+    if len(records) != len(others):
+        raise PlacesError(f"{len(records)} competitions stand beside {len(others)}")
+    for record, rest in zip(records, others, strict=True):
         if record.uid != rest.uid:
             raise PlacesError(f"competition {record.uid} stands where {rest.uid} should")
         _check_size(record.data, COMPETITION_SIZE, record.uid)

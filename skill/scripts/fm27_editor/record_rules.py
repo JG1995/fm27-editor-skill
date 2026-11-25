@@ -13,7 +13,7 @@ from fm27_editor.base_database import record_name
 from fm27_editor.change_reading import EditError
 from fm27_editor.field_definitions import Field, read_fields
 from fm27_editor.potential import PLAYER_POTENTIAL, POTENTIAL_RANGE, check_potential
-from fm27_editor.record_changes import FieldValue, refusal, stored_value
+from fm27_editor.record_changes import HIGHEST_UID, FieldValue, refusal, stored_value
 from fm27_editor.record_kinds import CLUB, COMPETITION, RecordKind
 
 # The lookup's table for what a field points to.
@@ -154,7 +154,8 @@ class RecordRules:
         table = LOOKUP_TABLES.get(points_to)
         if table is None:
             raise EditError(f"{called} points to a {points_to}, which the lookup does not hold")
-        if not isinstance(uid, int) or record_name(self._lookup, table, uid) is None:
+        is_uid = type(uid) is int and 0 < uid <= HIGHEST_UID
+        if not is_uid or record_name(self._lookup, table, uid) is None:
             raise EditError(f"{called}: there is no {table} {uid!r}")
 
 

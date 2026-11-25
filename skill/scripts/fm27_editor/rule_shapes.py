@@ -228,7 +228,6 @@ ROUND = Shape(
     },
     fixed={"number_teams": None},
 )
-TWO_LEGS = {"date_2", "time_2"}
 CUP_FIXTURE_RULES = {
     "subs_rules": "five_from_nine_max_three_stoppages_and_extra_time_sub",
     "match_rules": ["extra_time", "pen"],
