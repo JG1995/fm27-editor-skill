@@ -149,7 +149,7 @@ def club_table(clubs: list[tuple[int, str, str]]) -> bytes:
     for index, (uid, name, short_name) in enumerate(clubs):
         table += b"\x07" * 17 + text(name) + text(short_name) + b"\x00\x00\x00"
         table += struct.pack("<III", index, uid, uid)
-    return table
+    return table + struct.pack("<IBI", 0, 1, 2_000_000_000)
 
 
 def nation_names(nations: dict[int, str]) -> bytes:

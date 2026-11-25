@@ -1,7 +1,13 @@
 import pytest
 
 import synthetic
-from fm27_editor.dat_tables import DatError, read_stream, read_string_table, read_tables
+from fm27_editor.dat_tables import (
+    DatError,
+    open_table,
+    read_stream,
+    read_string_table,
+    read_tables,
+)
 
 
 def test_reads_a_single_stream_file(tmp_path):
@@ -50,3 +56,23 @@ def test_rejects_files_that_are_not_database_files(tmp_path, content):
 def test_a_string_table_that_ends_early_is_an_error():
     with pytest.raises(DatError):
         read_string_table(synthetic.string_table({1: "Name"})[:-2])
+
+
+def test_an_unknown_database_version_is_refused_with_the_version(tmp_path):
+    path = tmp_path / "people_db.dat"
+    path.write_bytes(b"\x03\x01tad.\xa1\x0f\xa9\x0e\x09\x00" + synthetic.zstd_frame(b"x"))
+
+    with pytest.raises(DatError, match="4001"):
+        read_stream(path)
+
+
+def test_opening_a_table_returns_its_count_and_a_reader_behind_it():
+    reader, count = open_table(synthetic.string_table({1: "a", 2: "b"}))
+
+    assert count == 2
+    assert reader.u32() == 1
+
+
+def test_a_table_without_its_tag_is_refused():
+    with pytest.raises(DatError):
+        open_table(b"\x00" * 12)
