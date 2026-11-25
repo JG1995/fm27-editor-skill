@@ -77,3 +77,38 @@ def container(
     header = magic + struct.pack("<HB", version, 0)
     header += struct.pack("<QQ", index_at - 9, 17) + bytes([storage])
     return header + region + b"\x02\x01fmf.\x08\x00\x00" + frame
+
+
+def prop(tag: str, kind: int, payload: bytes = b"") -> bytes:
+    return tag.encode()[::-1] + b"\x01" + bytes([kind]) + payload
+
+
+def props(*items: bytes) -> bytes:
+    return struct.pack("<I", len(items)) + b"".join(items)
+
+
+def change(*items: bytes) -> bytes:
+    return props(*items)
+
+
+def change_list(*changes: bytes, count: int | None = None) -> bytes:
+    declared = len(changes) if count is None else count
+    general = props(
+        prop("dchc", 0x18, struct.pack("<Q", declared)),
+        prop("desc", 0x1A, text("")),
+        prop("vers", 0x12, struct.pack("<H", 3756)),
+    )
+    editor = props(prop("EdBr", 0x1A, text("fictional-branch")))
+    body = general + editor + struct.pack("<I", declared) + b"".join(changes)
+    return b"\x03\x01cbd.\x06\x00\x00" + zstd_frame(body)
+
+
+def capacity_change(new: int) -> bytes:
+    return change(
+        prop("dtty", 0x11, b"\x15"),
+        prop("duni", 0x0F, b"\x01\x02\x03\x04" * 2),
+        prop("prty", 0x02, b"yceS"),
+        prop("nwvl", 0x01, struct.pack("<i", new)),
+        prop("vers", 0x12, b"\xaa\x0e"),
+        prop("odvl", 0x01, struct.pack("<i", 50_000)),
+    )
