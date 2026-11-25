@@ -42,6 +42,7 @@ class Kind(IntEnum):
     INT16_2 = 0x14
     INT32_2 = 0x15
     COUNT = 0x18
+    REAL = 0x19
     TEXT = 0x1A
     DATE = 0x20
 
@@ -60,6 +61,7 @@ SCALAR_SIZES = {
     Kind.INT16_2: 2,
     Kind.INT32_2: 4,
     Kind.COUNT: 8,
+    Kind.REAL: 4,
     Kind.DATE: 4,
 }
 
