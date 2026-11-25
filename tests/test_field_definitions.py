@@ -148,3 +148,12 @@ def test_a_range_of_fractions_is_not_read_as_whole_numbers(tmp_path):
     field = read_one(tmp_path, "Zfrc", "Share", "real", '<real id="min_value" value="0.5" />')
 
     assert field.lowest is None
+
+
+def test_a_definitions_file_of_another_version_is_reported_by_name(tmp_path):
+    path = tmp_path / "shared" / "data" / "editor.fmf"
+    path.parent.mkdir(parents=True)
+    path.write_bytes(synthetic.container("editor", [], encrypted=False, version=9))
+
+    with pytest.raises(FieldDefinitionError, match="editor.fmf: .*version 9"):
+        read_fields(tmp_path, "person")

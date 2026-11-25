@@ -1,11 +1,14 @@
 """The Editor's codes for the facts that the lookup names.
 
-The sweeper position has no code: the FM27 Editor no longer offers it.
+The sweeper position has no code: the FM27 Editor no longer offers it. Nor has the name: it is made
+from the common name, or from the first and second name.
 """
 
 from fm27_editor.people import PersonKind
+from fm27_editor.record_changes import EditError
 
 COMMON = {
+    "full_name": "Pfln",
     "birth_date": "Pdob",
     "nation_uid": "Pnti",
     "club_uid": "Pcti",
@@ -95,6 +98,11 @@ PLAYER = {
 STAFF = {"ca": "Ncra", "pa": "Npta"}
 
 
+CODES = {PersonKind.PLAYER: COMMON | PLAYER, PersonKind.STAFF: COMMON | STAFF}
+
+
 def person_codes(kind: PersonKind) -> dict[str, str]:
-    """Codes by the lookup's names, for players or for staff."""
-    return COMMON | (PLAYER if kind is PersonKind.PLAYER else STAFF)
+    """Codes by the lookup's names."""
+    if kind not in CODES:
+        raise EditError(f"the codes of {kind.name.lower()} people are not known")
+    return CODES[kind]
