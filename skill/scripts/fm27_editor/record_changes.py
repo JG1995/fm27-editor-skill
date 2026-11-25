@@ -88,17 +88,22 @@ def add_record(table: Table, record_type: int, record: bytes, ids: NewIds) -> Ch
 def field_change(
     table: Table, record: bytes, field: Field, value: FieldValue, ids: NewIds
 ) -> Change:
-    if not field.is_editable:
-        raise _refused(field, "cannot be edited in the Editor")
     return _change(
         table,
         record,
         field.code,
-        Property("nwvl", *_stored(field, value)),
+        stored_value(field, value),
         ids,
         is_client_field=field.is_client_field,
         is_language_field=field.is_language_field,
     )
+
+
+def stored_value(field: Field, value: FieldValue) -> Property:
+    """The new value as a change holds it, if the Editor would accept it."""
+    if not field.is_editable:
+        raise _refused(field, "cannot be edited in the Editor")
+    return Property("nwvl", *_stored(field, value))
 
 
 def number(tag: str, value: int) -> Property:

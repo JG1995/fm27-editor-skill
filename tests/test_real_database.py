@@ -2,14 +2,15 @@
 
 import os
 import re
+import sqlite3
 from pathlib import Path
 
 import pytest
 
 from fm27_editor.base_database import open_database
-from fm27_editor.new_person import person_definitions
 from fm27_editor.people import PersonKind
 from fm27_editor.person_codes import person_codes
+from fm27_editor.person_rules import PersonRules
 
 EDITOR = os.environ.get("FM27_EDITOR_DIR", "")
 needs_editor = pytest.mark.skipif(
@@ -47,7 +48,7 @@ EDITOR_NAMES = {
 @needs_editor
 @pytest.mark.parametrize("kind", [PersonKind.PLAYER, PersonKind.STAFF])
 def test_every_code_names_the_same_fact_in_the_installed_editor(kind):
-    fields = person_definitions(Path(EDITOR), kind)
+    fields = PersonRules(Path(EDITOR), sqlite3.connect(":memory:")).fields(kind)
 
     for name, code in person_codes(kind).items():
         worded = re.sub("[^a-z]+", "_", fields[code].name.lower()).strip("_")
