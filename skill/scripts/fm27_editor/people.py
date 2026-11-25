@@ -5,6 +5,7 @@ ability in records of a few fixed sizes. people_db holds the rest in records of 
 order, each ended by the person's index and unique ID, so it is found by those.
 """
 
+import calendar
 import datetime
 import struct
 from collections.abc import Iterator
@@ -21,10 +22,12 @@ BASIC_FOOTER_SIZE = 9
 BASIC_MARK = 0x11
 IDS_SIZE = 12
 PEOPLE_HEADER_SIZE = 6
+NO_ID = 0xFFFFFFFF
 NATION_MARK = b"\x03\x01"
 BIRTH_DATE_BEFORE_MARK = 12
 MAX_NAME_BYTES = 80
 SEARCH_CHUNK = 16_000_000
+LOWEST_VALUE, HIGHEST_VALUE = 1, 20
 EARLIEST_BIRTH_YEAR, LATEST_BIRTH_YEAR = 1900, 2014
 
 
@@ -62,6 +65,11 @@ class BasicPerson:
     ca: int | None = None
     pa: int | None = None
 
+    @property
+    def is_player(self) -> bool:
+        """Players are the only kind whose attribute positions were checked."""
+        return self.kind is PersonKind.PLAYER
+
 
 @dataclass(slots=True, frozen=True)
 class Names:
@@ -80,14 +88,14 @@ class Person:
     full_name: str
     birth_date: datetime.date
     nation_uid: int
-    club_uid: int
-    ca: int
-    pa: int
+    club_uid: int | None
+    ca: int | None
+    pa: int | None
     fields: dict[str, int]
 
 
 def parse_basic_people(content: bytes) -> list[BasicPerson]:
-    count = struct.unpack_from("<I", content)[0] if len(content) > 4 else 0
+    count = Reader(content, PeopleError).u32()
     position = BASIC_HEADER_SIZE
     people = []
     for index in range(count):
@@ -131,8 +139,13 @@ def _read_basic(content: bytes, position: int, index: int) -> tuple[BasicPerson,
     if RECORD_SIZES[kind] == 84:
         nation_index, nation_uid, _, club_uid = struct.unpack_from("<IIII", record, 2)
         ca, pa = struct.unpack_from("<Hh", record, 48)
-        details = {"nation_index": nation_index, "nation_uid": nation_uid, "club_uid": club_uid}
-        details |= {"ca": ca, "pa": pa}
+        details = {
+            "nation_index": nation_index,
+            "nation_uid": nation_uid,
+            "club_uid": club_uid if club_uid != NO_ID else None,
+            "ca": ca or None,
+            "pa": pa or None,
+        }
     return BasicPerson(index, uid, kind, **details), position + len(record)
 
 
@@ -169,7 +182,7 @@ def _read_person(record: bytes, basic: BasicPerson, names: Names) -> Person | No
                 basic.club_uid,
                 basic.ca,
                 basic.pa,
-                _read_fields(record, at),
+                _read_fields(record, at) if _has_player_layout(record, basic) else {},
             )
         at = record.find(marker, at + 1)
     return None
@@ -183,7 +196,9 @@ def _read_identity(
     if date_at < 0:
         return None
     day, year = struct.unpack_from("<HH", record, date_at)
-    if not 1 <= day <= 366 or not EARLIEST_BIRTH_YEAR <= year <= LATEST_BIRTH_YEAR:
+    if not EARLIEST_BIRTH_YEAR <= year <= LATEST_BIRTH_YEAR:
+        return None
+    if not 1 <= day <= 365 + calendar.isleap(year):
         return None
     for size in range(MAX_NAME_BYTES + 1):
         length_at = date_at - size - 4
@@ -220,14 +235,18 @@ def _read_names(record: bytes, length_at: int, size: int, names: Names) -> tuple
     return full_name, full_name or f"{names.first[first]} {names.second[second]}"
 
 
+def _has_player_layout(record: bytes, basic: BasicPerson) -> bool:
+    """Whether the record starts where a player's does, so that fixed positions hold."""
+    start = struct.pack("<IB", basic.index, PersonKind.PLAYER)
+    return basic.is_player and record[: len(start)] == start
+
+
 def _read_fields(record: bytes, marker_at: int) -> dict[str, int]:
-    """Values that are set; a 0 is left out because the game fills it in."""
-    fields = {}
-    for name, offset in {**ATTRIBUTES, **POSITIONS}.items():
-        if offset < len(record) and record[offset]:
-            fields[name] = record[offset]
-    for name, offset in PERSONALITY.items():
-        position = marker_at + offset
-        if position < len(record) and record[position]:
-            fields[name] = record[position]
-    return fields
+    """Values between 1 and 20. Anything else is missing: the game fills it in or it is a range."""
+    positions = {**ATTRIBUTES, **POSITIONS}
+    positions |= {name: marker_at + offset for name, offset in PERSONALITY.items()}
+    return {
+        name: record[position]
+        for name, position in positions.items()
+        if position < len(record) and LOWEST_VALUE <= record[position] <= HIGHEST_VALUE
+    }
