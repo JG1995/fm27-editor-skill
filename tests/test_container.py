@@ -86,3 +86,19 @@ def test_rejects_an_index_offset_past_the_end():
 
     with pytest.raises(ContainerError):
         read_container(bytes(content))
+
+
+def test_a_frame_that_is_cut_short_is_rejected_even_when_the_size_fits():
+    """The checksum ends a frame; without its last bytes, damage would go unnoticed."""
+    content = synthetic.container("T", FILES)
+    cut = read_container(content)
+    frame = write_container(cut)
+    index_at = struct.unpack_from("<Q", frame, 9)[0] + 9
+    with pytest.raises(ContainerError):
+        read_container(frame[:-3])
+    assert index_at < len(frame)
+
+
+def test_bytes_after_the_last_frame_are_an_error():
+    with pytest.raises(ContainerError):
+        read_container(synthetic.container("T", FILES) + b"\x00\x00\x00\x00")

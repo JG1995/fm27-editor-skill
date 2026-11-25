@@ -119,3 +119,10 @@ def test_bytes_after_the_last_change_are_an_error():
 
     with pytest.raises(ChangeListError):
         parse_change_list(good[:9] + synthetic.zstd_frame(body))
+
+
+def test_a_change_list_that_is_cut_short_is_rejected():
+    content = synthetic.change_list(synthetic.capacity_change(1))
+
+    with pytest.raises(ChangeListError):
+        parse_change_list(content[:-2])
