@@ -30,6 +30,7 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 | `nation` | `uid`, `name` |
 | `city` | `uid`, `name`, `nation_uid` |
 | `stadium` | `uid`, `name`, `city_uid` |
+| `language` | `uid`, `name` |
 
 Attributes, positions, and personality go by their usual names, such as `finishing`, `off_the_ball`, `left_foot`, `position_st`, and `professionalism`. `fm27 fields player` lists them.
 
@@ -87,14 +88,15 @@ A request has any of these parts. The uids here are made up:
 
 `fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
 
-Not possible yet: jobs, formations, languages, achievements, injuries, bans, replacing a list that a person has, kits other than their colours, reserve teams, stadiums, new awards, and changing nations. If a request needs one of these, say so before doing the rest.
+Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, achievements, injuries, bans, kits other than their colours, reserve teams, stadiums, new awards, and changing nations. If a request needs one of these, say so before doing the rest.
 
 ## Lists on people
 
 A field that `fm27 fields player` describes as "items of" its parts, such as playing history or second nations, is given a list of items with their parts by code, such as `"PNRs": [{"nati": 12345, "ntin": 85}]`. A query gives the list as JSON text, such as `json_array(json_object('nati', 12345))`.
 
-- **Items are added to what the person has.** The lookup does not know a person's lists, so tell the user that what is there stays. An empty list clears one.
-- **A part that is left out keeps what a new item has,** such as no club, or 1900 as the year in playing history. Give each item of a playing history (`Plhs`) its `year`, `clid`, and `divi`.
+- **Items are added to what the person has.** The lookup does not know a person's lists, so tell the user that what is there stays.
+- **To replace what a list holds,** give `{"replace": [...]}` with the items; `{"replace": []}` clears it. When the user wants a list to be exactly something, replace it. When it is unclear whether to add or replace, ask.
+- **A part that is left out keeps what a new item has,** such as no club, or 1900 as the year in playing history. Give each item of a playing history (`Plhs`) its `year`, `clid`, and `divi`, and each language a person speaks (`PElg`) its `lang` from the `language` table.
 - **A team in a list can be a national team,** given by the uid of its nation.
 
 ## Create people
@@ -105,6 +107,7 @@ A new person needs `Pfna` (first name), `Psna` (second name), `birth_date`, and 
 - What is left out is left to the Editor and the game. Set every attribute when the user wants a specific player.
 - With a `club_uid`, also set the dates joined (`Pcjd`), signed (`Pcsd`), and expiring (`Pcex`).
 - Staff have their own attributes, such as `NDja` for judging ability. Search with `fm27 fields staff`.
+- Staff at a club have a job (`PCJO`). `fm27 fields staff PCJO` lists the jobs that can be given.
 
 ## Create clubs and competitions
 
