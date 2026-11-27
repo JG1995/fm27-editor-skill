@@ -1,7 +1,8 @@
 """The tables of the lookup for kinds of records that it knows only by name, and currencies.
 
-Languages, weather, and currencies hold their own names; continents and injuries are named in
-lang_db.dat. Currencies also say how many of them make a pound.
+Languages, weather, and currencies hold their own names; continents, injuries, media sources,
+and the names of stages, such as a final, are named in lang_db.dat. Currencies also say how many
+of them make a pound.
 """
 
 import sqlite3
@@ -19,6 +20,8 @@ IN_RECORDS = {"language": ("table_8", 17), "weather": ("table_27", 95)}
 IN_NAME_TABLES = {
     "continent": ("table_5", NamedTable.CONTINENT, "8_5"),
     "injury": ("table_6", NamedTable.INJURY, "8_6"),
+    "media_source": ("table_7", NamedTable.MEDIA_SOURCE, "8_7"),
+    "stage_name": ("table_23", NamedTable.STAGE_NAME, "8_23"),
 }
 CURRENCIES = "table_41"
 CLIENT_TABLES = {
@@ -26,7 +29,13 @@ CLIENT_TABLES = {
     *(table for table, *_ in [*IN_RECORDS.values(), *IN_NAME_TABLES.values()]),
 }
 NAME_TABLES = {english for _, _, english in IN_NAME_TABLES.values()}
-VIEWS = {"continent": "continents", "injury": "injuries", "weather": "weathers"}
+VIEWS = {
+    "continent": "continents",
+    "injury": "injuries",
+    "weather": "weathers",
+    "media_source": "media_sources",
+    "stage_name": "stage_names",
+}
 SCHEMA = "".join(
     [
         *(f"CREATE TABLE {kind}(uid INTEGER PRIMARY KEY, name TEXT);" for kind in IN_RECORDS),

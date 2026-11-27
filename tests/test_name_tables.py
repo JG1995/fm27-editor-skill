@@ -40,6 +40,16 @@ from fm27_editor.name_tables import NamedTable, read_names
             {6: ("twisted ankle", None)},
         ),
         (
+            NamedTable.MEDIA_SOURCE,
+            synthetic.media_source_names({18: "Testby Echo"}),
+            {18: ("Testby Echo", None)},
+        ),
+        (
+            NamedTable.STAGE_NAME,
+            synthetic.stage_names({3: "Final"}),
+            {3: ("Final", "Fina")},
+        ),
+        (
             NamedTable.STADIUM,
             synthetic.stadium_names({9401: "Test Park"}),
             {9401: ("Test Park", None)},

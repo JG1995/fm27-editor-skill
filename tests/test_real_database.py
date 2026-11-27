@@ -220,7 +220,10 @@ def test_the_installed_editor_database_reads_as_plausible_clubs(tmp_path):
 @needs_editor
 @pytest.mark.parametrize(
     ("table", "at_least"),
-    [("language", 100), ("continent", 7), ("injury", 100), ("weather", 300)],
+    [
+        *(("language", 100), ("continent", 7), ("injury", 100), ("weather", 300)),
+        *(("media_source", 100), ("stage_name", 200)),
+    ],
 )
 def test_the_installed_editor_database_reads_as_plausible_names(tmp_path, table, at_least):
     with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
@@ -229,8 +232,10 @@ def test_the_installed_editor_database_reads_as_plausible_names(tmp_path, table,
             f" sum(name GLOB '*[A-Za-z]*') FROM {table}"
         ).fetchone()
 
+    # A few media sources and stages share a name.
     assert records >= at_least
-    assert records == named == different == printable
+    assert records == named == printable
+    assert different > records * 0.95
 
 
 @needs_editor

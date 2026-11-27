@@ -17,6 +17,8 @@ CITIES = {9301: ("Testby", 0), 9302: ("Testham", 1)}
 CONTINENTS = {1: "Testica", 3: "Europia"}
 INJURIES = {1: "cold", 6: "twisted ankle"}
 WEATHER = {1: "Testish Coastal", 115052: "Testish Inland"}
+MEDIA_SOURCES = {18: "Testby Echo", 19: "The Example Times"}
+STAGE_NAMES = {1: "Replay", 3: "Final"}
 # Names, symbol, and how many make a pound
 CURRENCIES = {
     7: ("Testish Pound", "Pound", "£", 1.0),
@@ -398,6 +400,8 @@ def client_tables() -> list[tuple[str, bytes]]:
         "table_41": [(uid, synthetic.currency_record(*facts)) for uid, facts in CURRENCIES.items()],
         "table_5": [(uid, b"continent") for uid in CONTINENTS],
         "table_6": [(uid, b"\x00\x0c\x30\x00") for uid in INJURIES],
+        "table_7": [(uid, b"\x00media source") for uid in MEDIA_SOURCES],
+        "table_23": [(uid, b"\x00\x00") for uid in STAGE_NAMES],
         "table_2": [(uid, synthetic.city_record(nation)) for uid, (_, nation) in CITIES.items()],
         "table_21": [(uid, synthetic.stadium_record(city)) for uid, (_, city) in STADIUMS.items()],
         "table_25": [
@@ -438,4 +442,6 @@ def name_tables() -> list[tuple[str, bytes]]:
         ("8_21", synthetic.stadium_names({uid: name for uid, (name, _) in STADIUMS.items()})),
         ("8_5", synthetic.continent_names(CONTINENTS)),
         ("8_6", synthetic.injury_names(INJURIES)),
+        ("8_7", synthetic.media_source_names(MEDIA_SOURCES)),
+        ("8_23", synthetic.stage_names(STAGE_NAMES)),
     ]
