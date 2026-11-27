@@ -54,6 +54,15 @@ class NewReference:
 type Item = Mapping[str, FieldValue | NewReference]
 """An item to add to a list: its parts by code."""
 type Items = tuple[Item, ...]
+REPLACE = "replace"
+
+
+@dataclass(frozen=True)
+class ListItems:
+    """Items to add to a list, which is cleared first when they replace what it holds."""
+
+    items: Items
+    replace: bool = False
 
 
 @dataclass(frozen=True)
@@ -61,7 +70,7 @@ class Setting:
     """A field and the value it is to have; for a list, the items to add to it."""
 
     field: Field
-    value: FieldValue | NewReference | Items
+    value: FieldValue | NewReference | ListItems
     words: Mapping[str, int] = dataclass_field(default_factory=dict, repr=False, compare=False)
     """The numbers of choices that the lookup holds as words."""
 
@@ -143,7 +152,7 @@ class RecordRules:
 
     def _value(
         self, kind: RecordKind, field: Field, given: FieldValue, new: Mapping[str, RecordKind]
-    ) -> FieldValue | NewReference | Items:
+    ) -> FieldValue | NewReference | ListItems:
         if field.type == LIST:
             return self._items(field, kind.lists.get(field.code), given, new)
         value = self._part(field, given, new)
@@ -152,17 +161,18 @@ class RecordRules:
 
     def _items(
         self, field: Field, shape: ListShape | None, given: object, new: Mapping[str, RecordKind]
-    ) -> Items:
-        """Items to add to a list, by the codes of their parts."""
+    ) -> ListItems:
+        """Items to add to a list, by the codes of their parts, or to replace what it holds."""
         if shape is None or not field.is_editable:
             raise EditError(f"{_called(field)} {refusal(field)}")
+        listed, replace = _listed(field, given)
         parts = {part.code: part for part in field.items if part.code in shape.given}
-        items = tuple(self._item(field, parts, entry, new) for entry in _listed(field, given))
+        items = tuple(self._item(field, parts, entry, new) for entry in listed)
         for item in items:
             refers = any(parts[code].points_to is not None for code in item)
             if not refers and is_blank(field, shape, item):
                 raise EditError(f"{_called(field)}: an item must set more than a new item has")
-        return items
+        return ListItems(items, replace)
 
     def _item(
         self, field: Field, parts: Mapping[str, Field], given: object, new: Mapping[str, RecordKind]
@@ -217,8 +227,11 @@ def _can_write(kind: RecordKind, field: Field) -> bool:
     return refusal(field) is None and field.points_to in (None, *LOOKUP_TABLES)
 
 
-def _listed(field: Field, given: object) -> list:
-    """Items as a list; a query gives them as JSON text."""
+def _listed(field: Field, given: object) -> tuple[list, bool]:
+    """Items as a list, and whether they replace what the list holds; a query gives JSON text.
+
+    Adding no items is refused, because it would change nothing.
+    """
     if isinstance(given, str):
         try:
             given = read_json(given)
@@ -226,9 +239,18 @@ def _listed(field: Field, given: object) -> list:
             pass  # not JSON, so refused below as no list
         except RepeatedNameError as error:
             raise EditError(f"{_called(field)}: {error}") from error
+    replace = isinstance(given, Mapping)
+    if replace:
+        if given.keys() != {REPLACE}:
+            raise EditError(f'{_called(field)} takes a list of items, or {{"{REPLACE}": items}}')
+        given = given[REPLACE]
     if not isinstance(given, list):
         raise EditError(f"{_called(field)} needs a list of items, not {given!r}")
-    return given
+    if not given and not replace:
+        raise EditError(
+            f'{_called(field)} has no items to add; {{"{REPLACE}": []}} clears what it holds'
+        )
+    return given, replace
 
 
 def _called(field: Field) -> str:

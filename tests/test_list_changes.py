@@ -115,13 +115,11 @@ NATIONS = [
 NATIONS_SHAPE = ListShape(("ntin", "nati"), empty={"ntin": 80})
 
 
-def operations(*items, parts=NATIONS, shape=NATIONS_SHAPE):
+def operations(*items, parts=NATIONS, shape=NATIONS_SHAPE, replace=False):
     field = a_field("Zlst", "list", items=parts)
     ids = NewIds(ChangeList(), random.Random(1))
-    return [
-        _new_value(change)
-        for change in item_changes(Table.PERSON, RECORD, field, shape, items, ids)
-    ]
+    changes = item_changes(Table.PERSON, RECORD, field, shape, items, ids, replace=replace)
+    return [_new_value(change) for change in changes]
 
 
 def _new_value(change):
@@ -139,8 +137,20 @@ def olvl(*parts):
     return Property("olvl", Kind.NESTED, [Property("id  ", Kind.CODE, "olvl"), *parts])
 
 
-def test_no_items_clear_the_list():
-    assert operations() == [Property("nwvl", Kind.NESTED, an_operation(3))]
+def test_a_list_that_is_replaced_is_cleared_before_items_are_added():
+    cleared, added, _ = operations({"nati": 1403}, replace=True)
+
+    assert cleared == Property("nwvl", Kind.NESTED, an_operation(3))
+    assert added == Property("nwvl", Kind.NESTED, an_operation(0))
+
+
+def test_a_list_that_is_replaced_by_no_items_is_cleared():
+    assert operations(replace=True) == [Property("nwvl", Kind.NESTED, an_operation(3))]
+
+
+def test_adding_no_items_is_refused():
+    with pytest.raises(EditError, match="no items"):
+        operations()
 
 
 def test_an_item_is_added_empty_and_then_given_each_part_with_what_it_held_before():

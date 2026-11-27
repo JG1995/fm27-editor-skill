@@ -214,7 +214,7 @@ def test_what_each_change_does_to_a_list_is_said(tmp_path):
     with open_database(editor, tmp_path / "cache.sqlite") as lookup:
         edits = [
             {"of": "people", "uid": 100, "set": {"PNRs": [{"nati": 9002, "ntin": 85}]}},
-            {"of": "people", "uid": 101, "set": {"PNRs": []}},
+            {"of": "people", "uid": 101, "set": {"PNRs": {"replace": []}}},
         ]
         plan = make_plan({"edits": edits}, editor, lookup)
         file = build_file(plan, approval_code(plan), datetime.date(2026, 11, 12))
