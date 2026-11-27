@@ -128,11 +128,32 @@ WEATHERS = RecordGroup(
     details={},
     name_codes=("wnam",),
 )
+MEDIA_SOURCES = RecordGroup(
+    one="media source",
+    view="media_sources",
+    table=Table.MEDIA_SOURCE,
+    details={},
+    name_codes=("Mnam",),
+)
+DERBIES = RecordGroup(
+    one="derby",
+    view="derbies",
+    table=Table.DERBY,
+    details={"club_1": "{}", "club_2": "{}"},
+    name_codes=("Dnam",),
+)
+STAGE_NAMES = RecordGroup(
+    one="stage name",
+    view="stage_names",
+    table=Table.STAGE_NAME,
+    details={},
+    name_codes=("SNna",),
+)
 GROUPS = {
     group.view: group
     for group in (
         *(PEOPLE, CLUBS, COMPETITIONS, AWARDS, STADIUMS, NATIONS, CITIES),
-        *(CONTINENTS, INJURIES, WEATHERS),
+        *(CONTINENTS, INJURIES, WEATHERS, MEDIA_SOURCES, DERBIES, STAGE_NAMES),
     )
 }
 PERSON_NEEDS = {
@@ -303,11 +324,43 @@ WEATHER = RecordKind(
     left_out=frozenset(COMPUTED_NAMES),
     can_be_new=False,
 )
+MEDIA_SOURCE = RecordKind(
+    name="media_source",
+    group=MEDIA_SOURCES,
+    defined_in=("media source",),
+    codes={"name": "Mnam"},
+    needed={},
+    left_out=frozenset(COMPUTED_NAMES),
+    can_be_new=False,
+)
+DERBY = RecordKind(
+    name="derby",
+    group=DERBIES,
+    defined_in=("derby",),
+    codes={
+        "name": "Dnam",
+        "short_name": "Dsnm",
+        "club_1_uid": "Dtm1",
+        "club_2_uid": "Dtm2",
+    },
+    needed={},
+    left_out=frozenset(COMPUTED_NAMES),
+    can_be_new=False,
+)
+STAGE_NAME = RecordKind(
+    name="stage_name",
+    group=STAGE_NAMES,
+    defined_in=("stage name",),
+    codes={"name": "SNna"},
+    needed={},
+    left_out=frozenset(COMPUTED_NAMES),
+    can_be_new=False,
+)
 KINDS = {
     kind.name: kind
     for kind in (
         *(PLAYER, STAFF, CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY),
-        *(CONTINENT, INJURY, WEATHER),
+        *(CONTINENT, INJURY, WEATHER, MEDIA_SOURCE, DERBY, STAGE_NAME),
     )
 }
 

@@ -1,6 +1,6 @@
 ---
 name: fm27-editor
-description: Read, search, and change Football Manager 27 Pre-game Editor data without operating the Editor. Use when the user wants to find players, staff, clubs, competitions, awards, or places such as stadiums and cities in the FM27 database, change them or the game's injuries and weather (one or thousands), create new ones, including league and cup rules for a new competition, rewrite the past winners of an award, or know what an FM27 editor data file (.fmf) does. Not for save games, the in-game editor, tactics, shortlists, or other FM editions.
+description: Read, search, and change Football Manager 27 Pre-game Editor data without operating the Editor. Use when the user wants to find players, staff, clubs, competitions, awards, or places such as stadiums and cities in the FM27 database, change them or the game's injuries, weather, derbies, media, and names of rounds (one or thousands), create new ones, including league and cup rules for a new competition, rewrite the past winners of an award, or know what an FM27 editor data file (.fmf) does. Not for save games, the in-game editor, tactics, shortlists, or other FM editions.
 ---
 
 # FM27 Editor
@@ -30,7 +30,8 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 | `nations` | `uid`, `name` |
 | `cities` | `uid`, `name`, `nation`, `nation_uid` |
 | `stadiums` | `uid`, `name`, `city`, `city_uid`, `nation`, `nation_uid` (of its city) |
-| `continents`, `injuries`, `weathers`, `language` | `uid`, `name` |
+| `derbies` | `uid`, `name`, `short_name`, `club_1`, `club_1_uid`, `club_2`, `club_2_uid` |
+| `continents`, `injuries`, `weathers`, `media_sources`, `stage_names`, `language` | `uid`, `name` |
 | `currency` | `uid`, `name`, `short_name`, `symbol`, `per_pound` (how many of it make a pound) |
 
 Attributes, positions, and personality go by their usual names, such as `finishing`, `off_the_ball`, `left_foot`, `position_st`, and `professionalism`. `fm27 fields player` lists them.
@@ -46,6 +47,7 @@ Know these before you write a query:
 - **`nation`** of a person is the one main nationality. Others are not here. Of a club, it is the nation whose leagues it plays in; where it lies is `based_nation_uid`.
 - **Names** are spelled with their accents and often written in full. Search with `LIKE`, show the candidates when there are several, and let the user choose.
 - **`weathers`** are climates that cities and regions use, named after a region or a city. **`injuries`** are the kinds of injury, such as a sprained ankle, not injured people.
+- **`derbies`** are rivalries between two clubs. Their names repeat, so tell them apart by their clubs. A derby between national teams has no clubs here. **`stage_names`** are what competitions call their rounds, such as a final. **`media_sources`** are newspapers, magazines, and websites.
 - Some people in the Editor are not in the lookup. Not finding someone does not mean that they do not exist.
 
 ## Make a file
@@ -76,7 +78,7 @@ A request has any of these parts. The uids here are made up:
 }
 ```
 
-- **`of`** is `people`, `clubs`, `competitions`, `awards`, `stadiums`, `nations`, `cities`, `continents`, `injuries`, or `weathers`. A club and a person can have the same uid. A club's ground is its `stadium_uid`; change the ground itself as one of `stadiums`.
+- **`of`** is `people`, `clubs`, `competitions`, `awards`, `stadiums`, `nations`, `cities`, `continents`, `injuries`, `weathers`, `media_sources`, `derbies`, or `stage_names`. A club and a person can have the same uid. A club's ground is its `stadium_uid`; change the ground itself as one of `stadiums`.
 - **A field that names a person,** such as a club's manager (`Cmni`) or captain (`Tcap`), takes the uid of someone in `people`, or `@` and the name of a new person. Someone who is not in the lookup cannot be named. The skill does not check that the person works or plays there, so check it with `find` first.
 - **`query`** returns `uid` and one column for each field to set. The column's value is the new value.
 - **`as`** names a new record. Later ones and edits refer to it with `@` and that name.
@@ -89,7 +91,7 @@ A request has any of these parts. The uids here are made up:
 
 ## Fields
 
-`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `stadium`, `nation`, `city`, `continent`, `injury`, `weather`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
+`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `stadium`, `nation`, `city`, `continent`, `injury`, `weather`, `media_source`, `derby`, `stage_name`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
 
 Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, people's achievements, injuries, and bans, kits other than their colours, reserve teams, national teams, local regions, and new records other than people, clubs, and competitions. If a request needs one of these, say so before doing the rest.
 

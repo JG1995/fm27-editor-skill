@@ -14,12 +14,15 @@ from fm27_editor.record_kinds import (
     CLUB,
     COMPETITION,
     CONTINENT,
+    DERBY,
     INJURY,
     KINDS,
+    MEDIA_SOURCE,
     NATION,
     PLAYER,
     STADIUM,
     STAFF,
+    STAGE_NAME,
     WEATHER,
 )
 from fm27_editor.record_rules import RecordRules
@@ -130,7 +133,10 @@ def test_the_installed_editor_defines_every_rule_that_is_offered():
 def test_every_code_of_a_place_or_award_names_a_field_that_can_be_written():
     rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
 
-    for kind in (CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY, CONTINENT, INJURY, WEATHER):
+    for kind in (
+        *(CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY, CONTINENT, INJURY, WEATHER),
+        *(MEDIA_SOURCE, DERBY, STAGE_NAME),
+    ):
         writable = {field.code for field in rules.writable_fields(kind)}
         assert {*kind.codes.values(), *kind.needed, *kind.group.name_codes} <= writable
 

@@ -12,10 +12,13 @@ from fm27_editor.record_kinds import (
     CLUB,
     COMPETITION,
     CONTINENT,
+    DERBY,
     INJURY,
+    MEDIA_SOURCE,
     NATION,
     PLAYER,
     STADIUM,
+    STAGE_NAME,
     WEATHER,
     kind_named,
 )
@@ -41,6 +44,9 @@ def test_every_fact_the_lookup_has_for_players_has_a_code_or_a_reason_not_to():
         (CONTINENT, "continent", {"uid"}),
         (INJURY, "injury", {"uid"}),
         (WEATHER, "weather", {"uid"}),
+        (MEDIA_SOURCE, "media_source", {"uid"}),
+        (DERBY, "derby", {"uid"}),
+        (STAGE_NAME, "stage_name", {"uid"}),
     ],
     ids=lambda value: value if isinstance(value, str) else "",
 )
@@ -54,7 +60,10 @@ def test_every_fact_the_lookup_has_for_other_records_has_a_code(kind, table, wit
 
 @pytest.mark.parametrize(
     "kind",
-    [PLAYER, CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY, CONTINENT, INJURY, WEATHER],
+    [
+        *(PLAYER, CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY, CONTINENT, INJURY, WEATHER),
+        *(MEDIA_SOURCE, DERBY, STAGE_NAME),
+    ],
     ids=lambda kind: kind.name,
 )
 def test_no_two_facts_share_a_code(kind):
