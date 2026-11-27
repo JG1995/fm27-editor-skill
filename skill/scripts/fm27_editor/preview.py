@@ -4,6 +4,7 @@ import sqlite3
 from collections.abc import Iterable, Sequence
 
 from fm27_editor.history_words import history_heading, year_lines
+from fm27_editor.list_changes import LIST
 from fm27_editor.plan import Plan, approval_code
 from fm27_editor.planned import Addition, Edit, KnownRecord
 from fm27_editor.potential import is_range
@@ -107,9 +108,12 @@ def _spread[T](items: Sequence[T], count: int) -> Sequence[T]:
 
 
 def _example_line(edit: Edit, lookup: sqlite3.Connection) -> str:
+    """The old value and the new one; a list is not known, so only what is done to it is said."""
     field = edit.setting.field
-    old = "unknown" if edit.old is None else shown(field, edit.old, lookup)
     new = shown(field, edit.setting.value, lookup)
+    if field.type == LIST:
+        return f"  {_described(edit.record)}: {field.name} {new}"
+    old = "unknown" if edit.old is None else shown(field, edit.old, lookup)
     return f"  {_described(edit.record)}: {field.name} {old} -> {new}"
 
 

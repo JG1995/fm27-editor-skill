@@ -6,7 +6,9 @@ from functools import cached_property
 
 from fm27_editor import person_codes
 from fm27_editor.change_reading import EditError, Table
+from fm27_editor.list_changes import ListShape
 from fm27_editor.people import PersonKind
+from fm27_editor.person_lists import PERSON_LISTS
 from fm27_editor.places import Gender
 
 
@@ -44,6 +46,8 @@ class RecordKind:
     """The numbers of choices that the lookup holds as words, by code."""
     can_be_new: bool = True
     """Whether a file was seen that adds a record of this kind."""
+    lists: Mapping[str, ListShape] = field(default_factory=dict)
+    """The lists that can be given items, by code, in the shape real files show."""
 
     @cached_property
     def names(self) -> dict[str, str]:
@@ -107,6 +111,7 @@ PLAYER = RecordKind(
     needed=PERSON_NEEDS,
     left_out=PERSON_LEFT_OUT,
     person_type=PersonKind.PLAYER,
+    lists=PERSON_LISTS,
 )
 STAFF = RecordKind(
     name="staff",
@@ -116,6 +121,7 @@ STAFF = RecordKind(
     needed=PERSON_NEEDS,
     left_out=PERSON_LEFT_OUT,
     person_type=PersonKind.STAFF,
+    lists=PERSON_LISTS,
 )
 GENDER = "gender"
 GENDER_CODE = "PLgn"

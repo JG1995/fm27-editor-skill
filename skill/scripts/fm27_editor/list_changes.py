@@ -28,6 +28,7 @@ from fm27_editor.record_changes import (
     number,
 )
 
+LIST = "list"
 # A person is referred to only in lists, as far as files were seen, and a club as a club only there.
 LIST_REFERENCE_TAGS = REFERENCE_TAGS | {"person": "Pers", "club": "Cclu"}
 NUMBERS = {"integer", "enum", "multiple_enum", MONEY}

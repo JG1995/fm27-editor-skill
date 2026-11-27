@@ -3,7 +3,9 @@
 A value must be one the Editor's definitions allow, and what it refers to must be in the lookup.
 """
 
+import contextlib
 import datetime
+import json
 import sqlite3
 from collections.abc import Mapping
 from dataclasses import dataclass
@@ -13,8 +15,10 @@ from pathlib import Path
 from fm27_editor.base_database import record_name
 from fm27_editor.change_reading import EditError
 from fm27_editor.field_definitions import Field, read_fields
+from fm27_editor.list_changes import LIST, LIST_REFERENCE_TAGS, ListShape
 from fm27_editor.potential import check_potential, with_ranges
 from fm27_editor.record_changes import (
+    REFERENCE_TAGS,
     FieldValue,
     checked_date,
     is_uid,
@@ -46,12 +50,17 @@ class NewReference:
         return f"{NEW_MARK}{self.name}"
 
 
+type Item = Mapping[str, FieldValue | NewReference]
+"""An item to add to a list: its parts by code."""
+type Items = tuple[Item, ...]
+
+
 @dataclass(frozen=True)
 class Setting:
-    """A field and the value it is to have."""
+    """A field and the value it is to have; for a list, the items to add to it."""
 
     field: Field
-    value: FieldValue | NewReference
+    value: FieldValue | NewReference | Items
     words: Mapping[str, int] = dataclass_field(default_factory=dict, repr=False, compare=False)
     """The numbers of choices that the lookup holds as words."""
 
@@ -80,11 +89,7 @@ class RecordRules:
 
     def writable_fields(self, kind: RecordKind) -> list[Field]:
         """The fields that can be given a value, by code."""
-        return [
-            field
-            for _, field in sorted(self.fields(kind).items())
-            if refusal(field) is None and field.points_to in (None, *LOOKUP_TABLES)
-        ]
+        return [field for _, field in sorted(self.fields(kind).items()) if _can_write(kind, field)]
 
     def settings(
         self,
@@ -104,7 +109,7 @@ class RecordRules:
             if field.code in chosen:
                 raise EditError(f"{field.name} ({field.code}) is given twice")
             words = kind.words.get(field.code, {})
-            value = self._value(field, _number_of(given, words), new)
+            value = self._value(kind, field, _number_of(given, words), new)
             chosen[field.code] = Setting(field, value, words)
         return list(chosen.values())
 
@@ -136,17 +141,54 @@ class RecordRules:
         return field
 
     def _value(
-        self, field: Field, given: FieldValue, new: Mapping[str, RecordKind]
+        self, kind: RecordKind, field: Field, given: FieldValue, new: Mapping[str, RecordKind]
+    ) -> FieldValue | NewReference | Items:
+        if field.type == LIST:
+            return self._items(field, kind.lists.get(field.code), given, new)
+        value = self._part(field, given, new, REFERENCE_TAGS)
+        check_potential(field, value)
+        return value
+
+    def _items(
+        self, field: Field, shape: ListShape | None, given: object, new: Mapping[str, RecordKind]
+    ) -> Items:
+        """Items to add to a list, by the codes of their parts."""
+        if shape is None or not field.is_editable:
+            raise EditError(f"{_called(field)} {refusal(field)}")
+        parts = {part.code: part for part in field.items if part.code in shape.parts}
+        return tuple(self._item(field, parts, entry, new) for entry in _listed(field, given))
+
+    def _item(
+        self, field: Field, parts: Mapping[str, Field], given: object, new: Mapping[str, RecordKind]
+    ) -> Item:
+        if not isinstance(given, Mapping) or not given:
+            raise EditError(f"{_called(field)}: an item has parts by code: {', '.join(parts)}")
+        unknown = given.keys() - parts.keys()
+        if unknown:
+            known = ", ".join(parts)
+            raise EditError(f"{_called(field)} has no {', '.join(sorted(unknown))}, only {known}")
+        return {
+            code: self._part(parts[code], value, new, LIST_REFERENCE_TAGS)
+            for code, value in given.items()
+        }
+
+    def _part(
+        self,
+        field: Field,
+        given: object,
+        new: Mapping[str, RecordKind],
+        tags: Mapping[str, str],
     ) -> FieldValue | NewReference:
-        called = f"{field.name} ({field.code})"
-        reason = refusal(field)
+        """A checked value of a field, or of a part of an item."""
+        reason = refusal(field, tags)
         if reason is not None:
-            raise EditError(f"{called} {reason}")
+            raise EditError(f"{_called(field)} {reason}")
+        if given is None:
+            raise EditError(f"{_called(field)} needs a value")
         if field.points_to is not None:
-            return self.refer(field.points_to, called, given, new)
+            return self.refer(field.points_to, _called(field), given, new)
         value = _typed(field, given)
         stored_value(field, value)
-        check_potential(field, value)
         return value
 
     def refer(
@@ -160,6 +202,26 @@ class RecordRules:
             raise EditError(f"{called} points to a {points_to}, which the lookup does not hold")
         check_exists(self._lookup, called, given, table)
         return given
+
+
+def _can_write(kind: RecordKind, field: Field) -> bool:
+    if field.type == LIST:
+        return field.is_editable and field.code in kind.lists
+    return refusal(field) is None and field.points_to in (None, *LOOKUP_TABLES)
+
+
+def _listed(field: Field, given: object) -> list:
+    """Items as a list; a query gives them as JSON text."""
+    if isinstance(given, str):
+        with contextlib.suppress(json.JSONDecodeError):
+            given = json.loads(given)
+    if not isinstance(given, list):
+        raise EditError(f"{_called(field)} needs a list of items, not {given!r}")
+    return given
+
+
+def _called(field: Field) -> str:
+    return f"{field.name} ({field.code})"
 
 
 def check_exists(lookup: sqlite3.Connection, called: str, uid: object, *tables: str) -> None:

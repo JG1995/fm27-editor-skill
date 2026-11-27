@@ -95,6 +95,19 @@ def test_fields_that_cannot_be_written_are_not_listed(run):
     assert not [line for line in lines if "Ptyp" in line or "Page" in line]
 
 
+def test_a_list_is_listed_with_the_parts_of_its_items(run):
+    _, lines, _ = run("fields", "player", "PNRs")
+
+    assert lines == [
+        "PNRs: Second Nations, items of nati (Nation, the uid of a nation); "
+        "ntin (Nationality Info, one of 80 Eligible For Nation, 85 Born In Nation)"
+    ]
+
+
+def test_a_list_that_cannot_be_written_yet_is_not_listed(run):
+    assert run("fields", "player", "Pbnl")[1] == ["No field matches 'Pbnl'"]
+
+
 def test_the_fields_of_clubs_and_competitions_are_listed_by_the_lookups_names(run):
     _, clubs, _ = run("fields", "club", "division")
     _, competitions, _ = run("fields", "competition", "type")

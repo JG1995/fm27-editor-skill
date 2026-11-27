@@ -110,6 +110,32 @@ def test_money_is_shown_in_pounds(lines_for):
     assert lines[-2].endswith("Wage unknown -> £19,943")
 
 
+def test_items_added_to_a_list_are_shown_with_their_parts(lines_for):
+    items = [{"nati": 9002, "ntin": 85}, {"nati": 9001}]
+
+    lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PNRs": items}}])
+
+    assert "  Second Nations (PNRs): 1 person" in lines
+    assert lines[-2].endswith(
+        ": Second Nations + Nation Norwegia (9002), Nationality Info Born In Nation (85)"
+        " + Nation Englandia (9001)"
+    )
+
+
+def test_a_list_that_is_cleared_says_so(lines_for):
+    lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PNRs": []}}])
+
+    assert lines[-2].endswith(": Second Nations cleared")
+
+
+def test_a_new_person_is_shown_with_the_items_of_a_list(lines_for):
+    values = {"Pfna": "Testy", "Psna": "New", "birth_date": "2008-04-25", "nation_uid": 9001}
+
+    lines = lines_for(new=[{"kind": "staff", "set": values | {"PNRs": [{"nati": 9002}]}}])
+
+    assert lines[-2].endswith("; Second Nations + Nation Norwegia (9002)")
+
+
 def test_nations_and_clubs_are_shown_by_name(lines_for):
     lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"club_uid": 9102}}])
 

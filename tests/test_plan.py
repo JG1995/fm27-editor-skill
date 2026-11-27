@@ -263,6 +263,14 @@ def test_the_code_covers_the_history(plan_for):
     assert len(codes) == 2
 
 
+def test_the_code_covers_the_items_of_a_list(plan_for):
+    lists = ([{"nati": 9001}], [{"nati": 9002}], [{"nati": 9002, "ntin": 85}], [])
+
+    codes = {approval_code(plan_for(edits=[by_hand(100, PNRs=items)])) for items in lists}
+
+    assert len(codes) == 4
+
+
 def test_a_history_that_the_starting_file_changes_cannot_be_changed_again(plan_for, tmp_path):
     plan = plan_for(award_history=[PAST])
     path = tmp_path / "History.fmf"

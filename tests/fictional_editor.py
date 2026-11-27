@@ -61,8 +61,32 @@ AWARD_YEARS = [
     (9604, synthetic.award_year_record(0, 2023, (NOBODY, "Old Master", 9102, 30, 0, 0, 0, 0))),
 ]
 
+SECOND_NATIONS = synthetic.list_items(
+    synthetic.field_definition("nati", "Nation", *synthetic.reference("nation")),
+    synthetic.field_definition(
+        "ntin",
+        "Nationality Info",
+        "enum",
+        '<list id="enum_values">'
+        '<record enum="80"><string id="name" value="Eligible For Nation" /></record>'
+        '<record enum="85"><string id="name" value="Born In Nation" /></record></list>',
+    ),
+)
+FAVOURITE_CLUBS = synthetic.list_items(
+    synthetic.field_definition("club", "Club", *synthetic.reference("club")),
+    synthetic.field_definition(
+        "rrea",
+        "Reason",
+        "enum",
+        '<list id="enum_values"><record enum="1"><string id="name" value="Supporter" /></record>'
+        "</list>",
+    ),
+    synthetic.field_definition("leve", "Level", "integer", synthetic.number_range(0, 100)),
+)
 PERSON = synthetic.definition_file(
     "pers",
+    synthetic.field_definition("PNRs", "Second Nations", "list", SECOND_NATIONS),
+    synthetic.field_definition("Pfvc", "Favourite Clubs", "list", FAVOURITE_CLUBS),
     synthetic.field_definition("Ptyp", "Person Type", "enum"),
     synthetic.field_definition("Pfna", "First Name", "string"),
     synthetic.field_definition("Psna", "Second Name", "string"),
@@ -92,6 +116,12 @@ PLAYER = synthetic.definition_file(
     synthetic.field_definition("PDfn", "Finishing", "attribute"),
     synthetic.field_definition("Zmod", "Mood", "enum", '<flags id="enum_values" value="mood" />'),
     synthetic.field_definition("PbvE", "Transfer Value", "cash"),
+    synthetic.field_definition(
+        "Pbnl",
+        "Bans",
+        "list",
+        synthetic.list_items(synthetic.field_definition("matc", "Matches", "integer")),
+    ),
 )
 NON_PLAYER = synthetic.definition_file(
     "nnpl",
