@@ -176,6 +176,13 @@ def test_cities_and_stadiums_can_be_found(editor, tmp_path):
     assert stadiums == [(9401, "Test Park", 9301)]
 
 
+def test_stadiums_say_where_they_are(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute("SELECT uid, name, city, nation_uid, nation FROM stadiums").fetchall()
+
+    assert rows == [(9401, "Test Park", "Testby", 9001, "Englandia")]
+
+
 def test_languages_can_be_found(editor, tmp_path):
     with open_database(editor, tmp_path / "cache.sqlite") as db:
         languages = db.execute("SELECT uid, name FROM language ORDER BY uid").fetchall()

@@ -221,6 +221,29 @@ def test_awards_are_edited_by_the_lookups_names(plan_for):
     ]
 
 
+def test_stadiums_are_edited_by_the_lookups_names_and_their_codes(plan_for):
+    plan = plan_for(edits=[by_hand(9401, of="stadiums", name="New Park", Scpy=30_000)])
+
+    assert edited(plan) == [(9401, "Snam", "Test Park", "New Park"), (9401, "Scpy", None, 30_000)]
+
+
+def test_a_stadium_is_changed_in_its_own_table(plan_for):
+    plan = plan_for(edits=[by_hand(9401, of="stadiums", city_uid=9302)])
+
+    (change,) = build_file(plan, approval_code(plan), TODAY).changes.changes
+
+    assert [(item.tag, item.value) for item in change[:3]] == [
+        ("dtty", b"\x15"),
+        ("duni", (9401).to_bytes(4, "little") * 2),
+        ("prty", "Scti"),
+    ]
+
+
+def test_a_stadium_cannot_be_made(plan_for):
+    with pytest.raises(FormatError, match="a new stadium cannot be made"):
+        plan_for(new=[{"kind": "stadium", "set": {"name": "Example Park"}}])
+
+
 def test_an_award_cannot_be_made(plan_for):
     with pytest.raises(FormatError, match="a new award cannot be made"):
         plan_for(new=[{"kind": "award", "set": {"name": "Example Award"}}])

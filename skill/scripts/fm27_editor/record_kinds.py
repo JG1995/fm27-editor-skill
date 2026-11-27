@@ -86,7 +86,14 @@ AWARDS = RecordGroup(
     details={"nation": "{}", "gender": "{}", "competition": "{}"},
     name_codes=("AWna",),
 )
-GROUPS = {group.view: group for group in (PEOPLE, CLUBS, COMPETITIONS, AWARDS)}
+STADIUMS = RecordGroup(
+    one="stadium",
+    view="stadiums",
+    table=Table.STADIUM,
+    details={"city": "{}", "nation": "{}"},
+    name_codes=("Snam",),
+)
+GROUPS = {group.view: group for group in (PEOPLE, CLUBS, COMPETITIONS, AWARDS, STADIUMS)}
 PERSON_NEEDS = {
     "Pfna": "First Name",
     "Psna": "Second Name",
@@ -201,7 +208,16 @@ AWARD = RecordKind(
     left_out=frozenset(COMPUTED_NAMES),
     can_be_new=False,
 )
-KINDS = {kind.name: kind for kind in (PLAYER, STAFF, CLUB, COMPETITION, AWARD)}
+STADIUM = RecordKind(
+    name="stadium",
+    group=STADIUMS,
+    defined_in=("stadium",),
+    codes={"name": "Snam", "city_uid": "Scti"},
+    needed={},
+    left_out=frozenset(COMPUTED_NAMES),
+    can_be_new=False,
+)
+KINDS = {kind.name: kind for kind in (PLAYER, STAFF, CLUB, COMPETITION, AWARD, STADIUM)}
 
 
 def kind_of(group: RecordGroup, facts: Mapping[str, object]) -> RecordKind:
