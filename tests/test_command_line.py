@@ -104,6 +104,15 @@ def test_a_list_is_listed_with_the_parts_of_its_items(run):
     ]
 
 
+def test_a_list_leaves_out_the_parts_that_its_items_keep(run):
+    _, lines, _ = run("fields", "player", "PElg")
+
+    assert lines == [
+        "PElg: Additional Languages, items of lang (Language, the uid of a language); "
+        "prof (Proficiency, 0 to 10)"
+    ]
+
+
 def test_a_list_that_cannot_be_written_yet_is_not_listed(run):
     assert run("fields", "player", "Pbnl")[1] == ["No field matches 'Pbnl'"]
 

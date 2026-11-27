@@ -104,8 +104,21 @@ FAVOURITE_PEOPLE = synthetic.list_items(
     ),
     synthetic.field_definition("perm", "Permanent", "boolean"),
 )
+ADDITIONAL_LANGUAGES = synthetic.list_items(
+    synthetic.field_definition("lang", "Language", *synthetic.reference("language")),
+    synthetic.field_definition("prof", "Proficiency", "integer", synthetic.number_range(0, 10)),
+    synthetic.field_definition(
+        "proe",
+        "Proficiency Description",
+        "enum",
+        '<list id="enum_values"><record enum="2"><string id="name" value="Fluent" /></record>'
+        '<record enum="3"><string id="name" value="Good" /></record></list>',
+    ),
+    synthetic.field_definition("csln", "Cannot Speak Language", "boolean"),
+)
 PERSON = synthetic.definition_file(
     "pers",
+    synthetic.field_definition("PElg", "Additional Languages", "list", ADDITIONAL_LANGUAGES),
     synthetic.field_definition("PNRs", "Second Nations", "list", SECOND_NATIONS),
     synthetic.field_definition("Pfvc", "Favourite Clubs", "list", FAVOURITE_CLUBS),
     synthetic.field_definition("Pdcn", "Days At Club/In Nation", "list", DAYS_AT_CLUB),

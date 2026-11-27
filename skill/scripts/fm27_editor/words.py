@@ -71,7 +71,7 @@ def _accepted_items(field: Field, shape: ListShape) -> str:
     parts = [
         part
         for part in field.items
-        if part.code in shape.parts and refusal(part, LIST_REFERENCE_TAGS) is None
+        if part.code in shape.given and refusal(part, LIST_REFERENCE_TAGS) is None
     ]
     return "items of " + "; ".join(f"{part.code} ({part.name}, {accepted(part)})" for part in parts)
 

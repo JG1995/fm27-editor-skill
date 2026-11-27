@@ -213,6 +213,13 @@ def test_an_item_with_a_part_that_the_list_does_not_have_is_refused():
         operations({"Zelse": 5})
 
 
+def test_a_part_that_the_list_keeps_as_an_added_item_has_it_cannot_be_given():
+    shape = ListShape(("Zyer", "Zheld"), kept=frozenset({"Zheld"}))
+
+    with pytest.raises(EditError, match="Zheld"):
+        operations({"Zyer": 1973, "Zheld": True}, parts=PARTS, shape=shape)
+
+
 @pytest.mark.parametrize(
     ("part", "value"),
     [

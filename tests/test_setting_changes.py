@@ -303,6 +303,12 @@ def test_no_items_clear_a_list(editor):
     assert tagged(change)["nwvl"].value[-1] == Property("lsop", Kind.INT8, b"\x03")
 
 
+def test_a_language_is_added_with_how_well_it_is_spoken(editor):
+    changes = edited(editor, {"PElg": [{"lang": 8, "prof": 5}]})
+
+    assert list_steps(changes) == [("PElg", "nwvl"), ("PElg", "lang"), ("PElg", "prof")]
+
+
 def test_a_new_person_is_given_items_after_being_added(editor):
     added, *fields = make(editor, PNRs=[{"nati": 9001}])
 
@@ -345,6 +351,8 @@ def test_a_team_in_a_list_can_be_a_club_or_a_national_team(editor, team):
         ({"PNRs": [{"nati": 4242}]}, "4242"),
         ({"PNRs": [{"ntin": 81}]}, "ntin"),
         ({"PNRs": [{"moon": 1}]}, "moon"),
+        ({"PElg": [{"lang": 8, "proe": 3}]}, "no proe, only lang, prof"),
+        ({"PElg": [{"lang": 4242}]}, "4242"),
         ({"PNRs": [{"nati": None}]}, "nati"),
         ({"PNRs": [{}]}, "an item"),
         ({"PNRs": [9001]}, "an item"),
