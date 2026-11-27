@@ -321,7 +321,7 @@ def write_database(folder: Path, people=None) -> Path:
         )
     )
     (database / "server_db.dat").write_bytes(synthetic.dat_container("server_db", server_tables()))
-    (database / "lang_db.dat").write_bytes(synthetic.dat_container("lang_db", language_tables()))
+    (database / "lang_db.dat").write_bytes(synthetic.dat_container("lang_db", name_tables()))
     return folder
 
 
@@ -359,7 +359,7 @@ def server_tables() -> list[tuple[str, bytes]]:
     ]
 
 
-def language_tables() -> list[tuple[str, bytes]]:
+def name_tables() -> list[tuple[str, bytes]]:
     return [
         ("8_9", synthetic.nation_names(NATIONS)),
         ("8_3", synthetic.club_names({uid: club[:2] for uid, club in CLUBS.items()})),

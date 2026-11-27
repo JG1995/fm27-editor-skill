@@ -5,14 +5,14 @@ from collections.abc import Iterator, Sequence
 
 from fm27_editor.awards import AwardPlace, AwardYear, parse_award_years, parse_awards
 from fm27_editor.dat_tables import read_records
-from fm27_editor.language_tables import NamedTable, read_names
+from fm27_editor.name_tables import NamedTable, read_names
 from fm27_editor.place_lookup import COMPETITIONS, NATIONS, Tables, insert_rows, uid_at
 
 AWARDS, HISTORY = "table_0", "table_12"
 AWARD_NAMES = "8_0"
 CLIENT_TABLES = {AWARDS, NATIONS, COMPETITIONS}
 SERVER_TABLES = {HISTORY}
-LANGUAGE_TABLES = {AWARD_NAMES}
+NAME_TABLES = {AWARD_NAMES}
 SCHEMA = """
 CREATE TABLE award(uid INTEGER PRIMARY KEY, name TEXT, short_name TEXT, gender TEXT,
     nation_uid INTEGER, competition_uid INTEGER, previous_winner INTEGER);
@@ -44,11 +44,11 @@ def insert_awards(
     cache: sqlite3.Connection,
     client: Tables,
     server: Tables,
-    language: Tables,
+    name_tables: Tables,
     people: Sequence[int],
 ) -> None:
     """Fill the tables; `people` are the IDs of everyone in the database, by index."""
-    names = read_names(NamedTable.AWARD, language[AWARD_NAMES])
+    names = read_names(NamedTable.AWARD, name_tables[AWARD_NAMES])
     nations = [record.uid for record in read_records(client[NATIONS])]
     competitions = [record.uid for record in read_records(client[COMPETITIONS])]
     awards = parse_awards(client[AWARDS])
