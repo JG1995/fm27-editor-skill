@@ -36,6 +36,7 @@ LOOKUP_TABLES = {
     "city": "city",
     "stadium": "stadium",
     "person": "person",
+    "language": "language",
 }
 NEW_MARK = "@"
 

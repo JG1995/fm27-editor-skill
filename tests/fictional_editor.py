@@ -117,6 +117,7 @@ PERSON = synthetic.definition_file(
     synthetic.field_definition("Pnti", "Nation", *synthetic.reference("nation")),
     synthetic.field_definition("Pcti", "Club", *synthetic.reference("team")),
     synthetic.field_definition("Pcbi", "City Of Birth", *synthetic.reference("city")),
+    synthetic.field_definition("dfln", "Default Language", *synthetic.reference("language")),
     synthetic.field_definition("Page", "Age", "integer", synthetic.number_range(0, 99)),
     synthetic.field_definition("Phes", "Height", "integer", synthetic.number_range(0, 210)),
     synthetic.field_definition("Pcwg", "Wage", "cash", synthetic.number_range(0, 3_500_000)),
