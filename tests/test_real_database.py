@@ -50,6 +50,8 @@ WORDS_OF_FOUR_LETTERS = {
     "keep",
     "team",
     "year",
+    "item",
+    "wage",
 }
 # Where the Editor words a name differently from the game's own screens.
 EDITOR_NAMES = {
