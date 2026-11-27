@@ -24,6 +24,10 @@ DATABASE_FOLDER = "database"
 SHARED_CHOICES = "db enums"
 ITEM_FIELDS = "record[@id='list_item']/list[@id='fields']/record"
 NOT_OFFERED = ("is_read_only", "is_ige_only", "debug_only")
+# Shared choices that the Editor fills in from its own program, and a list of the definitions that
+# names some of them by the same numbers: the jobs that club responsibilities can go to. The
+# definitions say that list uses these jobs, and the jobs real files give club staff fit it.
+FILLED_IN_BY_THE_EDITOR = {"mdbj": "ftjn", "mdjz": "ftjn"}
 
 
 @dataclass(frozen=True)
@@ -157,6 +161,9 @@ def _shared_choices(root: Element) -> dict[str, dict[int, str] | None]:
         listed = record.find("list[@id='enum_values']")
         if listed is not None:
             shared[record.get("id", "")] = _choices(listed)
+    for filled, named in FILLED_IN_BY_THE_EDITOR.items():
+        if filled not in shared and named in shared:
+            shared[filled] = shared[named]
     return shared
 
 

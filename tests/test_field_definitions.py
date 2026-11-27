@@ -210,6 +210,24 @@ def test_names_leave_out_a_code_that_has_two_of_them(tmp_path):
     assert read_field_names(folder, "person") == {"Zone": "Single"}
 
 
+def a_job(tmp_path, jobs):
+    enums = synthetic.enum_file("mdbj", "mdjz", "mdnj", ftjn={5: "Boss", 9: "Spotter"})
+    job = synthetic.field_definition(
+        "Zjob", "Job", "enum", f'<flags id="enum_values" value="{jobs}" />'
+    )
+    (field,) = read_fields(editor_folder(tmp_path, job, enums=enums), "person").values()
+    return field
+
+
+@pytest.mark.parametrize("jobs", ["mdbj", "mdjz"])
+def test_jobs_the_editor_fills_in_itself_are_those_it_names_for_responsibilities(tmp_path, jobs):
+    assert a_job(tmp_path, jobs).choices == {5: "Boss", 9: "Spotter"}
+
+
+def test_jobs_at_a_nation_have_no_choices(tmp_path):
+    assert a_job(tmp_path, "mdnj").choices is None
+
+
 def test_shared_choices_are_read_by_name(tmp_path):
     assert read_shared_choices(editor_folder(tmp_path), "mood") == {
         0: "Calm",
