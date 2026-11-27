@@ -30,6 +30,16 @@ from fm27_editor.name_tables import NamedTable, read_names
         ),
         (NamedTable.CITY, synthetic.city_names({9301: "Testby"}), {9301: ("Testby", None)}),
         (
+            NamedTable.CONTINENT,
+            synthetic.continent_names({3: "Europia"}),
+            {3: ("Europia", None)},
+        ),
+        (
+            NamedTable.INJURY,
+            synthetic.injury_names({6: "twisted ankle"}),
+            {6: ("twisted ankle", None)},
+        ),
+        (
             NamedTable.STADIUM,
             synthetic.stadium_names({9401: "Test Park"}),
             {9401: ("Test Park", None)},

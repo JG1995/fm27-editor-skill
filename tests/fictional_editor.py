@@ -14,6 +14,9 @@ PLAYER_KIND, STAFF_KIND = 2, 1
 NATIONS = {9001: "Englandia", 9002: "Norwegia"}
 LANGUAGES = {8: "Englandish", 22: "Norwegish"}
 CITIES = {9301: ("Testby", 0), 9302: ("Testham", 1)}
+CONTINENTS = {1: "Testica", 3: "Europia"}
+INJURIES = {1: "cold", 6: "twisted ankle"}
+WEATHER = {1: "Testish Coastal", 115052: "Testish Inland"}
 STADIUMS = {9401: ("Test Park", 0)}
 COMPETITIONS = {
     9201: ("Example League", "League", {"nation": 0, "level": 1}, False),
@@ -358,6 +361,9 @@ def client_tables() -> list[tuple[str, bytes]]:
         # that differs at one place. Records refer to nations by their place in table 9.
         "table_10": [(uid, b"other") for uid in reversed(NATIONS)],
         "table_8": [(uid, synthetic.language_record(name)) for uid, name in LANGUAGES.items()],
+        "table_27": [(uid, synthetic.weather_record(name)) for uid, name in WEATHER.items()],
+        "table_5": [(uid, b"continent") for uid in CONTINENTS],
+        "table_6": [(uid, b"\x00\x0c\x30\x00") for uid in INJURIES],
         "table_2": [(uid, synthetic.city_record(nation)) for uid, (_, nation) in CITIES.items()],
         "table_21": [(uid, synthetic.stadium_record(city)) for uid, (_, city) in STADIUMS.items()],
         "table_25": [
@@ -396,4 +402,6 @@ def name_tables() -> list[tuple[str, bytes]]:
         ("8_0", synthetic.award_names({uid: award[:2] for uid, award in AWARDS.items()})),
         ("8_2", synthetic.city_names({uid: name for uid, (name, _) in CITIES.items()})),
         ("8_21", synthetic.stadium_names({uid: name for uid, (name, _) in STADIUMS.items()})),
+        ("8_5", synthetic.continent_names(CONTINENTS)),
+        ("8_6", synthetic.injury_names(INJURIES)),
     ]

@@ -287,6 +287,11 @@ def language_record(name: str, *, tail: int = 17) -> bytes:
     return b"\x00" + text(name) + bytes(range(1, tail + 1))
 
 
+def weather_record(name: str, *, tail: int = 95) -> bytes:
+    """A weather holds its own name; its chances of rain, wind, and heat in each season follow."""
+    return b"\x00" + text(name) + bytes(range(tail))
+
+
 def name_table(rows: list[bytes]) -> bytes:
     return b"\x03\x01tad.\xa9\x0e" + struct.pack("<I", len(rows)) + b"".join(rows)
 
@@ -329,6 +334,28 @@ def award_names(awards: dict[int, tuple[str, str]]) -> bytes:
             for uid, (name, short_name) in awards.items()
         ]
     )  # fmt: skip
+
+
+def continent_names(continents: dict[int, str]) -> bytes:
+    """Name, three-letter name, the word for its people, and its federation's names."""
+    return name_table(
+        [
+            struct.pack("<I", uid) + text(name) + b"\xff" + text(name[:3].upper())
+            + text(f"{name}n") + text(f"Federation of {name}") + b"\xff" + text(f"{name[0]}F")
+            + b"\xff\x00"
+            for uid, name in continents.items()
+        ]
+    )  # fmt: skip
+
+
+def injury_names(injuries: dict[int, str]) -> bytes:
+    """Name, and the name as a sentence says it."""
+    return name_table(
+        [
+            struct.pack("<I", uid) + text(name) + b"\xff" + text(f"a {name}") + b"\xff\x00"
+            for uid, name in injuries.items()
+        ]
+    )
 
 
 def city_names(cities: dict[int, str]) -> bytes:
