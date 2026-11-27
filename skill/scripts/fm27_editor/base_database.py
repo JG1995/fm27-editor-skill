@@ -3,17 +3,16 @@
 import hashlib
 import os
 import sqlite3
-from collections.abc import Iterable
 from contextlib import closing
 from pathlib import Path
 
-from fm27_editor import award_lookup, name_lookup, place_lookup
+from fm27_editor import award_lookup, name_lookup, people_lookup, place_lookup
 from fm27_editor.award_lookup import insert_awards
 from fm27_editor.binary import FormatError
-from fm27_editor.dat_tables import read_stream, read_string_table, read_tables
+from fm27_editor.dat_tables import read_stream, read_tables
 from fm27_editor.name_lookup import insert_names
-from fm27_editor.people import Names, Person, iter_people, parse_basic_people
-from fm27_editor.person_fields import FIELD_NAMES
+from fm27_editor.people import parse_basic_people
+from fm27_editor.people_lookup import insert_people
 from fm27_editor.place_lookup import insert_places
 
 DATABASE_PATTERN = "shared/data/database/db/*/*_fm"
@@ -24,8 +23,12 @@ SOURCE_FILES = [
     "server_db.dat",
     "lang_db.dat",
 ]
-BATCH = 5_000
-CLIENT_TABLES = place_lookup.CLIENT_TABLES | award_lookup.CLIENT_TABLES | name_lookup.CLIENT_TABLES
+CLIENT_TABLES = (
+    place_lookup.CLIENT_TABLES
+    | award_lookup.CLIENT_TABLES
+    | name_lookup.CLIENT_TABLES
+    | people_lookup.CLIENT_TABLES
+)
 SERVER_TABLES = place_lookup.SERVER_TABLES | award_lookup.SERVER_TABLES
 NAME_TABLES = place_lookup.NAME_TABLES | award_lookup.NAME_TABLES | name_lookup.NAME_TABLES
 
@@ -104,11 +107,9 @@ def _build(source: Path, cache_path: Path, fingerprint: str) -> None:
 
 def _fill(path: Path, source: Path, fingerprint: str) -> None:
     basic = parse_basic_people(read_stream(source / "basic_people_db.dat"))
-    person_names = [f"name_table_extra_{i}" for i in range(3)]
-    client = read_tables(source / "client_db.dat", {*person_names, *CLIENT_TABLES})
+    client = read_tables(source / "client_db.dat", CLIENT_TABLES)
     server = read_tables(source / "server_db.dat", SERVER_TABLES)
     name_tables = read_tables(source / "lang_db.dat", NAME_TABLES)
-    names = Names(*(read_string_table(client[name]) for name in person_names))
     content = read_stream(source / "people_db.dat")
     with closing(sqlite3.connect(path)) as cache, cache:
         _create_tables(cache)
@@ -116,51 +117,13 @@ def _fill(path: Path, source: Path, fingerprint: str) -> None:
         insert_places(cache, client, server, name_tables)
         insert_awards(cache, client, server, name_tables, [person.uid for person in basic])
         insert_names(cache, client, name_tables)
-        _insert_people(cache, iter_people(basic, content, names))
-        cache.executescript(
-            "CREATE INDEX person_nation ON person(nation_uid);"
-            "CREATE INDEX person_club ON person(club_uid);"
-            "CREATE INDEX person_birth ON person(birth_date);"
-            "CREATE INDEX person_name ON person(name);"
-        )
+        insert_people(cache, client, basic, content)
 
 
 def _create_tables(cache: sqlite3.Connection) -> None:
-    columns = ", ".join(f"{name} INTEGER" for name in FIELD_NAMES)
     cache.executescript(
-        f"CREATE TABLE meta(fingerprint TEXT);{place_lookup.SCHEMA}{award_lookup.SCHEMA}"
-        f"{name_lookup.SCHEMA}"
-        "CREATE TABLE person(uid INTEGER PRIMARY KEY, kind TEXT, name TEXT, full_name TEXT,"
-        " birth_date TEXT, nation_uid INTEGER, club_uid INTEGER, ca INTEGER, pa INTEGER,"
-        f" {columns});"
-        "CREATE VIEW people AS SELECT person.*, nation.name AS nation, club.name AS club,"
-        " club.gender AS club_gender, club.division_uid, competition.name AS division"
-        " FROM person LEFT JOIN nation ON nation.uid = person.nation_uid"
-        " LEFT JOIN club ON club.uid = person.club_uid"
-        " LEFT JOIN competition ON competition.uid = club.division_uid;"
-    )
-
-
-def _insert_people(cache: sqlite3.Connection, people: Iterable[Person]) -> None:
-    placeholders = ", ".join("?" * (9 + len(FIELD_NAMES)))
-    statement = f"INSERT INTO person VALUES ({placeholders})"
-    batch = []
-    for person in people:
-        batch.append(
-            (
-                person.uid,
-                person.kind.name.lower(),
-                person.name,
-                person.full_name,
-                person.birth_date.isoformat(),
-                person.nation_uid,
-                person.club_uid,
-                person.ca,
-                person.pa,
-                *(person.fields.get(name) for name in FIELD_NAMES),
-            )
+        "CREATE TABLE meta(fingerprint TEXT);"
+        + "".join(
+            module.SCHEMA for module in (place_lookup, award_lookup, name_lookup, people_lookup)
         )
-        if len(batch) == BATCH:
-            cache.executemany(statement, batch)
-            batch.clear()
-    cache.executemany(statement, batch)
+    )

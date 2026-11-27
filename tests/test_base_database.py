@@ -73,7 +73,7 @@ def test_an_interrupted_build_leaves_no_usable_cache(editor, tmp_path, monkeypat
     def explode(*_):
         raise RuntimeError("stopped")
 
-    monkeypatch.setattr(base_database, "iter_people", explode)
+    monkeypatch.setattr(base_database, "insert_people", explode)
     with pytest.raises(RuntimeError):
         open_database(editor, cache)
 
