@@ -189,3 +189,14 @@ def test_the_installed_editor_database_reads_as_plausible_clubs(tmp_path):
     assert (mixed, unlike_their_division, extinct_in_a_division, unlikely) == (0, 0, 0, 0)
     assert competitions[0] > 8_000
     assert competitions[0] == competitions[1]
+
+
+@needs_editor
+def test_the_installed_editor_database_reads_as_plausible_languages(tmp_path):
+    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
+        languages, named, different = db.execute(
+            "SELECT count(*), count(name), count(DISTINCT name) FROM language"
+        ).fetchone()
+
+    assert languages > 100
+    assert languages == named == different

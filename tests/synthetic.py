@@ -282,6 +282,11 @@ def stadium_record(city: int = NO_INDEX) -> bytes:
     return b"\x00\x02\x00\x00" + struct.pack("<I", city) + bytes(range(1, 19))
 
 
+def language_record(name: str, *, tail: int = 17) -> bytes:
+    """A language holds its own name; its family, group, and difficulty follow."""
+    return b"\x00" + text(name) + bytes(range(1, tail + 1))
+
+
 def name_table(rows: list[bytes]) -> bytes:
     return b"\x03\x01tad.\xa9\x0e" + struct.pack("<I", len(rows)) + b"".join(rows)
 
