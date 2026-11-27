@@ -253,11 +253,12 @@ def test_a_person_goes_by_the_name_that_most_awards_use(tmp_path, monkeypatch):
 
 
 def test_a_person_known_only_from_awards_can_be_named(tmp_path, monkeypatch):
+    """A retired person whose record holds more than a name is not in the lookup."""
     people = [
         *fictional_editor.PEOPLE,
-        (2, 102, "Omar Official", 1970, 0, (41, 9001), (0, 9102), 4),
+        (2, 102, "Omar Oldtimer", 1970, 0, (41, 9001), (0, 9102), 5),
     ]
-    known = (9607, synthetic.award_year_record(0, 2022, (2, "O. Official", 9101, 1, 0, 0, 0, 0)))
+    known = (9607, synthetic.award_year_record(0, 2022, (2, "O. Oldtimer", 9101, 1, 0, 0, 0, 0)))
     monkeypatch.setattr(fictional_editor, "AWARD_YEARS", [*fictional_editor.AWARD_YEARS, known])
     editor = write_editor(tmp_path / "more", people)
     with closing(open_database(editor, tmp_path / "more.sqlite")) as lookup:
@@ -265,7 +266,7 @@ def test_a_person_known_only_from_awards_can_be_named(tmp_path, monkeypatch):
         assert lookup.execute("SELECT count(*) FROM person WHERE uid = 102").fetchone() == (0,)
         (history,) = check_award_history([year(2025, {"person_uid": 102})], fields, lookup)
 
-    assert history.changed[0][1].places[1].name == "O. Official"
+    assert history.changed[0][1].places[1].name == "O. Oldtimer"
 
 
 def test_a_history_is_stored_with_every_year_and_every_part(check):

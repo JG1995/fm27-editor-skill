@@ -1,14 +1,16 @@
 """Reading people from the Editor's base database.
 
 A person's facts are split over two files. basic_people_db lists every person with nation, club, and
-ability in records of a few fixed sizes. people_db holds the rest in records of varying size, in no
-order, each ended by the person's index and unique ID, so it is found by those.
+ability in records of a few fixed sizes; an official's short record has only the nation, and a
+retired person's nothing. people_db holds the rest in records of varying size, in no order, each
+ended by the person's index and unique ID, so it is found by those. A retired person's record holds
+only a name.
 """
 
 import datetime
 import struct
 from collections.abc import Iterator
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import IntEnum
 
 import numpy as np
@@ -26,6 +28,8 @@ NO_ID = 0xFFFFFFFF
 NATION_MARK = b"\x03\x01"
 SEARCH_CHUNK = 16_000_000
 LOWEST_VALUE, HIGHEST_VALUE = 1, 20
+# A retired person's record: the index and kind, four zero bytes, the name, and eight zero bytes.
+RETIRED_GAP, RETIRED_TAIL = bytes(4), bytes(8)
 
 
 class PeopleError(FormatError):
@@ -51,7 +55,7 @@ RECORD_SIZES = {
 
 @dataclass(slots=True, frozen=True)
 class BasicPerson:
-    """One person in basic_people_db. The short kinds carry no nation, club, or ability."""
+    """One person in basic_people_db. The short kinds carry no club or ability."""
 
     index: int
     uid: int
@@ -74,12 +78,12 @@ class Person:
     kind: PersonKind
     name: str
     full_name: str
-    birth_date: datetime.date
-    nation_uid: int
-    club_uid: int | None
-    ca: int | None
-    pa: int | None
-    fields: dict[str, int]
+    birth_date: datetime.date | None = None
+    nation_uid: int | None = None
+    club_uid: int | None = None
+    ca: int | None = None
+    pa: int | None = None
+    fields: dict[str, int] = field(default_factory=dict)
 
 
 def parse_basic_people(content: bytes) -> list[BasicPerson]:
@@ -95,7 +99,8 @@ def parse_basic_people(content: bytes) -> list[BasicPerson]:
 
 
 def iter_people(basic: list[BasicPerson], content: bytes, names: Names) -> Iterator[Person]:
-    """Every person whose record holds a name and birth date that check out; others are skipped."""
+    """Every person whose record follows a known layout, with a name (and, but for retired people,
+    a birth date) that checks out; others are skipped."""
     seen = set()
     start = PEOPLE_HEADER_SIZE
     for end in _record_ends(content, basic):
@@ -134,6 +139,9 @@ def _read_basic(content: bytes, position: int, index: int) -> tuple[BasicPerson,
             "ca": ca or None,
             "pa": pa or None,
         }
+    elif kind is PersonKind.OFFICIAL:
+        nation_index, nation_uid = struct.unpack_from("<II", record, 2)
+        details = {"nation_index": nation_index, "nation_uid": nation_uid}
     return BasicPerson(index, uid, kind, **details), position + len(record)
 
 
@@ -152,6 +160,8 @@ def _record_ends(content: bytes, basic: list[BasicPerson]) -> list[int]:
 
 
 def _read_person(record: bytes, basic: BasicPerson, names: Names) -> Person | None:
+    if basic.kind is PersonKind.RETIRED:
+        return _read_retired(record, basic)
     if basic.nation_uid is None:
         return None
     marker = NATION_MARK + struct.pack("<II", basic.nation_index, basic.nation_uid)
@@ -173,6 +183,18 @@ def _read_person(record: bytes, basic: BasicPerson, names: Names) -> Person | No
             )
         at = record.find(marker, at + 1)
     return None
+
+
+def _read_retired(record: bytes, basic: BasicPerson) -> Person | None:
+    head = struct.pack("<IB", basic.index, basic.kind) + RETIRED_GAP
+    if not record.startswith(head) or not record.endswith(RETIRED_TAIL):
+        return None
+    reader = Reader(record[len(head) : -len(RETIRED_TAIL)], PeopleError)
+    try:
+        name = reader.text()
+    except PeopleError:
+        return None
+    return Person(basic.uid, basic.kind, name, name) if reader.at_end else None
 
 
 def _has_player_layout(record: bytes, basic: BasicPerson) -> bool:

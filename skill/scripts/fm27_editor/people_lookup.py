@@ -53,7 +53,7 @@ def _insert(cache: sqlite3.Connection, people: Iterable[Person]) -> None:
                 person.kind.name.lower(),
                 person.name,
                 person.full_name,
-                person.birth_date.isoformat(),
+                person.birth_date and person.birth_date.isoformat(),
                 person.nation_uid,
                 person.club_uid,
                 person.ca,
