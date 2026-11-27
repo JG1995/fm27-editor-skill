@@ -15,7 +15,9 @@ from fm27_editor.places import (
     parse_teams,
 )
 
-NATIONS, CITIES, STADIUMS = "table_10", "table_2", "table_21"
+# Nations are table 9, not table 10: the names of lang_db, people, and real changes to nations go by
+# its uids, and records refer to a nation by its place there.
+NATIONS, CITIES, STADIUMS = "table_9", "table_2", "table_21"
 COMPETITIONS, CLUBS, TEAMS = "table_25", "table_3", "table_24"
 CLIENT_TABLES = {NATIONS, CITIES, STADIUMS, COMPETITIONS, CLUBS}
 SERVER_TABLES = {COMPETITIONS, TEAMS}
