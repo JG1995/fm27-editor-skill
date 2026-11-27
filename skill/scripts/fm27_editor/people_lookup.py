@@ -13,7 +13,6 @@ from fm27_editor.playing_history import Season, parse_playing_histories
 # First names, second names, and common names, by number.
 NAME_TABLES = [f"name_table_extra_{number}" for number in range(3)]
 CLIENT_TABLES = set(NAME_TABLES)
-BATCH = 5_000
 _FIELD_COLUMNS = ", ".join(f"{name} INTEGER" for name in FIELD_NAMES)
 SCHEMA = f"""
 CREATE TABLE person(uid INTEGER PRIMARY KEY, kind TEXT, name TEXT, full_name TEXT,
@@ -78,26 +77,21 @@ def insert_playing_histories(
 
 def _insert(cache: sqlite3.Connection, people: Iterable[Person]) -> None:
     placeholders = ", ".join("?" * (11 + len(FIELD_NAMES)))
-    statement = f"INSERT INTO person VALUES ({placeholders})"
-    batch = []
-    for person in people:
-        batch.append(
-            (
-                person.uid,
-                person.kind.name.lower(),
-                person.name,
-                person.full_name,
-                person.birth_date and person.birth_date.isoformat(),
-                person.nation_uid,
-                person.club_uid,
-                person.ca,
-                person.pa,
-                person.wage,
-                person.contract_expires and person.contract_expires.isoformat(),
-                *(person.fields.get(name) for name in FIELD_NAMES),
-            )
-        )
-        if len(batch) == BATCH:
-            cache.executemany(statement, batch)
-            batch.clear()
-    cache.executemany(statement, batch)
+    cache.executemany(f"INSERT INTO person VALUES ({placeholders})", map(_row, people))
+
+
+def _row(person: Person) -> tuple:
+    return (
+        person.uid,
+        person.kind.name.lower(),
+        person.name,
+        person.full_name,
+        person.birth_date and person.birth_date.isoformat(),
+        person.nation_uid,
+        person.club_uid,
+        person.ca,
+        person.pa,
+        person.wage,
+        person.contract_expires and person.contract_expires.isoformat(),
+        *(person.fields.get(name) for name in FIELD_NAMES),
+    )
