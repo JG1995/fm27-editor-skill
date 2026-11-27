@@ -110,6 +110,14 @@ def test_money_is_shown_in_pounds(lines_for):
     assert lines[-2].endswith("Wage unknown -> £19,943")
 
 
+def test_real_numbers_are_shown_with_their_range(lines_for):
+    lines = lines_for(edits=[{"of": "clubs", "uid": 9101, "set": {"Cffy": 12.5}}])
+
+    assert "  Five Year Total (Cffy): 1 club, 1 from an unknown value, new values 12.5 to 12.5" in (
+        lines
+    )
+
+
 def test_items_added_to_a_list_are_shown_with_their_parts(lines_for):
     items = [{"nati": 9002, "ntin": 85}, {"nati": 9001}]
 

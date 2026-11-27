@@ -186,6 +186,7 @@ CLUB = synthetic.definition_file(
     synthetic.field_definition("PLgn", "Player Gender", *GENDERS),
     synthetic.field_definition("Snam", "Stadium Name", "string"),
     synthetic.field_definition("CHAa", "Highest", "integer", synthetic.number_range(0, 100)),
+    synthetic.field_definition("Cffy", "Five Year Total", "real", synthetic.number_range(0, 200)),
 )
 COMPETITION = synthetic.definition_file(
     "comp",
@@ -253,6 +254,7 @@ STADIUM = synthetic.definition_file(
     synthetic.field_definition("Scti", "City", *synthetic.reference("city")),
     synthetic.field_definition("Scpy", "Capacity", "integer", synthetic.number_range(0, 200000)),
     synthetic.field_definition("Secy", "Seating Capacity", "integer"),
+    synthetic.field_definition("Slat", "Latitude", "real"),
 )
 NATION = synthetic.definition_file(
     "nati",

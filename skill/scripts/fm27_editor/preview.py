@@ -8,7 +8,7 @@ from fm27_editor.list_changes import LIST
 from fm27_editor.plan import Plan, approval_code
 from fm27_editor.planned import Addition, Edit, KnownRecord
 from fm27_editor.potential import is_range
-from fm27_editor.record_changes import MONEY
+from fm27_editor.record_changes import MONEY, REAL
 from fm27_editor.record_kinds import GROUPS, RecordGroup
 from fm27_editor.record_rules import NewReference, Setting
 from fm27_editor.rule_words import rule_lines
@@ -70,7 +70,7 @@ def _by_field(edits: Iterable[Edit]) -> list[list[Edit]]:
 def _field_line(group: RecordGroup, edits: list[Edit]) -> str:
     field = edits[0].setting.field
     parts = [counted(len(edits), group.one, group.view)]
-    if field.type in ("integer", "attribute", MONEY):
+    if field.type in ("integer", "attribute", MONEY, REAL):
         parts += _direction(edits)
         numbers = [edit.setting.value for edit in edits if not _has_range(edit)]
         if numbers:

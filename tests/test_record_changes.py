@@ -122,6 +122,17 @@ def test_money_without_a_range_is_taken_up_to_the_highest_sum_of_any_money_field
     assert new_value(a_field("cash"), 50_000_000).value == bytes.fromhex("80f0fa02")
 
 
+@pytest.mark.parametrize(
+    ("value", "raw"),
+    [(1.5, "0000c03f"), (0.15, "9a99193e"), (0.0005, "6f12033a"), (3, "00004040")],
+)
+def test_a_real_number_is_stored_in_four_bytes(value, raw):
+    """As a real file stores how often injuries happen."""
+    field = a_field("real", lowest=0)
+
+    assert new_value(field, value) == Property("nwvl", Kind.REAL, bytes.fromhex(raw))
+
+
 def test_yes_or_no_is_stored_as_one_byte():
     assert new_value(a_field("boolean"), True) == Property("nwvl", Kind.BOOL, b"\x01")
     assert new_value(a_field("boolean"), False) == Property("nwvl", Kind.BOOL, b"\x00")
@@ -214,6 +225,13 @@ def test_a_colour_is_stored_blue_first():
         (a_field("cash", lowest=0, highest=10), 1.5),
         (a_field("cash"), 1_000_000_001),
         (a_field("cash"), -1),
+        (a_field("real", lowest=0), -0.5),
+        (a_field("real", lowest=0, highest=50), 50.5),
+        (a_field("real"), "1.5"),
+        (a_field("real"), True),
+        (a_field("real"), float("nan")),
+        (a_field("real"), float("inf")),
+        (a_field("real"), 1e39),
         (a_number(is_editable=False), 5),
     ],
 )
