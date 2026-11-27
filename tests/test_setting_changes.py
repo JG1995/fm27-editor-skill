@@ -337,6 +337,7 @@ def test_a_team_in_a_list_can_be_a_club_or_a_national_team(editor, team):
         ({"PNRs": [9001]}, "an item"),
         ({"PNRs": 9001}, "list"),
         ({"PNRs": "[{"}, "list"),
+        ({"PNRs": '[{"nati": 9001, "nati": 9002}]'}, "Second Nations .*nati is given twice"),
         ({"Pfvc": [{"club": 4242}]}, "4242"),
         ({"Pfvc": [{"leve": 101}]}, "leve"),
         ({"Pbnl": []}, "Pbnl"),
