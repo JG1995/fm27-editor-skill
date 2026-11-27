@@ -474,11 +474,24 @@ def person_record(
     personality: bytes = b"\x0a\x0b\x0c\x0d\x0e\x0f\x10\x11",
     decoy: bool = False,
     kind: int = 2,
+    staff_items: int = 0,
+    staff_attributes: dict[int, int] | None = None,
 ) -> bytes:
-    """A person: fixed fields from the start, then name, birth date, nation, personality, ids."""
-    record = bytearray(b"\x00" * 110)
+    """A person: fixed fields from the start, then name, birth date, nation, personality, ids.
+
+    A staff record has a list of seven-byte items after its kind, and staff attributes count from
+    the end of that list.
+    """
+    staff_at = 7 + 7 * staff_items
+    record = bytearray(b"\x00" * max(110, staff_at + 80))
     struct.pack_into("<I", record, 0, index)
     record[4] = kind
+    if kind == 1:
+        struct.pack_into("<H", record, 5, staff_items)
+        for item in range(staff_items):
+            record[7 + 7 * item : 14 + 7 * item] = b"\x01\x05\x10\x00\x05\x20\x00"
+    for offset, value in (staff_attributes or {}).items():
+        record[staff_at + offset] = value
     for offset, value in (attributes or {}).items():
         record[offset] = value
     record += b"\x03\x01" + struct.pack("<II", *nation) if decoy else b""
