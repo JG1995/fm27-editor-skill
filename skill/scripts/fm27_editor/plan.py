@@ -17,6 +17,7 @@ from fm27_editor.award_history import history_change
 from fm27_editor.change_list import ChangeList
 from fm27_editor.editor_file import EditorFile, load_editor_file
 from fm27_editor.history_plan import history_warnings, plan_histories
+from fm27_editor.list_changes import LIST
 from fm27_editor.nation_rules import NationRules
 from fm27_editor.new_file import new_editor_file
 from fm27_editor.planned import (
@@ -152,8 +153,8 @@ def _add_changes(file: ChangeList, plan: Plan) -> None:
 
 
 def _written(setting: Setting) -> str:
-    if isinstance(setting.value, NewReference):
-        return f"{setting.field.code} {setting.value}"
+    if isinstance(setting.value, NewReference) or setting.field.type == LIST:
+        return f"{setting.field.code} {setting.value!r}"
     return f"{setting.field.code} {stored_value(setting.field, setting.value)!r}"
 
 

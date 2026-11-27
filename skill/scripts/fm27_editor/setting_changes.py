@@ -3,6 +3,7 @@
 from collections.abc import Mapping
 
 from fm27_editor.change_reading import Change, existing_record
+from fm27_editor.list_changes import LIST, item_changes
 from fm27_editor.record_changes import FieldValue, NewIds, add_record, field_change
 from fm27_editor.record_kinds import RecordKind
 from fm27_editor.record_rules import NewReference, Setting
@@ -27,10 +28,18 @@ def edit_record(
 def _set_fields(
     kind: RecordKind, record: bytes, settings: list[Setting], new: NewRecords, ids: NewIds
 ) -> list[Change]:
-    return [
-        field_change(kind.group.table, record, setting.field, resolved(setting.value, new), ids)
-        for setting in settings
-    ]
+    changes = []
+    for setting in settings:
+        field, table = setting.field, kind.group.table
+        if field.type == LIST:
+            items = [
+                {code: resolved(value, new) for code, value in item.items()}
+                for item in setting.value
+            ]
+            changes += item_changes(table, record, field, kind.lists[field.code], items, ids)
+        else:
+            changes.append(field_change(table, record, field, resolved(setting.value, new), ids))
+    return changes
 
 
 def resolved(value: FieldValue | NewReference, new: NewRecords) -> FieldValue:

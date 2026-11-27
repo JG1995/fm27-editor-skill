@@ -5,15 +5,17 @@ import sqlite3
 
 from fm27_editor.base_database import record_name
 from fm27_editor.field_definitions import Field
+from fm27_editor.list_changes import LIST, LIST_REFERENCE_TAGS, ListShape
 from fm27_editor.record_changes import (
     HIGHEST_ATTRIBUTE,
     LOWEST_ATTRIBUTE,
     MONEY,
     REFERENCE,
     money_range,
+    refusal,
 )
 from fm27_editor.record_kinds import RecordKind
-from fm27_editor.record_rules import LOOKUP_TABLES, NewReference, RecordRules
+from fm27_editor.record_rules import LOOKUP_TABLES, Items, NewReference, RecordRules
 
 
 def counted(number: int, one: str, many: str) -> str:
@@ -54,12 +56,29 @@ def field_lines(kind: RecordKind, rules: RecordRules) -> list[str]:
         name = kind.names.get(field.code)
         called = field.code if name is None else f"{name} ({field.code})"
         words = kind.words.get(field.code)
-        given = accepted(field) if words is None else f"one of {', '.join(words)}"
+        if field.type == LIST:
+            given = _accepted_items(field, kind.lists[field.code])
+        elif words is None:
+            given = accepted(field)
+        else:
+            given = f"one of {', '.join(words)}"
         lines.append(f"{called}: {field.name}, {given}")
     return lines
 
 
+def _accepted_items(field: Field, shape: ListShape) -> str:
+    """What the items of a list can be given: the parts that can be written, in definition order."""
+    parts = [
+        part
+        for part in field.items
+        if part.code in shape.parts and refusal(part, LIST_REFERENCE_TAGS) is None
+    ]
+    return "items of " + "; ".join(f"{part.code} ({part.name}, {accepted(part)})" for part in parts)
+
+
 def shown(field: Field, value: object, lookup: sqlite3.Connection) -> str:
+    if field.type == LIST:
+        return _shown_items(field, value, lookup)
     if isinstance(value, datetime.date):
         return value.isoformat()
     if field.points_to is not None:
@@ -72,6 +91,21 @@ def shown(field: Field, value: object, lookup: sqlite3.Connection) -> str:
 def amount(field: Field, value: object) -> str:
     """A number as its field means it: money is in pounds."""
     return f"£{value:,}" if field.type == MONEY else str(value)
+
+
+def _shown_items(field: Field, items: Items, lookup: sqlite3.Connection) -> str:
+    """Items that are added, each after a plus; no items clear the list."""
+    if not items:
+        return "cleared"
+    parts = {part.code: part for part in field.items}
+    return " ".join(
+        "+ "
+        + ", ".join(
+            f"{parts[code].name} {shown(parts[code], value, lookup)}"
+            for code, value in item.items()
+        )
+        for item in items
+    )
 
 
 def named(lookup: sqlite3.Connection, table: str | None, uid: int) -> str:

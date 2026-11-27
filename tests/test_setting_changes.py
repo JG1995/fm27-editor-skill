@@ -251,3 +251,77 @@ def test_a_reference_must_be_to_a_record_of_the_right_kind(editor, values, compl
 def test_what_is_not_a_fact_of_the_club_itself_cannot_be_set(editor, code):
     with pytest.raises(EditError, match=code):
         create(editor, CLUB, CLUB_BASICS | {code: 1})
+
+
+def edited(editor, values, uid=776):
+    with lookup() as database:
+        settings = RecordRules(editor, database).settings(PLAYER, values)
+    return edit_record(PLAYER, uid, settings, {}, NewIds(ChangeList(), random.Random(1)))
+
+
+def list_steps(changes):
+    """What each change does to a list: the part it sets, or nwvl to add or clear."""
+    return [
+        (tagged(change)["prty"].value, tagged(change)["nwvl"].value[0].value) for change in changes
+    ]
+
+
+@pytest.mark.parametrize(
+    "items", [[{"nati": 9001, "ntin": 85}], '[{"nati": 9001, "ntin": 85}]'], ids=["list", "text"]
+)
+def test_items_of_a_list_are_given_by_the_codes_of_their_parts(editor, items):
+    with lookup() as database:
+        (setting,) = RecordRules(editor, database).settings(PLAYER, {"PNRs": items})
+
+    assert setting.value == ({"nati": 9001, "ntin": 85},)
+
+
+def test_items_are_added_to_what_a_person_has_one_part_at_a_time(editor):
+    changes = edited(editor, {"PNRs": [{"nati": 9001, "ntin": 85}]})
+
+    assert {tagged(change)["duni"].value for change in changes} == {b"\x08\x03\x00\x00" * 2}
+    assert list_steps(changes) == [("PNRs", "nwvl"), ("PNRs", "ntin"), ("PNRs", "nati")]
+
+
+def test_no_items_clear_a_list(editor):
+    (change,) = edited(editor, {"PNRs": []})
+
+    assert tagged(change)["nwvl"].value[-1] == Property("lsop", Kind.INT8, b"\x03")
+
+
+def test_a_new_person_is_given_items_after_being_added(editor):
+    added, *fields = make(editor, PNRs=[{"nati": 9001}])
+
+    assert tagged(added)["prty"].value == "ADDR"
+    assert list_steps(fields[-2:]) == [("PNRs", "nwvl"), ("PNRs", "nati")]
+
+
+def test_an_item_can_refer_to_a_club_that_is_new_as_well(editor):
+    values = BASICS | {"Pfvc": [{"club": "@Rovers", "rrea": 1}]}
+
+    *_, club_set = create(editor, PLAYER, values, {"Rovers": CLUB})
+
+    record = NewIds(ChangeList(), random.Random(1)).record()
+    reference = tagged(club_set)["nwvl"].value[1].value[1]
+    assert (reference.tag, reference.value) == ("Cclu", record)
+
+
+@pytest.mark.parametrize(
+    ("values", "complaint"),
+    [
+        ({"PNRs": [{"nati": 4242}]}, "4242"),
+        ({"PNRs": [{"ntin": 81}]}, "ntin"),
+        ({"PNRs": [{"moon": 1}]}, "moon"),
+        ({"PNRs": [{"nati": None}]}, "nati"),
+        ({"PNRs": [{}]}, "an item"),
+        ({"PNRs": [9001]}, "an item"),
+        ({"PNRs": 9001}, "list"),
+        ({"PNRs": "[{"}, "list"),
+        ({"Pfvc": [{"club": 4242}]}, "4242"),
+        ({"Pfvc": [{"leve": 101}]}, "leve"),
+        ({"Pbnl": []}, "Pbnl"),
+    ],
+)
+def test_items_the_editor_would_not_accept_are_refused(editor, values, complaint):
+    with pytest.raises(EditError, match=complaint):
+        edited(editor, values)
