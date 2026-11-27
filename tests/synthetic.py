@@ -368,6 +368,23 @@ def injury_names(injuries: dict[int, str]) -> bytes:
     )
 
 
+def media_source_names(sources: dict[int, str]) -> bytes:
+    return name_table(
+        [struct.pack("<I", uid) + text(name) + b"\xff" for uid, name in sources.items()]
+    )
+
+
+def stage_names(stages: dict[int, str]) -> bytes:
+    """Name, short name, and the name of more than one."""
+    return name_table(
+        [
+            struct.pack("<I", uid) + text(name) + b"\xff" + text(name[:4]) + b"\xff"
+            + text(f"{name}s") + b"\xff\x00"
+            for uid, name in stages.items()
+        ]
+    )  # fmt: skip
+
+
 def city_names(cities: dict[int, str]) -> bytes:
     return name_table(
         [struct.pack("<I", uid) + text(name) + b"\x00\x00" for uid, name in cities.items()]

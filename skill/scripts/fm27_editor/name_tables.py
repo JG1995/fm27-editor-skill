@@ -23,6 +23,9 @@ class NamedTable(Enum):
     CONTINENT = ((TEXT, 1, TEXT, TEXT, TEXT, 1, TEXT, 2), False)
     # The name as a sentence says it, such as "a cold"
     INJURY = ((TEXT, 1, TEXT, 2), False)
+    MEDIA_SOURCE = ((TEXT, 1), False)
+    # The name, a short name, and the name of more than one, such as "Finals"
+    STAGE_NAME = ((TEXT, 1, TEXT, 1, TEXT, 2), True)
 
     @property
     def layout(self) -> Layout:

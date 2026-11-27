@@ -212,6 +212,8 @@ def test_languages_can_be_found(editor, tmp_path):
         ("continents", [(1, "Testica"), (3, "Europia")]),
         ("injuries", [(1, "cold"), (6, "twisted ankle")]),
         ("weathers", [(1, "Testish Coastal"), (115052, "Testish Inland")]),
+        ("media_sources", [(18, "Testby Echo"), (19, "The Example Times")]),
+        ("stage_names", [(1, "Replay"), (3, "Final")]),
     ],
 )
 def test_kinds_known_only_by_name_can_be_found(editor, tmp_path, view, found):
