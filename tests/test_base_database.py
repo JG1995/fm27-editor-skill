@@ -59,6 +59,76 @@ def test_the_database_is_opened_read_only(editor, tmp_path):
         db.execute("DELETE FROM person")
 
 
+def test_playing_history_is_found_with_the_names_of_people_clubs_and_divisions(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            "SELECT name, item, year, order_in_year, club, division, apps, goals, transfer_fee,"
+            " other, date_joined, date_left FROM playing_history ORDER BY person_uid, item"
+        ).fetchall()
+
+    assert rows == [
+        (
+            "Alfa Striker",
+            0,
+            2021,
+            0,
+            "Example United",
+            "Example League North",
+            30,
+            12,
+            None,
+            None,
+            "2021-07-01",
+            None,
+        ),
+        (
+            "Alfa Striker",
+            1,
+            2022,
+            1,
+            "Example United",
+            "Example League North",
+            12,
+            4,
+            2_500_000,
+            None,
+            None,
+            "2023-01-31",
+        ),
+        (
+            "Alfa Striker",
+            2,
+            2022,
+            2,
+            "Fictional City",
+            "Example League",
+            None,
+            None,
+            None,
+            -2,
+            None,
+            None,
+        ),
+    ]
+
+
+def test_a_history_file_that_changes_rebuilds_the_lookup(editor, tmp_path):
+    cache = tmp_path / "cache.sqlite"
+    with open_database(editor, cache) as db:
+        before = db.execute("SELECT count(*) FROM playing_history").fetchone()
+    history = next(editor.glob("shared/data/database/db/*/*_fm")) / "pl_hist_dt.dat"
+    index, offsets, seasons = synthetic.playing_histories(
+        {100: [synthetic.history_item(2025, 9101)]}
+    )
+    history.write_bytes(synthetic.seekable_file(seasons, kind=3))
+    (history.parent / "pl_hist_id.dat").write_bytes(synthetic.seekable_file(offsets, kind=1))
+    (history.parent / "pl_hist_index.dat").write_bytes(synthetic.dat_file(index))
+    with open_database(editor, cache) as db:
+        after = db.execute("SELECT count(*) FROM playing_history").fetchone()
+
+    assert (before, after) == ((3,), (1,))
+
+
 def test_no_other_database_can_be_attached(editor, tmp_path):
     with (
         open_database(editor, tmp_path / "cache.sqlite") as db,

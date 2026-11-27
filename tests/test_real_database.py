@@ -181,6 +181,23 @@ def test_the_installed_editor_database_reads_everyone_with_a_name(tmp_path):
 
 
 @needs_editor
+def test_the_installed_editor_database_reads_as_plausible_playing_histories(tmp_path):
+    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
+        seasons, people, unnamed_clubs, odd_years = db.execute(
+            "SELECT count(*), count(DISTINCT person_uid),"
+            " count(*) FILTER (WHERE club_uid IS NOT NULL AND club IS NULL),"
+            " count(*) FILTER (WHERE year NOT BETWEEN 1900 AND 2030) FROM playing_history"
+        ).fetchone()
+        too_many = db.execute(
+            "SELECT count(*) FROM playing_history WHERE apps > 200 OR goals > 200"
+        ).fetchone()[0]
+
+    assert seasons > 4_000_000
+    assert people > 400_000
+    assert (unnamed_clubs, odd_years, too_many) == (0, 0, 0)
+
+
+@needs_editor
 def test_the_installed_editor_database_reads_as_plausible_awards(tmp_path):
     with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
         awards, named = db.execute("SELECT count(*), count(name) FROM awards").fetchone()
