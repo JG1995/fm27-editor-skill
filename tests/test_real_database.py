@@ -33,6 +33,15 @@ EDITOR = os.environ.get("FM27_EDITOR_DIR", "")
 needs_editor = pytest.mark.skipif(
     not EDITOR, reason="set FM27_EDITOR_DIR to the Editor's install folder"
 )
+
+
+@pytest.fixture(scope="module")
+def lookup(tmp_path_factory):
+    """One lookup for every test: building it takes about 40 seconds and 450 MB."""
+    with open_database(Path(EDITOR), tmp_path_factory.mktemp("lookup") / "cache.sqlite") as db:
+        yield db
+
+
 # Parts of a request and columns, not codes of fields.
 WORDS_OF_FOUR_LETTERS = {
     "find",
@@ -145,15 +154,14 @@ def test_every_code_of_a_place_or_award_names_a_field_that_can_be_written():
 
 
 @needs_editor
-def test_the_installed_editor_database_reads_as_plausible_people(tmp_path):
-    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
-        people, with_nation, with_club = db.execute(
-            "SELECT count(*), count(nation), count(club) FROM people WHERE kind = 'player'"
-        ).fetchone()
-        over_twenty = db.execute("SELECT count(*) FROM people WHERE finishing > 20").fetchone()[0]
-        ability_above_potential = db.execute(
-            "SELECT count(*) FROM people WHERE kind = 'player' AND pa > 0 AND ca > pa"
-        ).fetchone()[0]
+def test_the_installed_editor_database_reads_as_plausible_people(lookup):
+    people, with_nation, with_club = lookup.execute(
+        "SELECT count(*), count(nation), count(club) FROM people WHERE kind = 'player'"
+    ).fetchone()
+    over_twenty = lookup.execute("SELECT count(*) FROM people WHERE finishing > 20").fetchone()[0]
+    ability_above_potential = lookup.execute(
+        "SELECT count(*) FROM people WHERE kind = 'player' AND pa > 0 AND ca > pa"
+    ).fetchone()[0]
 
     assert people > 400_000
     assert with_nation > people * 0.95
@@ -162,17 +170,16 @@ def test_the_installed_editor_database_reads_as_plausible_people(tmp_path):
 
 
 @needs_editor
-def test_the_installed_editor_database_reads_everyone_with_a_name(tmp_path):
+def test_the_installed_editor_database_reads_everyone_with_a_name(lookup):
     """Names as the game shows them differ from the full name for many people."""
-    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
-        kinds = dict(db.execute("SELECT kind, count(*) FROM people GROUP BY kind").fetchall())
-        unnamed, shortened = db.execute(
-            "SELECT count(*) - count(NULLIF(name, '')), count(NULLIF(name, full_name)) FROM people"
-        ).fetchone()
-        coached, wages, contracts, odd_dates = db.execute(
-            "SELECT count(working_with_youngsters), count(wage), count(contract_expires),"
-            " count(*) FILTER (WHERE contract_expires NOT BETWEEN '2000' AND '2045') FROM people"
-        ).fetchone()
+    kinds = dict(lookup.execute("SELECT kind, count(*) FROM people GROUP BY kind").fetchall())
+    unnamed, shortened = lookup.execute(
+        "SELECT count(*) - count(NULLIF(name, '')), count(NULLIF(name, full_name)) FROM people"
+    ).fetchone()
+    coached, wages, contracts, odd_dates = lookup.execute(
+        "SELECT count(working_with_youngsters), count(wage), count(contract_expires),"
+        " count(*) FILTER (WHERE contract_expires NOT BETWEEN '2000' AND '2045') FROM people"
+    ).fetchone()
 
     assert set(kinds) == {"player", "staff", "both", "official", "retired"}
     assert sum(kinds.values()) > 690_000
@@ -183,16 +190,15 @@ def test_the_installed_editor_database_reads_everyone_with_a_name(tmp_path):
 
 
 @needs_editor
-def test_the_installed_editor_database_reads_as_plausible_playing_histories(tmp_path):
-    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
-        seasons, people, unnamed_clubs, odd_years = db.execute(
-            "SELECT count(*), count(DISTINCT person_uid),"
-            " count(*) FILTER (WHERE club_uid IS NOT NULL AND club IS NULL),"
-            " count(*) FILTER (WHERE year NOT BETWEEN 1900 AND 2030) FROM playing_history"
-        ).fetchone()
-        too_many = db.execute(
-            "SELECT count(*) FROM playing_history WHERE apps > 200 OR goals > 200"
-        ).fetchone()[0]
+def test_the_installed_editor_database_reads_as_plausible_playing_histories(lookup):
+    seasons, people, unnamed_clubs, odd_years = lookup.execute(
+        "SELECT count(*), count(DISTINCT person_uid),"
+        " count(*) FILTER (WHERE club_uid IS NOT NULL AND club IS NULL),"
+        " count(*) FILTER (WHERE year NOT BETWEEN 1900 AND 2030) FROM playing_history"
+    ).fetchone()
+    too_many = lookup.execute(
+        "SELECT count(*) FROM playing_history WHERE apps > 200 OR goals > 200"
+    ).fetchone()[0]
 
     assert seasons > 4_000_000
     assert people > 400_000
@@ -200,27 +206,26 @@ def test_the_installed_editor_database_reads_as_plausible_playing_histories(tmp_
 
 
 @needs_editor
-def test_the_installed_editor_database_reads_as_plausible_awards(tmp_path):
-    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
-        awards, named = db.execute("SELECT count(*), count(name) FROM awards").fetchone()
-        unlike_their_competition = db.execute(
-            "SELECT count(*) FROM award JOIN competition ON competition.uid = competition_uid"
-            " WHERE award.gender <> competition.gender OR award.nation_uid <>"
-            " competition.nation_uid"
-        ).fetchone()[0]
-        unknown_choice = db.execute(
-            "SELECT count(*) FROM awards WHERE previous_winner NOT IN (1, 2, 3)"
-        ).fetchone()[0]
-        years, outside = db.execute(
-            "SELECT count(*), sum(year NOT BETWEEN 1800 AND 2100) FROM award_year"
-        ).fetchone()
-        places, with_team = db.execute("SELECT count(*), count(team) FROM award_history").fetchone()
-        ordered, scored = db.execute(
-            "SELECT sum(first.points >= second.points), count(*) FROM award_place AS first"
-            " JOIN award_place AS second USING (year_uid)"
-            " WHERE first.place = 1 AND second.place = 2"
-            " AND first.points IS NOT NULL AND second.points IS NOT NULL"
-        ).fetchone()
+def test_the_installed_editor_database_reads_as_plausible_awards(lookup):
+    awards, named = lookup.execute("SELECT count(*), count(name) FROM awards").fetchone()
+    unlike_their_competition = lookup.execute(
+        "SELECT count(*) FROM award JOIN competition ON competition.uid = competition_uid"
+        " WHERE award.gender <> competition.gender OR award.nation_uid <>"
+        " competition.nation_uid"
+    ).fetchone()[0]
+    unknown_choice = lookup.execute(
+        "SELECT count(*) FROM awards WHERE previous_winner NOT IN (1, 2, 3)"
+    ).fetchone()[0]
+    years, outside = lookup.execute(
+        "SELECT count(*), sum(year NOT BETWEEN 1800 AND 2100) FROM award_year"
+    ).fetchone()
+    places, with_team = lookup.execute("SELECT count(*), count(team) FROM award_history").fetchone()
+    ordered, scored = lookup.execute(
+        "SELECT sum(first.points >= second.points), count(*) FROM award_place AS first"
+        " JOIN award_place AS second USING (year_uid)"
+        " WHERE first.place = 1 AND second.place = 2"
+        " AND first.points IS NOT NULL AND second.points IS NOT NULL"
+    ).fetchone()
 
     assert awards > 3_000 and named == awards
     assert (unlike_their_competition, unknown_choice, outside) == (0, 0, 0)
@@ -230,30 +235,29 @@ def test_the_installed_editor_database_reads_as_plausible_awards(tmp_path):
 
 
 @needs_editor
-def test_the_installed_editor_database_reads_as_plausible_clubs(tmp_path):
-    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
-        clubs, named, with_nation = db.execute(
-            "SELECT count(*), count(name), count(nation) FROM clubs"
-        ).fetchone()
-        unnamed_nations = db.execute(
-            "SELECT (SELECT count(*) FROM clubs WHERE nation_uid IS NOT NULL AND nation IS NULL)"
-            " + (SELECT count(*) FROM people WHERE nation_uid IS NOT NULL AND nation IS NULL)"
-        ).fetchone()[0]
-        mixed = db.execute(
-            "SELECT count(*) FROM (SELECT 1 FROM club WHERE division_uid IS NOT NULL"
-            " GROUP BY division_uid HAVING count(DISTINCT gender) > 1)"
-        ).fetchone()[0]
-        unlike_their_division = db.execute(
-            "SELECT count(*) FROM club JOIN competition ON competition.uid = division_uid"
-            " WHERE club.gender <> competition.gender"
-        ).fetchone()[0]
-        extinct_in_a_division = db.execute(
-            "SELECT count(*) FROM club WHERE is_extinct AND division_uid IS NOT NULL"
-        ).fetchone()[0]
-        unlikely = db.execute(
-            "SELECT count(*) FROM club WHERE reputation > 10000 OR last_position > 100"
-        ).fetchone()[0]
-        competitions = db.execute("SELECT count(*), count(name) FROM competitions").fetchone()
+def test_the_installed_editor_database_reads_as_plausible_clubs(lookup):
+    clubs, named, with_nation = lookup.execute(
+        "SELECT count(*), count(name), count(nation) FROM clubs"
+    ).fetchone()
+    unnamed_nations = lookup.execute(
+        "SELECT (SELECT count(*) FROM clubs WHERE nation_uid IS NOT NULL AND nation IS NULL)"
+        " + (SELECT count(*) FROM people WHERE nation_uid IS NOT NULL AND nation IS NULL)"
+    ).fetchone()[0]
+    mixed = lookup.execute(
+        "SELECT count(*) FROM (SELECT 1 FROM club WHERE division_uid IS NOT NULL"
+        " GROUP BY division_uid HAVING count(DISTINCT gender) > 1)"
+    ).fetchone()[0]
+    unlike_their_division = lookup.execute(
+        "SELECT count(*) FROM club JOIN competition ON competition.uid = division_uid"
+        " WHERE club.gender <> competition.gender"
+    ).fetchone()[0]
+    extinct_in_a_division = lookup.execute(
+        "SELECT count(*) FROM club WHERE is_extinct AND division_uid IS NOT NULL"
+    ).fetchone()[0]
+    unlikely = lookup.execute(
+        "SELECT count(*) FROM club WHERE reputation > 10000 OR last_position > 100"
+    ).fetchone()[0]
+    competitions = lookup.execute("SELECT count(*), count(name) FROM competitions").fetchone()
 
     assert clubs > 90_000
     assert clubs == named
@@ -272,12 +276,11 @@ def test_the_installed_editor_database_reads_as_plausible_clubs(tmp_path):
         *(("media_source", 100), ("stage_name", 200)),
     ],
 )
-def test_the_installed_editor_database_reads_as_plausible_names(tmp_path, table, at_least):
-    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
-        records, named, different, printable = db.execute(
-            f"SELECT count(*), count(name), count(DISTINCT name),"
-            f" sum(name GLOB '*[A-Za-z]*') FROM {table}"
-        ).fetchone()
+def test_the_installed_editor_database_reads_as_plausible_names(lookup, table, at_least):
+    records, named, different, printable = lookup.execute(
+        f"SELECT count(*), count(name), count(DISTINCT name),"
+        f" sum(name GLOB '*[A-Za-z]*') FROM {table}"
+    ).fetchone()
 
     # A few media sources and stages share a name.
     assert records >= at_least
@@ -286,12 +289,11 @@ def test_the_installed_editor_database_reads_as_plausible_names(tmp_path, table,
 
 
 @needs_editor
-def test_the_installed_editor_database_reads_as_plausible_currencies(tmp_path):
-    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
-        records, named, different, with_rate, lowest, pounds = db.execute(
-            "SELECT count(*), count(name), count(DISTINCT name), count(per_pound),"
-            " min(per_pound), sum(per_pound = 1) FROM currency"
-        ).fetchone()
+def test_the_installed_editor_database_reads_as_plausible_currencies(lookup):
+    records, named, different, with_rate, lowest, pounds = lookup.execute(
+        "SELECT count(*), count(name), count(DISTINCT name), count(per_pound),"
+        " min(per_pound), sum(per_pound = 1) FROM currency"
+    ).fetchone()
 
     assert records >= 100
     assert records == named == different == with_rate
@@ -299,16 +301,15 @@ def test_the_installed_editor_database_reads_as_plausible_currencies(tmp_path):
 
 
 @needs_editor
-def test_the_installed_editor_database_reads_as_plausible_derbies(tmp_path):
-    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
-        derbies, named, with_clubs = db.execute(
-            "SELECT count(*), count(name), count(club_1_uid + club_2_uid) FROM derbies"
-        ).fetchone()
-        one_club, mixed, across_borders = db.execute(
-            "SELECT sum(one.uid = two.uid), sum(one.gender <> two.gender),"
-            " sum(one.nation_uid <> two.nation_uid) FROM derby"
-            " JOIN club AS one ON one.uid = club_1_uid JOIN club AS two ON two.uid = club_2_uid"
-        ).fetchone()
+def test_the_installed_editor_database_reads_as_plausible_derbies(lookup):
+    derbies, named, with_clubs = lookup.execute(
+        "SELECT count(*), count(name), count(club_1_uid + club_2_uid) FROM derbies"
+    ).fetchone()
+    one_club, mixed, across_borders = lookup.execute(
+        "SELECT sum(one.uid = two.uid), sum(one.gender <> two.gender),"
+        " sum(one.nation_uid <> two.nation_uid) FROM derby"
+        " JOIN club AS one ON one.uid = club_1_uid JOIN club AS two ON two.uid = club_2_uid"
+    ).fetchone()
 
     assert derbies > 1_000 and named == derbies
     assert with_clubs > derbies * 0.95
