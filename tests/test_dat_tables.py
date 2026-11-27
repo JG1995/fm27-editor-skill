@@ -6,6 +6,7 @@ from fm27_editor.dat_tables import (
     Record,
     open_table,
     read_records,
+    read_seekable,
     read_stream,
     read_string_table,
     read_tables,
@@ -17,6 +18,38 @@ def test_reads_a_single_stream_file(tmp_path):
     path.write_bytes(synthetic.dat_file(b"people bytes" * 50))
 
     assert read_stream(path) == b"people bytes" * 50
+
+
+@pytest.mark.parametrize("kind", [1, 3])
+def test_reads_a_file_in_zstds_seekable_format_frame_by_frame(tmp_path, kind):
+    path = tmp_path / "pl_hist_dt.dat"
+    data = bytes(range(256)) * 3
+    path.write_bytes(synthetic.seekable_file(data, kind=kind, frame_size=100))
+
+    assert read_seekable(path) == data
+
+
+@pytest.mark.parametrize(
+    "content",
+    [
+        pytest.param(b"\x03\x01tadc\x02\x00" + b"\x00" * 40, id="unknown kind"),
+        pytest.param(synthetic.seekable_file(b"history" * 9)[:-1], id="no seek table"),
+        pytest.param(
+            # Four frames of 16 bytes, whose table and its frame header take 49 bytes.
+            synthetic.seekable_file(b"history" * 9)[:-49]
+            + b"\x00"
+            + synthetic.seekable_file(b"history" * 9)[-49:],
+            id="frames that do not end where the table starts",
+        ),
+        pytest.param(synthetic.dat_file(b"history" * 9), id="a plain stream"),
+    ],
+)
+def test_a_file_that_is_not_in_the_seekable_format_is_refused(tmp_path, content):
+    path = tmp_path / "pl_hist_dt.dat"
+    path.write_bytes(content)
+
+    with pytest.raises(DatError):
+        read_seekable(path)
 
 
 def test_reads_the_tables_of_a_container_file(tmp_path):
