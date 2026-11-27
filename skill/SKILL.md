@@ -31,6 +31,7 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 | `cities` | `uid`, `name`, `nation`, `nation_uid` |
 | `stadiums` | `uid`, `name`, `city`, `city_uid`, `nation`, `nation_uid` (of its city) |
 | `continents`, `injuries`, `weathers`, `language` | `uid`, `name` |
+| `currency` | `uid`, `name`, `short_name`, `symbol`, `per_pound` (how many of it make a pound) |
 
 Attributes, positions, and personality go by their usual names, such as `finishing`, `off_the_ball`, `left_foot`, `position_st`, and `professionalism`. `fm27 fields player` lists them.
 
@@ -82,7 +83,7 @@ A request has any of these parts. The uids here are made up:
 - **Potential is set with `pa` alone,** as a number or a range.
 - **Leave out records whose new value would be wrong.** `min(pa + 5, 180)` would lower someone who has 185, so limit the query to `pa BETWEEN 1 AND 179`.
 - **Whole numbers,** unless `fields` says "a number", such as how often an injury happens (`Iocr`). Use `CAST(round(...) AS INTEGER)` for the others.
-- **Money is in whole pounds, and wages are per week,** as the Editor stores them. A wage (`Pcwg`) of 100,000 euros a month is 19943. Convert other currencies and periods, and say which exchange rate you used. The Editor shows sums at the game's own rate, so they can differ a little from what the user asked for.
+- **Money is in whole pounds, and wages are per week,** as the Editor stores them. Convert other currencies at the game's own rate, the `per_pound` of the currency in `currency`, which the Editor shows sums at. A wage (`Pcwg`) of 100,000 euros a month is `CAST(round(100000 * 12 / 52 / per_pound) AS INTEGER)` with the euro's `per_pound`. Tell the user the rate you used.
 - **A missing value is an error.** Add `AND finishing IS NOT NULL` when you calculate from it.
 - **`start_from`** puts the new changes behind those of an existing file, in a new file. Use it only when the user wants to build on that file.
 
