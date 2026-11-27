@@ -3,7 +3,7 @@ from contextlib import closing
 
 import pytest
 
-from fm27_editor import award_lookup, place_lookup
+from fm27_editor import award_lookup, name_lookup, place_lookup
 from fm27_editor.change_reading import EditError
 from fm27_editor.person_fields import FIELD_NAMES
 from fm27_editor.record_kinds import (
@@ -11,9 +11,12 @@ from fm27_editor.record_kinds import (
     CITY,
     CLUB,
     COMPETITION,
+    CONTINENT,
+    INJURY,
     NATION,
     PLAYER,
     STADIUM,
+    WEATHER,
     kind_named,
 )
 
@@ -35,19 +38,24 @@ def test_every_fact_the_lookup_has_for_players_has_a_code_or_a_reason_not_to():
         (STADIUM, "stadium", {"uid"}),
         (NATION, "nation", {"uid"}),
         (CITY, "city", {"uid"}),
+        (CONTINENT, "continent", {"uid"}),
+        (INJURY, "injury", {"uid"}),
+        (WEATHER, "weather", {"uid"}),
     ],
     ids=lambda value: value if isinstance(value, str) else "",
 )
 def test_every_fact_the_lookup_has_for_other_records_has_a_code(kind, table, without_a_code):
     with closing(sqlite3.connect(":memory:")) as lookup:
-        lookup.executescript(place_lookup.SCHEMA + award_lookup.SCHEMA)
+        lookup.executescript(place_lookup.SCHEMA + award_lookup.SCHEMA + name_lookup.SCHEMA)
         columns = {row[1] for row in lookup.execute(f"PRAGMA table_info({table})")}
 
     assert set(kind.codes) == columns - without_a_code
 
 
 @pytest.mark.parametrize(
-    "kind", [PLAYER, CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY], ids=lambda kind: kind.name
+    "kind",
+    [PLAYER, CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY, CONTINENT, INJURY, WEATHER],
+    ids=lambda kind: kind.name,
 )
 def test_no_two_facts_share_a_code(kind):
     assert len(kind.names) == len(kind.codes)

@@ -247,6 +247,38 @@ def test_cities_are_edited_by_the_lookups_names_and_their_codes(plan_for):
     ]
 
 
+def test_continents_injuries_and_weather_are_edited_by_name_and_code(plan_for):
+    plan = plan_for(
+        edits=[
+            by_hand(3, of="continents", name="Europe", Crgs=0.85),
+            by_hand(1, of="injuries", Iocr=1.5, Imip=0),
+            by_hand(115052, of="weathers", name="Testish Upland", w0p0=40),
+        ]
+    )
+
+    assert edited(plan) == [
+        (3, "Cnam", "Europia", "Europe"),
+        (3, "Crgs", None, 0.85),
+        (1, "Iocr", None, 1.5),
+        (1, "Imip", None, 0),
+        (115052, "wnam", "Testish Inland", "Testish Upland"),
+        (115052, "w0p0", None, 40),
+    ]
+
+
+def test_how_often_an_injury_happens_is_stored_as_a_real_file_stores_it(plan_for):
+    plan = plan_for(edits=[by_hand(1, of="injuries", Iocr=1.5)])
+
+    (change,) = build_file(plan, approval_code(plan), TODAY).changes.changes
+
+    assert [(item.tag, item.kind.name, item.value) for item in change[:4]] == [
+        ("dtty", "INT8", b"\x06"),
+        ("duni", "ID", bytes.fromhex("0100000001000000")),
+        ("prty", "CODE", "Iocr"),
+        ("nwvl", "REAL", bytes.fromhex("0000c03f")),
+    ]
+
+
 # Nations are table 9, which real files use, though the Editor's list calls it National Team.
 @pytest.mark.parametrize(
     ("of", "uid", "code", "value", "table"),
@@ -254,9 +286,12 @@ def test_cities_are_edited_by_the_lookups_names_and_their_codes(plan_for):
         ("stadiums", 9401, "Scti", 9302, 21),
         ("nations", 9002, "Necf", 15, 9),
         ("cities", 9301, "Catt", 12, 2),
+        ("continents", 3, "Crgs", 0.85, 5),
+        ("injuries", 6, "Imip", 50, 6),
+        ("weathers", 1, "w0p0", 40, 27),
     ],
 )
-def test_a_place_is_changed_in_its_own_table(plan_for, of, uid, code, value, table):
+def test_a_record_is_changed_in_its_own_table(plan_for, of, uid, code, value, table):
     plan = plan_for(edits=[by_hand(uid, of=of, **{code: value})])
 
     (change,) = build_file(plan, approval_code(plan), TODAY).changes.changes
@@ -268,7 +303,7 @@ def test_a_place_is_changed_in_its_own_table(plan_for, of, uid, code, value, tab
     ]
 
 
-@pytest.mark.parametrize("kind", ["stadium", "nation", "city"])
+@pytest.mark.parametrize("kind", ["stadium", "nation", "city", "continent", "injury", "weather"])
 def test_a_kind_that_no_file_adds_cannot_be_made(plan_for, kind):
     with pytest.raises(FormatError, match=f"a new {kind} cannot be made"):
         plan_for(new=[{"kind": kind, "set": {"name": "Example"}}])

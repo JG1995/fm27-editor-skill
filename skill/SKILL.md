@@ -1,6 +1,6 @@
 ---
 name: fm27-editor
-description: Read, search, and change Football Manager 27 Pre-game Editor data without operating the Editor. Use when the user wants to find players, staff, clubs, competitions, or awards in the FM27 database, change them (one or thousands), create new ones, including league and cup rules for a new competition, rewrite the past winners of an award, or know what an FM27 editor data file (.fmf) does. Not for save games, the in-game editor, tactics, shortlists, or other FM editions.
+description: Read, search, and change Football Manager 27 Pre-game Editor data without operating the Editor. Use when the user wants to find players, staff, clubs, competitions, awards, or places such as stadiums and cities in the FM27 database, change them or the game's injuries and weather (one or thousands), create new ones, including league and cup rules for a new competition, rewrite the past winners of an award, or know what an FM27 editor data file (.fmf) does. Not for save games, the in-game editor, tactics, shortlists, or other FM editions.
 ---
 
 # FM27 Editor
@@ -28,9 +28,9 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 | `awards` | `uid`, `name`, `short_name`, `gender`, `nation`, `nation_uid`, `competition`, `competition_uid`, `previous_winner`, `years` (how many are in its history) |
 | `award_history` | `award_uid`, `award`, `year`, `place` (1 to 3), `person_uid`, `name`, `team`, `team_uid`, `points`, `age`, `nation`, `nation_uid`, `not_held`, `no_data` |
 | `nations` | `uid`, `name` |
-| `city` | `uid`, `name`, `nation_uid` |
+| `cities` | `uid`, `name`, `nation`, `nation_uid` |
 | `stadiums` | `uid`, `name`, `city`, `city_uid`, `nation`, `nation_uid` (of its city) |
-| `language` | `uid`, `name` |
+| `continents`, `injuries`, `weathers`, `language` | `uid`, `name` |
 
 Attributes, positions, and personality go by their usual names, such as `finishing`, `off_the_ball`, `left_foot`, `position_st`, and `professionalism`. `fm27 fields player` lists them.
 
@@ -44,6 +44,7 @@ Know these before you write a query:
 - **`birth_date`** is text such as `2008-04-25`, and `1900-01-01` means unknown. Count an age from the day the new game starts, not from today: ask when that is if the user has not said. In a request, write the date out, such as `birth_date > '2005-07-01'`. A query with `date('now')` finds other people tomorrow, and the approval code no longer fits.
 - **`nation`** of a person is the one main nationality. Others are not here. Of a club, it is the nation whose leagues it plays in; where it lies is `based_nation_uid`.
 - **Names** are spelled with their accents and often written in full. Search with `LIKE`, show the candidates when there are several, and let the user choose.
+- **`weathers`** are climates that cities and regions use, such as `English Coastal` or `Csa - Rome`. **`injuries`** are the kinds of injury, such as `twisted ankle`, not injured people.
 - Some people in the Editor are not in the lookup. Not finding someone does not mean that they do not exist.
 
 ## Make a file
@@ -74,21 +75,21 @@ A request has any of these parts. The uids here are made up:
 }
 ```
 
-- **`of`** is `people`, `clubs`, `competitions`, `awards`, `stadiums`, or `nations`. A club and a person can have the same uid. A club's ground is its `stadium_uid`; change the ground itself as one of `stadiums`.
+- **`of`** is `people`, `clubs`, `competitions`, `awards`, `stadiums`, `nations`, `cities`, `continents`, `injuries`, or `weathers`. A club and a person can have the same uid. A club's ground is its `stadium_uid`; change the ground itself as one of `stadiums`.
 - **`query`** returns `uid` and one column for each field to set. The column's value is the new value.
 - **`as`** names a new record. Later ones and edits refer to it with `@` and that name.
 - **Potential is set with `pa` alone,** as a number or a range.
 - **Leave out records whose new value would be wrong.** `min(pa + 5, 180)` would lower someone who has 185, so limit the query to `pa BETWEEN 1 AND 179`.
-- **Whole numbers only.** Use `CAST(round(...) AS INTEGER)`.
+- **Whole numbers,** unless `fields` says "a number", such as how often an injury happens (`Iocr`). Use `CAST(round(...) AS INTEGER)` for the others.
 - **Money is in whole pounds, and wages are per week,** as the Editor stores them. A wage (`Pcwg`) of 100,000 euros a month is 19943. Convert other currencies and periods, and say which exchange rate you used. The Editor shows sums at the game's own rate, so they can differ a little from what the user asked for.
 - **A missing value is an error.** Add `AND finishing IS NOT NULL` when you calculate from it.
 - **`start_from`** puts the new changes behind those of an existing file, in a new file. Use it only when the user wants to build on that file.
 
 ## Fields
 
-`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `stadium`, `nation`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
+`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `stadium`, `nation`, `city`, `continent`, `injury`, `weather`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
 
-Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, achievements, injuries, bans, kits other than their colours, reserve teams, national teams, and new stadiums, nations, and awards. If a request needs one of these, say so before doing the rest.
+Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, people's achievements, injuries, and bans, kits other than their colours, reserve teams, national teams, local regions, and new records other than people, clubs, and competitions. If a request needs one of these, say so before doing the rest.
 
 ## Lists on people
 
