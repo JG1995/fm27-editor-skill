@@ -9,6 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from fm27_editor.binary import FormatError
+from fm27_editor.json_text import RepeatedNameError, read_json
 from fm27_editor.record_kinds import GROUPS, RecordGroup, RecordKind, kind_named
 
 RULES_KEY = "nation_rules"
@@ -54,9 +55,11 @@ class Found:
 
 def read_request(path: Path) -> Any:
     try:
-        return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=_named_once)
+        return read_json(path.read_text(encoding="utf-8"))
     except (json.JSONDecodeError, UnicodeDecodeError) as error:
         raise RequestError(f"{path.name} is not a request: {error}") from error
+    except RepeatedNameError as error:
+        raise RequestError(f"the request: {error}") from error
 
 
 def run_query(lookup: sqlite3.Connection, query: str, limit: int | None = None) -> Found:
@@ -106,14 +109,6 @@ def wanted_records(request: Any) -> Iterator[WantedRecord]:
             raise RequestError(f"two new records are called {name}")
         names |= {name} - {None}
         yield WantedRecord(kind_named(str(entry["kind"])), name, _values(entry))
-
-
-def _named_once(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
-    names = [name for name, _ in pairs]
-    repeated = {name for name in names if names.count(name) > 1}
-    if repeated:
-        raise RequestError(f"the request gives {', '.join(sorted(repeated))} twice in one place")
-    return dict(pairs)
 
 
 def _check_keys(entry: Any, known: set[str], what: str) -> None:

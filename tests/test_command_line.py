@@ -182,6 +182,16 @@ def test_preview_writes_nothing(run, request_file, tmp_path):
     assert set(tmp_path.rglob("*.fmf")) == before
 
 
+def test_a_request_that_gives_a_name_twice_in_one_place_is_refused(run, tmp_path):
+    path = tmp_path / "twice.json"
+    path.write_text('{"edits": [{"of": "people", "uid": 100, "set": {"ca": 1, "ca": 2}}]}')
+
+    status, _, error = run("preview", path)
+
+    assert status == 1
+    assert "ca is given twice" in error
+
+
 def test_write_makes_the_file_that_was_previewed(run, request_file, tmp_path):
     _, preview, _ = run("preview", request_file)
     target = tmp_path / "Sharper.fmf"
