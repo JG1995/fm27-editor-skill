@@ -327,7 +327,10 @@ def write_database(folder: Path, people=None) -> Path:
 
 def client_tables() -> list[tuple[str, bytes]]:
     records = {
-        "table_10": [(uid, b"nation") for uid in NATIONS],
+        "table_9": [(uid, b"nation") for uid in NATIONS],
+        # The base database has a table beside the nations with almost the same uids, in an order
+        # that differs at one place. Records refer to nations by their place in table 9.
+        "table_10": [(uid, b"other") for uid in reversed(NATIONS)],
         "table_8": [(uid, synthetic.language_record(name)) for uid, name in LANGUAGES.items()],
         "table_2": [(uid, synthetic.city_record(nation)) for uid, (_, nation) in CITIES.items()],
         "table_21": [(uid, synthetic.stadium_record(city)) for uid, (_, city) in STADIUMS.items()],

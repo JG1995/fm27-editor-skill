@@ -175,6 +175,10 @@ def test_the_installed_editor_database_reads_as_plausible_clubs(tmp_path):
         clubs, named, with_nation = db.execute(
             "SELECT count(*), count(name), count(nation) FROM clubs"
         ).fetchone()
+        unnamed_nations = db.execute(
+            "SELECT (SELECT count(*) FROM clubs WHERE nation_uid IS NOT NULL AND nation IS NULL)"
+            " + (SELECT count(*) FROM people WHERE nation_uid IS NOT NULL AND nation IS NULL)"
+        ).fetchone()[0]
         mixed = db.execute(
             "SELECT count(*) FROM (SELECT 1 FROM club WHERE division_uid IS NOT NULL"
             " GROUP BY division_uid HAVING count(DISTINCT gender) > 1)"
@@ -193,6 +197,7 @@ def test_the_installed_editor_database_reads_as_plausible_clubs(tmp_path):
 
     assert clubs > 90_000
     assert clubs == named
+    assert unnamed_nations == 0
     assert with_nation > clubs * 0.95
     assert (mixed, unlike_their_division, extinct_in_a_division, unlikely) == (0, 0, 0, 0)
     assert competitions[0] > 8_000
