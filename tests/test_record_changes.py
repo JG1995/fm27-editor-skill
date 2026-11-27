@@ -233,6 +233,8 @@ def test_a_colour_is_stored_blue_first():
         (a_field("real"), float("nan")),
         (a_field("real"), float("inf")),
         (a_field("real"), 1e39),
+        (a_field("real"), 10**400),
+        (a_field("real"), 1e-50),
         (a_number(is_editable=False), 5),
     ],
 )
