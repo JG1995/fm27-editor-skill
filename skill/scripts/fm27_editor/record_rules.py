@@ -15,7 +15,7 @@ from pathlib import Path
 from fm27_editor.base_database import record_name
 from fm27_editor.change_reading import EditError
 from fm27_editor.field_definitions import Field, read_fields
-from fm27_editor.list_changes import LIST, LIST_REFERENCE_TAGS, ListShape
+from fm27_editor.list_changes import LIST, LIST_REFERENCE_TAGS, ListShape, is_blank
 from fm27_editor.potential import check_potential, with_ranges
 from fm27_editor.record_changes import (
     REFERENCE_TAGS,
@@ -145,7 +145,7 @@ class RecordRules:
     ) -> FieldValue | NewReference | Items:
         if field.type == LIST:
             return self._items(field, kind.lists.get(field.code), given, new)
-        value = self._part(field, given, new, REFERENCE_TAGS)
+        value = self._part(field, given, new)
         check_potential(field, value)
         return value
 
@@ -156,7 +156,12 @@ class RecordRules:
         if shape is None or not field.is_editable:
             raise EditError(f"{_called(field)} {refusal(field)}")
         parts = {part.code: part for part in field.items if part.code in shape.parts}
-        return tuple(self._item(field, parts, entry, new) for entry in _listed(field, given))
+        items = tuple(self._item(field, parts, entry, new) for entry in _listed(field, given))
+        for item in items:
+            refers = any(parts[code].points_to is not None for code in item)
+            if not refers and is_blank(field, shape, item):
+                raise EditError(f"{_called(field)}: an item must set more than a new item has")
+        return items
 
     def _item(
         self, field: Field, parts: Mapping[str, Field], given: object, new: Mapping[str, RecordKind]
@@ -168,23 +173,24 @@ class RecordRules:
             known = ", ".join(parts)
             raise EditError(f"{_called(field)} has no {', '.join(sorted(unknown))}, only {known}")
         return {
-            code: self._part(parts[code], value, new, LIST_REFERENCE_TAGS)
-            for code, value in given.items()
+            code: self._part(parts[code], value, new, in_list=True) for code, value in given.items()
         }
 
     def _part(
-        self,
-        field: Field,
-        given: object,
-        new: Mapping[str, RecordKind],
-        tags: Mapping[str, str],
+        self, field: Field, given: object, new: Mapping[str, RecordKind], *, in_list: bool = False
     ) -> FieldValue | NewReference:
-        """A checked value of a field, or of a part of an item."""
-        reason = refusal(field, tags)
+        """A checked value of a field, or of a part of an item.
+
+        A team in a list can be a national team, which has the uid of its nation.
+        """
+        reason = refusal(field, LIST_REFERENCE_TAGS if in_list else REFERENCE_TAGS)
         if reason is not None:
             raise EditError(f"{_called(field)} {reason}")
         if given is None:
             raise EditError(f"{_called(field)} needs a value")
+        if in_list and field.points_to == "team" and not is_new_reference(given):
+            check_exists(self._lookup, _called(field), given, "club", "nation")
+            return given
         if field.points_to is not None:
             return self.refer(field.points_to, _called(field), given, new)
         value = _typed(field, given)

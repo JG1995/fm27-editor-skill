@@ -111,6 +111,7 @@ PLAYER = RecordKind(
     needed=PERSON_NEEDS,
     left_out=PERSON_LEFT_OUT,
     person_type=PersonKind.PLAYER,
+    pointed_to_as=("person",),
     lists=PERSON_LISTS,
 )
 STAFF = RecordKind(
@@ -121,6 +122,7 @@ STAFF = RecordKind(
     needed=PERSON_NEEDS,
     left_out=PERSON_LEFT_OUT,
     person_type=PersonKind.STAFF,
+    pointed_to_as=("person",),
     lists=PERSON_LISTS,
 )
 GENDER = "gender"

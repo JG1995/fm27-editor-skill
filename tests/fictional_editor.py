@@ -83,10 +83,32 @@ FAVOURITE_CLUBS = synthetic.list_items(
     ),
     synthetic.field_definition("leve", "Level", "integer", synthetic.number_range(0, 100)),
 )
+DAYS_AT_CLUB = synthetic.list_items(
+    synthetic.field_definition("Ttea", "Club Or Nation", *synthetic.reference("team")),
+    synthetic.field_definition("days", "Days", "integer", synthetic.number_range(0, 30000)),
+    *(
+        synthetic.field_definition(code, "Between Ages", "boolean")
+        for code in ("0t21", "d152", "bfat", "etto", "0t19", "d021")
+    ),
+)
+FAVOURITE_PEOPLE = synthetic.list_items(
+    synthetic.field_definition("pers", "Person", *synthetic.reference("person")),
+    synthetic.field_definition("leve", "Level", "integer", synthetic.number_range(0, 100)),
+    synthetic.field_definition(
+        "rrea",
+        "Reason",
+        "enum",
+        '<list id="enum_values"><record enum="1"><string id="name" value="Parent" /></record>'
+        "</list>",
+    ),
+    synthetic.field_definition("perm", "Permanent", "boolean"),
+)
 PERSON = synthetic.definition_file(
     "pers",
     synthetic.field_definition("PNRs", "Second Nations", "list", SECOND_NATIONS),
     synthetic.field_definition("Pfvc", "Favourite Clubs", "list", FAVOURITE_CLUBS),
+    synthetic.field_definition("Pdcn", "Days At Club/In Nation", "list", DAYS_AT_CLUB),
+    synthetic.field_definition("Pfvp", "Favourite People", "list", FAVOURITE_PEOPLE),
     synthetic.field_definition("Ptyp", "Person Type", "enum"),
     synthetic.field_definition("Pfna", "First Name", "string"),
     synthetic.field_definition("Psna", "Second Name", "string"),

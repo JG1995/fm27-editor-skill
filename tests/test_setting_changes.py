@@ -2,6 +2,7 @@ import contextlib
 import datetime
 import random
 import sqlite3
+import struct
 
 import pytest
 
@@ -306,9 +307,28 @@ def test_an_item_can_refer_to_a_club_that_is_new_as_well(editor):
     assert (reference.tag, reference.value) == ("Cclu", record)
 
 
+def test_an_item_can_refer_to_a_person_that_is_new_as_well(editor):
+    values = BASICS | {"Pfvp": [{"pers": "@Mentor", "rrea": 1}]}
+
+    *_, person_set = create(editor, PLAYER, values, {"Mentor": STAFF})
+
+    reference = tagged(person_set)["nwvl"].value[1].value[1]
+    assert reference.tag == "Pers"
+
+
+@pytest.mark.parametrize("team", [9101, 9001], ids=["club", "nation"])
+def test_a_team_in_a_list_can_be_a_club_or_a_national_team(editor, team):
+    _, team_set, _ = edited(editor, {"Pdcn": [{"Ttea": team, "days": 900}]})
+
+    assert tagged(team_set)["nwvl"].value[1].value[1].value == struct.pack("<II", team, team)
+
+
 @pytest.mark.parametrize(
     ("values", "complaint"),
     [
+        ({"PNRs": [{"ntin": 80}]}, "more than a new item"),
+        ({"Pdcn": [{"days": 1, "bfat": False}]}, "more than a new item"),
+        ({"Pdcn": [{"Ttea": 4242}]}, "4242"),
         ({"PNRs": [{"nati": 4242}]}, "4242"),
         ({"PNRs": [{"ntin": 81}]}, "ntin"),
         ({"PNRs": [{"moon": 1}]}, "moon"),

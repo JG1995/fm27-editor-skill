@@ -235,7 +235,12 @@ def _by_code(settings: Iterable[Setting]) -> list[tuple[str, object]]:
 def _replaced(start: StartingFile | None, edits: list[Edit]) -> int:
     if start is None:
         return 0
-    wanted = ((edit.record.address, edit.setting.field.code) for edit in edits)
+    # Items are added behind those of the starting file, so a list replaces nothing.
+    wanted = (
+        (edit.record.address, edit.setting.field.code)
+        for edit in edits
+        if edit.setting.field.type != LIST
+    )
     return sum(key in start.changed for key in wanted)
 
 
