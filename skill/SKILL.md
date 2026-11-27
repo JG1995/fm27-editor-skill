@@ -27,9 +27,9 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 | `competitions` | `uid`, `name`, `short_name`, `gender`, `level`, `nation`, `nation_uid`, `parent`, `parent_uid`, `clubs` (how many have it as their division) |
 | `awards` | `uid`, `name`, `short_name`, `gender`, `nation`, `nation_uid`, `competition`, `competition_uid`, `previous_winner`, `years` (how many are in its history) |
 | `award_history` | `award_uid`, `award`, `year`, `place` (1 to 3), `person_uid`, `name`, `team`, `team_uid`, `points`, `age`, `nation`, `nation_uid`, `not_held`, `no_data` |
-| `nation` | `uid`, `name` |
+| `nations` | `uid`, `name` |
 | `city` | `uid`, `name`, `nation_uid` |
-| `stadium` | `uid`, `name`, `city_uid` |
+| `stadiums` | `uid`, `name`, `city`, `city_uid`, `nation`, `nation_uid` (of its city) |
 | `language` | `uid`, `name` |
 
 Attributes, positions, and personality go by their usual names, such as `finishing`, `off_the_ball`, `left_foot`, `position_st`, and `professionalism`. `fm27 fields player` lists them.
@@ -74,7 +74,7 @@ A request has any of these parts. The uids here are made up:
 }
 ```
 
-- **`of`** is `people`, `clubs`, `competitions`, or `awards`. A club and a person can have the same uid.
+- **`of`** is `people`, `clubs`, `competitions`, `awards`, `stadiums`, or `nations`. A club and a person can have the same uid. A club's ground is its `stadium_uid`; change the ground itself as one of `stadiums`.
 - **`query`** returns `uid` and one column for each field to set. The column's value is the new value.
 - **`as`** names a new record. Later ones and edits refer to it with `@` and that name.
 - **Potential is set with `pa` alone,** as a number or a range.
@@ -86,9 +86,9 @@ A request has any of these parts. The uids here are made up:
 
 ## Fields
 
-`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
+`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `stadium`, `nation`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
 
-Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, achievements, injuries, bans, kits other than their colours, reserve teams, stadiums, new awards, and changing nations. If a request needs one of these, say so before doing the rest.
+Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, achievements, injuries, bans, kits other than their colours, reserve teams, national teams, and new stadiums, nations, and awards. If a request needs one of these, say so before doing the rest.
 
 ## Lists on people
 
