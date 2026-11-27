@@ -46,6 +46,8 @@ WRITTEN_TYPES = {
     *("string", "attribute", "integer", "enum", "boolean", "date", "colour"),
     *(MONEY, REFERENCE, REAL),
 }
+# Real files tag a reference by what it points to, the same in fields and in lists. No file has a
+# field that points to a person, so its tag is the one that lists and histories use.
 REFERENCE_TAGS = {
     "nation": "Nnat",
     "team": "Ttea",
@@ -53,6 +55,7 @@ REFERENCE_TAGS = {
     "language": "lang",
     "competition": "comp",
     "stadium": "stad",
+    "person": "Pers",
 }
 COLOUR = re.compile("#[0-9a-fA-F]{6}")
 OPAQUE = b"\xff"

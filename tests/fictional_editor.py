@@ -190,6 +190,8 @@ CLUB = synthetic.definition_file(
     synthetic.field_definition("Snam", "Stadium Name", "string"),
     synthetic.field_definition("CHAa", "Highest", "integer", synthetic.number_range(0, 100)),
     synthetic.field_definition("Cffy", "Five Year Total", "real", synthetic.number_range(0, 200)),
+    synthetic.field_definition("Cmni", "Manager", *synthetic.reference("person")),
+    synthetic.field_definition("Tcap", "Captain", *synthetic.reference("person")),
 )
 COMPETITION = synthetic.definition_file(
     "comp",

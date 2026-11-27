@@ -29,8 +29,8 @@ from fm27_editor.record_changes import (
 )
 
 LIST = "list"
-# A person is referred to only in lists, as far as files were seen, and a club as a club only there.
-LIST_REFERENCE_TAGS = REFERENCE_TAGS | {"person": "Pers", "club": "Cclu"}
+# A club is referred to as a club only in lists, as far as files were seen; fields refer to a team.
+LIST_REFERENCE_TAGS = REFERENCE_TAGS | {"club": "Cclu"}
 NUMBERS = {"integer", "enum", "multiple_enum", MONEY}
 # What a change does to a list, by the Editor's numbers for it.
 ADD, CHANGE_PART, REMOVE, CLEAR, COPY = 0, 1, 2, 3, 4
