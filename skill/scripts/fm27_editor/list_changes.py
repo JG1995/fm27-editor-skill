@@ -52,6 +52,8 @@ class ListShape:
     """Numbers that an item holds as four bytes, the highest first."""
     kept: frozenset[str] = frozenset()
     """Parts that keep what an added item holds: the Editor works them out, or no file sets them."""
+    needed: frozenset[str] = frozenset()
+    """Parts without which an item means nothing, such as the language of a language."""
 
     @property
     def given(self) -> tuple[str, ...]:

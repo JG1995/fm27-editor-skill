@@ -365,6 +365,7 @@ def test_a_team_in_a_list_can_be_a_club_or_a_national_team(editor, team):
         ({"PNRs": {"replace": 9001}}, "list"),
         ({"PElg": [{"lang": 8, "proe": 3}]}, "no proe, only lang, prof"),
         ({"PElg": [{"lang": 4242}]}, "4242"),
+        ({"PElg": [{"prof": 5}]}, "an item needs lang"),
         ({"PNRs": [{"nati": None}]}, "nati"),
         ({"PNRs": [{}]}, "an item"),
         ({"PNRs": [9001]}, "an item"),

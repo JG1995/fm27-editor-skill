@@ -169,6 +169,9 @@ class RecordRules:
         parts = {part.code: part for part in field.items if part.code in shape.given}
         items = tuple(self._item(field, parts, entry, new) for entry in listed)
         for item in items:
+            missing = shape.needed - item.keys()
+            if missing:
+                raise EditError(f"{_called(field)}: an item needs {', '.join(sorted(missing))}")
             refers = any(parts[code].points_to is not None for code in item)
             if not refers and is_blank(field, shape, item):
                 raise EditError(f"{_called(field)}: an item must set more than a new item has")

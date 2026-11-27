@@ -39,5 +39,6 @@ PERSON_LISTS: Mapping[str, ListShape] = {
         ("lang", "prof", "csln", "proe"),
         empty={"prof": 10, "proe": 2},
         kept=frozenset({"csln", "proe"}),
+        needed=frozenset({"lang"}),
     ),
 }
