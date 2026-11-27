@@ -14,6 +14,7 @@ from fm27_editor.change_reading import (
     ReadChange,
     is_existing,
     read_change,
+    read_number,
     read_plain,
     referred_to,
     says_nothing,
@@ -26,8 +27,17 @@ from fm27_editor.field_definitions import (
     read_item_names,
     read_shared_choices,
 )
-from fm27_editor.list_changes import LIST_REFERENCE_TAGS
-from fm27_editor.record_changes import REFERENCE_TAGS
+from fm27_editor.list_changes import (
+    ADD,
+    CHANGE_PART,
+    CLEAR,
+    COPY,
+    LIST_REFERENCE_TAGS,
+    OPERATION,
+    PART_VALUE,
+    REMOVE,
+)
+from fm27_editor.record_changes import ID_TAG, REFERENCE_TAGS
 from fm27_editor.record_kinds import COMPETITION, GROUPS, PLAYER, STAFF
 from fm27_editor.record_rules import LOOKUP_TABLES
 from fm27_editor.rule_changes import read_rules
@@ -54,6 +64,12 @@ TABLE_OF_KIND = {
     "Stadium": "stadium",
 }
 TABLE_OF_TAG = {tag: LOOKUP_TABLES.get(kind) for kind, tag in LIST_REFERENCE_TAGS.items()}
+LIST_STEPS = {
+    ADD: "an item is added",
+    REMOVE: "an item is taken out",
+    CLEAR: "cleared",
+    COPY: "an item is copied",
+}
 
 
 def explain_lines(
@@ -212,7 +228,24 @@ def _change_lines(items: list[ReadChange], words: _Words, find: str, examples: i
 
 
 def _change_line(item: ReadChange, words: _Words) -> str:
+    step = _list_step(item, words)
+    if step is not None:
+        return f"{_changed_field(item, words)}: {step}"
     return f"{_changed_field(item, words)} = {_value(item.new, words)}"
+
+
+def _list_step(item: ReadChange, words: _Words) -> str | None:
+    """What a change does to the items of a list, if it changes them one at a time."""
+    if item.new is None or item.new.kind is not Kind.NESTED:
+        return None
+    parts = {part.tag: part for part in item.new.value}
+    if OPERATION not in parts:
+        return None
+    operation = read_number(parts[OPERATION])
+    if operation == CHANGE_PART and ID_TAG in parts:
+        part = words.part(words.kind(item.table), item.code, str(parts[ID_TAG].value))
+        return f"its {part} = {_value(parts.get(PART_VALUE), words)}"
+    return LIST_STEPS.get(operation, f"list step {operation}")
 
 
 def _searched_lines(item: ReadChange, words: _Words) -> Iterator[str]:
@@ -254,7 +287,7 @@ def _value(value: Property | ListItem | None, words: _Words) -> str:
     if value.kind is Kind.NESTED:
         reference = referred_to(value)
         if reference is None:
-            return "a change to a list"
+            return "a value of several parts"
         tag, record = reference
         return words.referred(tag, record)
     try:

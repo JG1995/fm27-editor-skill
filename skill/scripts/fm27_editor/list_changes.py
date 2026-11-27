@@ -33,7 +33,7 @@ LIST = "list"
 LIST_REFERENCE_TAGS = REFERENCE_TAGS | {"person": "Pers", "club": "Cclu"}
 NUMBERS = {"integer", "enum", "multiple_enum", MONEY}
 # What a change does to a list, by the Editor's numbers for it.
-ADD, CHANGE_PART, CLEAR = 0, 1, 3
+ADD, CHANGE_PART, REMOVE, CLEAR, COPY = 0, 1, 2, 3, 4
 NEW_VALUE, PART_VALUE, OLD_ITEM, OPERATION = "nwvl", "valu", "olvl", "lsop"
 
 type Item = Mapping[str, FieldValue | None]
