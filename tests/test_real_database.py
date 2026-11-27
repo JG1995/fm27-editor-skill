@@ -231,3 +231,16 @@ def test_the_installed_editor_database_reads_as_plausible_names(tmp_path, table,
 
     assert records >= at_least
     assert records == named == different == printable
+
+
+@needs_editor
+def test_the_installed_editor_database_reads_as_plausible_currencies(tmp_path):
+    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
+        records, named, different, with_rate, lowest, pounds = db.execute(
+            "SELECT count(*), count(name), count(DISTINCT name), count(per_pound),"
+            " min(per_pound), sum(per_pound = 1) FROM currency"
+        ).fetchone()
+
+    assert records >= 100
+    assert records == named == different == with_rate
+    assert lowest > 0 and pounds >= 1

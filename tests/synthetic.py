@@ -292,6 +292,16 @@ def weather_record(name: str, *, tail: int = 95) -> bytes:
     return b"\x00" + text(name) + bytes(range(tail))
 
 
+def currency_record(
+    name: str, short_name: str, symbol: str, per_pound: float, *, year_mark: int = 1
+) -> bytes:
+    """A currency holds its names, an empty text, its symbol, and how many make a pound, now and
+    in two past years."""
+    years = b"".join(struct.pack("<BHf", year_mark, year, per_pound) for year in (2024, 2025))
+    names = text(name) + text(short_name) + text("") + text(symbol)
+    return b"\x00" + names + struct.pack("<fI", per_pound, 2) + years
+
+
 def name_table(rows: list[bytes]) -> bytes:
     return b"\x03\x01tad.\xa9\x0e" + struct.pack("<I", len(rows)) + b"".join(rows)
 

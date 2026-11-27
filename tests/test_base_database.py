@@ -221,12 +221,31 @@ def test_kinds_known_only_by_name_can_be_found(editor, tmp_path, view, found):
     assert rows == found
 
 
+def test_currencies_say_how_many_of_them_make_a_pound(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            "SELECT uid, name, short_name, symbol, per_pound FROM currency ORDER BY uid"
+        ).fetchall()
+
+    assert rows == [
+        (7, "Testish Pound", "Pound", "£", 1.0),
+        (12, "Exampleland Crown", "Crown", None, 2.5),
+        (13, "Old Testmark", "Mark", "M", None),
+    ]
+
+
+POUND = ("Testish Pound", "Pound", "£", 1.0)
+
+
 @pytest.mark.parametrize(
     ("table", "broken", "complaint"),
     [
         ("table_8", synthetic.language_record("Englandish", tail=18), "language 8"),
         ("table_27", synthetic.weather_record("Testish Coastal", tail=96), "weather 8"),
+        ("table_41", synthetic.currency_record(*POUND) + b"\x00", "currency 8"),
+        ("table_41", synthetic.currency_record(*POUND, year_mark=2), "currency 8"),
     ],
+    ids=["language", "weather", "currency followed by a byte", "currency with another year mark"],
 )
 def test_a_record_that_names_itself_in_another_layout_is_an_error(
     editor, tmp_path, monkeypatch, table, broken, complaint
