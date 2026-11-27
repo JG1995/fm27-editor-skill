@@ -67,3 +67,13 @@ def test_the_example_history_fits(tmp_path):
 @pytest.mark.parametrize("kind", [*KINDS, *RULES_OF, HISTORY_KEY])
 def test_every_kind_of_fields_is_named(kind):
     assert f"`{kind}`" in INSTRUCTIONS.read_text(encoding="utf-8")
+
+
+def test_the_example_wage_is_converted_without_losing_part_of_a_pound():
+    instructions = INSTRUCTIONS.read_text(encoding="utf-8")
+    (conversion,) = re.findall(r"`(CAST\(round\([^`]*per_pound\) AS INTEGER\))`", instructions)
+
+    with closing(sqlite3.connect(":memory:")) as lookup:
+        (pounds,) = lookup.execute(f"SELECT {conversion} FROM (SELECT 2.5 AS per_pound)").fetchone()
+
+    assert pounds == round(100_000 * 12 / 52 / 2.5)
