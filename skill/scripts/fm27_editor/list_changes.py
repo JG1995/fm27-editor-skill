@@ -83,16 +83,18 @@ def item_changes(
     shape: ListShape,
     items: Sequence[Item],
     ids: NewIds,
+    *,
+    replace: bool = False,
 ) -> list[Change]:
-    """The changes that add these items to what a list holds; with no items, it is cleared.
+    """The changes that add these items to what a list holds, after clearing it if they replace it.
 
     Each item is complete before the next is added, so no two items look the same to the Editor
     while their parts are set. The values are not checked here.
     """
     parts = _defined(field, shape)
-    if not items:
-        return [_operation(table, record, field, ids, CLEAR)]
-    changes = []
+    if not items and not replace:
+        raise EditError(f"{field.name} ({field.code}) is given no items to add")
+    changes = [_operation(table, record, field, ids, CLEAR)] if replace else []
     for item in items:
         _check_known(field, shape, item)
         changes.append(_operation(table, record, field, ids, ADD))

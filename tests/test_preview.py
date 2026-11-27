@@ -123,9 +123,17 @@ def test_items_added_to_a_list_are_shown_with_their_parts(lines_for):
 
 
 def test_a_list_that_is_cleared_says_so(lines_for):
-    lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PNRs": []}}])
+    lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PNRs": {"replace": []}}}])
 
     assert lines[-2].endswith(": Second Nations cleared")
+
+
+def test_a_list_that_is_replaced_says_it_is_cleared_first(lines_for):
+    replaced = {"replace": [{"nati": 9001}]}
+
+    lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PNRs": replaced}}])
+
+    assert lines[-2].endswith(": Second Nations cleared, then + Nation Englandia (9001)")
 
 
 def test_a_new_person_is_shown_with_the_items_of_a_list(lines_for):

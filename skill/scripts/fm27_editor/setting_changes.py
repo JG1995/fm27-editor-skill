@@ -34,9 +34,10 @@ def _set_fields(
         if field.type == LIST:
             items = [
                 {code: resolved(value, new) for code, value in item.items()}
-                for item in setting.value
+                for item in setting.value.items
             ]
-            changes += item_changes(table, record, field, kind.lists[field.code], items, ids)
+            shape, replace = kind.lists[field.code], setting.value.replace
+            changes += item_changes(table, record, field, shape, items, ids, replace=replace)
         else:
             changes.append(field_change(table, record, field, resolved(setting.value, new), ids))
     return changes

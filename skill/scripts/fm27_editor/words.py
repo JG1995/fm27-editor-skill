@@ -15,7 +15,7 @@ from fm27_editor.record_changes import (
     refusal,
 )
 from fm27_editor.record_kinds import RecordKind
-from fm27_editor.record_rules import LOOKUP_TABLES, Items, NewReference, RecordRules
+from fm27_editor.record_rules import LOOKUP_TABLES, ListItems, NewReference, RecordRules
 
 
 def counted(number: int, one: str, many: str) -> str:
@@ -95,19 +95,19 @@ def amount(field: Field, value: object) -> str:
     return f"£{value:,}" if field.type == MONEY else str(value)
 
 
-def _shown_items(field: Field, items: Items, lookup: sqlite3.Connection) -> str:
-    """Items that are added, each after a plus; no items clear the list."""
-    if not items:
-        return "cleared"
+def _shown_items(field: Field, value: ListItems, lookup: sqlite3.Connection) -> str:
+    """Items that are added, each after a plus, behind what replacing the list clears."""
     parts = {part.code: part for part in field.items}
-    return " ".join(
+    added = " ".join(
         "+ "
         + ", ".join(
-            f"{parts[code].name} {shown(parts[code], value, lookup)}"
-            for code, value in item.items()
+            f"{parts[code].name} {shown(parts[code], part, lookup)}" for code, part in item.items()
         )
-        for item in items
+        for item in value.items
     )
+    if not value.replace:
+        return added
+    return f"cleared, then {added}" if added else "cleared"
 
 
 def named(lookup: sqlite3.Connection, table: str | None, uid: int) -> str:

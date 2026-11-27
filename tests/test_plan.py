@@ -264,11 +264,17 @@ def test_the_code_covers_the_history(plan_for):
 
 
 def test_the_code_covers_the_items_of_a_list(plan_for):
-    lists = ([{"nati": 9001}], [{"nati": 9002}], [{"nati": 9002, "ntin": 85}], [])
+    lists = (
+        [{"nati": 9001}],
+        [{"nati": 9002}],
+        [{"nati": 9002, "ntin": 85}],
+        {"replace": [{"nati": 9002}]},
+        {"replace": []},
+    )
 
     codes = {approval_code(plan_for(edits=[by_hand(100, PNRs=items)])) for items in lists}
 
-    assert len(codes) == 4
+    assert len(codes) == 5
 
 
 def test_a_history_that_the_starting_file_changes_cannot_be_changed_again(plan_for, tmp_path):
@@ -535,6 +541,17 @@ def test_items_added_behind_those_of_the_starting_file_replace_nothing(plan_for,
     plan = plan_for(start_from=str(path), edits=[by_hand(100, PNRs=[{"nati": 9002}])])
 
     assert plan.replaced == 0
+
+
+def test_a_list_that_replaces_one_the_starting_file_adds_to_is_counted(plan_for, tmp_path):
+    plan = plan_for(edits=[by_hand(100, PNRs=[{"nati": 9001}])])
+    path = tmp_path / "Lists.fmf"
+    save_editor_file(build_file(plan, approval_code(plan), TODAY), path)
+
+    replaced = {"replace": [{"nati": 9002}]}
+    plan = plan_for(start_from=str(path), edits=[by_hand(100, PNRs=replaced)])
+
+    assert plan.replaced == 1
 
 
 def test_a_starting_file_that_does_not_exist_is_reported(plan_for, tmp_path):

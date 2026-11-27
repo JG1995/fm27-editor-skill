@@ -11,7 +11,7 @@ from fictional_editor import write_definitions
 from fm27_editor.change_list import ChangeList, Kind, Property
 from fm27_editor.record_changes import EditError, NewIds
 from fm27_editor.record_kinds import CLUB, COMPETITION, PLAYER, STAFF
-from fm27_editor.record_rules import NewReference, RecordRules
+from fm27_editor.record_rules import ListItems, NewReference, RecordRules
 from fm27_editor.setting_changes import edit_record, new_record
 
 BASICS = {
@@ -287,7 +287,7 @@ def test_items_of_a_list_are_given_by_the_codes_of_their_parts(editor, items):
     with lookup() as database:
         (setting,) = RecordRules(editor, database).settings(PLAYER, {"PNRs": items})
 
-    assert setting.value == ({"nati": 9001, "ntin": 85},)
+    assert setting.value == ListItems(({"nati": 9001, "ntin": 85},))
 
 
 def test_items_are_added_to_what_a_person_has_one_part_at_a_time(editor):
@@ -297,8 +297,16 @@ def test_items_are_added_to_what_a_person_has_one_part_at_a_time(editor):
     assert list_steps(changes) == [("PNRs", "nwvl"), ("PNRs", "ntin"), ("PNRs", "nati")]
 
 
-def test_no_items_clear_a_list(editor):
-    (change,) = edited(editor, {"PNRs": []})
+def test_a_replaced_list_is_cleared_before_its_items_are_added(editor):
+    changes = edited(editor, {"PNRs": {"replace": [{"nati": 9001}]}})
+
+    assert list_steps(changes) == [("PNRs", "nwvl"), ("PNRs", "nwvl"), ("PNRs", "nati")]
+    assert tagged(changes[0])["nwvl"].value[-1] == Property("lsop", Kind.INT8, b"\x03")
+
+
+@pytest.mark.parametrize("replaced", [{"replace": []}, '{"replace": []}'], ids=["list", "text"])
+def test_a_list_replaced_by_no_items_is_cleared(editor, replaced):
+    (change,) = edited(editor, {"PNRs": replaced})
 
     assert tagged(change)["nwvl"].value[-1] == Property("lsop", Kind.INT8, b"\x03")
 
@@ -351,6 +359,10 @@ def test_a_team_in_a_list_can_be_a_club_or_a_national_team(editor, team):
         ({"PNRs": [{"nati": 4242}]}, "4242"),
         ({"PNRs": [{"ntin": 81}]}, "ntin"),
         ({"PNRs": [{"moon": 1}]}, "moon"),
+        ({"PNRs": []}, "no items to add"),
+        ({"PNRs": {"add": []}}, "replace"),
+        ({"PNRs": {"replace": [], "add": []}}, "replace"),
+        ({"PNRs": {"replace": 9001}}, "list"),
         ({"PElg": [{"lang": 8, "proe": 3}]}, "no proe, only lang, prof"),
         ({"PElg": [{"lang": 4242}]}, "4242"),
         ({"PNRs": [{"nati": None}]}, "nati"),
