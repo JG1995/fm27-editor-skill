@@ -2,6 +2,7 @@
 
 import datetime
 import sqlite3
+from collections.abc import Mapping, Sequence
 
 from fm27_editor.base_database import record_name
 from fm27_editor.field_definitions import Field
@@ -83,8 +84,9 @@ def _accepted_items(field: Field, shape: ListShape) -> str:
 
 
 def shown(field: Field, value: object, lookup: sqlite3.Connection) -> str:
+    """A value in words; a list's are items added to a new record, which holds none."""
     if field.type == LIST:
-        return _shown_items(field, value, lookup)
+        return shown_list(field, value, (), lookup)
     if isinstance(value, datetime.date):
         return value.isoformat()
     if field.points_to == "team" and isinstance(value, int):
@@ -101,19 +103,35 @@ def amount(field: Field, value: object) -> str:
     return f"£{value:,}" if field.type == MONEY else str(value)
 
 
-def _shown_items(field: Field, value: ListItems, lookup: sqlite3.Connection) -> str:
-    """Items that are added, each after a plus, behind what replacing the list clears."""
+def shown_list(
+    field: Field,
+    value: ListItems,
+    held: Sequence[Mapping[str, object]] | None,
+    lookup: sqlite3.Connection,
+) -> str:
+    """Items that are added, each after a plus, behind those that replacing the list takes out,
+    each after a minus; `held` is what the list holds now, or None when that is not known."""
+    added = _items("+", field, value.items, lookup)
+    if not value.replace:
+        return added
+    if held is None:
+        cleared = "cleared of what it holds, which is not known"
+    else:
+        cleared = f"cleared of {_items('-', field, held, lookup) or 'nothing'}"
+    return f"{cleared}, then {added}" if added else cleared
+
+
+def _items(
+    mark: str, field: Field, items: Sequence[Mapping[str, object]], lookup: sqlite3.Connection
+) -> str:
     parts = {part.code: part for part in field.items}
-    added = " ".join(
-        "+ "
+    return " ".join(
+        f"{mark} "
         + ", ".join(
             f"{parts[code].name} {shown(parts[code], part, lookup)}" for code, part in item.items()
         )
-        for item in value.items
+        for item in items
     )
-    if not value.replace:
-        return added
-    return f"cleared, then {added}" if added else "cleared"
 
 
 def named(lookup: sqlite3.Connection, table: str | None, uid: int) -> str:

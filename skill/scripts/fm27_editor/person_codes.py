@@ -120,5 +120,19 @@ STAFF = {
     "coaching_set_pieces": "NDsp",
 }
 
+# The parts of a season of playing history (Plhs) by the lookup's names.
+PLAYING_HISTORY = {
+    "year": "year",
+    "order_in_year": "yror",
+    "club_uid": "clid",
+    "division_uid": "divi",
+    "apps": "apps",
+    "goals": "gols",
+    "transfer_fee": "cash",
+    "other": "info",
+    "date_joined": "join",
+    "date_left": "leav",
+}
+
 # The parts a name is made of, in the order they are said.
 NAME_CODES = ("Pfna", "Psna")

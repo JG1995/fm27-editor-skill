@@ -660,6 +660,35 @@ def test_items_added_behind_those_of_the_starting_file_replace_nothing(plan_for,
     assert plan.replaced == 0
 
 
+def test_the_items_a_list_holds_now_are_its_old_value_where_the_lookup_has_them(plan_for):
+    plan = plan_for(edits=[by_hand(100, Plhs={"replace": []}), by_hand(101, PNRs={"replace": []})])
+
+    history, nations = plan.edits
+    assert history.old == (
+        {
+            "year": 2021,
+            "yror": 0,
+            "clid": 9102,
+            "divi": 9203,
+            "apps": 30,
+            "gols": 12,
+            "join": "2021-07-01",
+        },
+        {
+            "year": 2022,
+            "yror": 1,
+            "clid": 9102,
+            "divi": 9203,
+            "apps": 12,
+            "gols": 4,
+            "cash": 2_500_000,
+            "leav": "2023-01-31",
+        },
+        {"year": 2022, "yror": 2, "clid": 9101, "divi": 9201, "info": -2},
+    )
+    assert nations.old is None
+
+
 def test_a_list_that_replaces_one_the_starting_file_adds_to_is_counted(plan_for, tmp_path):
     plan = plan_for(edits=[by_hand(100, PNRs=[{"nati": 9001}])])
     path = tmp_path / "Lists.fmf"
