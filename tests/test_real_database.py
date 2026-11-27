@@ -205,11 +205,22 @@ def test_the_installed_editor_database_reads_as_plausible_clubs(tmp_path):
 
 
 @needs_editor
-def test_the_installed_editor_database_reads_as_plausible_languages(tmp_path):
+@pytest.mark.parametrize(
+    ("table", "at_least", "one"),
+    [
+        ("language", 100, "English"),
+        ("continent", 7, "Europe"),
+        ("injury", 100, "twisted ankle"),
+        ("weather", 300, "English Coastal"),
+    ],
+)
+def test_the_installed_editor_database_reads_as_plausible_names(tmp_path, table, at_least, one):
     with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
-        languages, named, different = db.execute(
-            "SELECT count(*), count(name), count(DISTINCT name) FROM language"
+        records, named, different = db.execute(
+            f"SELECT count(*), count(name), count(DISTINCT name) FROM {table}"
         ).fetchone()
+        found = db.execute(f"SELECT count(*) FROM {table} WHERE name = ?", (one,)).fetchone()
 
-    assert languages > 100
-    assert languages == named == different
+    assert records >= at_least
+    assert records == named == different
+    assert found == (1,)

@@ -27,7 +27,7 @@ SOURCE_FILES = [
 BATCH = 5_000
 CLIENT_TABLES = place_lookup.CLIENT_TABLES | award_lookup.CLIENT_TABLES | name_lookup.CLIENT_TABLES
 SERVER_TABLES = place_lookup.SERVER_TABLES | award_lookup.SERVER_TABLES
-NAME_TABLES = place_lookup.NAME_TABLES | award_lookup.NAME_TABLES
+NAME_TABLES = place_lookup.NAME_TABLES | award_lookup.NAME_TABLES | name_lookup.NAME_TABLES
 
 
 class DatabaseError(FormatError):
@@ -115,7 +115,7 @@ def _fill(path: Path, source: Path, fingerprint: str) -> None:
         cache.execute("INSERT INTO meta VALUES (?)", (fingerprint,))
         insert_places(cache, client, server, name_tables)
         insert_awards(cache, client, server, name_tables, [person.uid for person in basic])
-        insert_names(cache, client)
+        insert_names(cache, client, name_tables)
         _insert_people(cache, iter_people(basic, content, names))
         cache.executescript(
             "CREATE INDEX person_nation ON person(nation_uid);"

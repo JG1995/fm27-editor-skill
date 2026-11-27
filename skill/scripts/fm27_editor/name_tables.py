@@ -19,6 +19,10 @@ class NamedTable(Enum):
     AWARD = ((TEXT, 1, TEXT, 2), True)
     CITY = ((TEXT, 2), False)
     STADIUM = ((TEXT, TEXT, 3), False)
+    # A three-letter name, the word for its people, and the full and short name of its federation
+    CONTINENT = ((TEXT, 1, TEXT, TEXT, TEXT, 1, TEXT, 2), False)
+    # The name as a sentence says it, such as "a cold"
+    INJURY = ((TEXT, 1, TEXT, 2), False)
 
     @property
     def layout(self) -> Layout:

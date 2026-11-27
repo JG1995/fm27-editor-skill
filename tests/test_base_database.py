@@ -206,13 +206,37 @@ def test_languages_can_be_found(editor, tmp_path):
     assert languages == [(8, "Englandish"), (22, "Norwegish")]
 
 
-def test_a_language_of_another_layout_is_an_error(editor, tmp_path, monkeypatch):
-    broken = synthetic.record_table([(8, synthetic.language_record("Englandish", tail=18))])
-    others = [table for table in fictional_editor.client_tables() if table[0] != "table_8"]
-    monkeypatch.setattr(fictional_editor, "client_tables", lambda: [*others, ("table_8", broken)])
+@pytest.mark.parametrize(
+    ("view", "found"),
+    [
+        ("continents", [(1, "Testica"), (3, "Europia")]),
+        ("injuries", [(1, "cold"), (6, "twisted ankle")]),
+        ("weathers", [(1, "Testish Coastal"), (115052, "Testish Inland")]),
+    ],
+)
+def test_kinds_known_only_by_name_can_be_found(editor, tmp_path, view, found):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(f"SELECT uid, name FROM {view} ORDER BY uid").fetchall()
+
+    assert rows == found
+
+
+@pytest.mark.parametrize(
+    ("table", "broken", "complaint"),
+    [
+        ("table_8", synthetic.language_record("Englandish", tail=18), "language 8"),
+        ("table_27", synthetic.weather_record("Testish Coastal", tail=96), "weather 8"),
+    ],
+)
+def test_a_record_that_names_itself_in_another_layout_is_an_error(
+    editor, tmp_path, monkeypatch, table, broken, complaint
+):
+    others = [found for found in fictional_editor.client_tables() if found[0] != table]
+    broken_table = synthetic.record_table([(8, broken)])
+    monkeypatch.setattr(fictional_editor, "client_tables", lambda: [*others, (table, broken_table)])
     write_database(editor)
 
-    with pytest.raises(NamedRecordError, match="language 8"):
+    with pytest.raises(NamedRecordError, match=complaint):
         open_database(editor, tmp_path / "cache.sqlite")
 
 
