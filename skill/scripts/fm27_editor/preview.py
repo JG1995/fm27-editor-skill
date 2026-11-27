@@ -7,10 +7,11 @@ from fm27_editor.history_words import history_heading, year_lines
 from fm27_editor.plan import Plan, approval_code
 from fm27_editor.planned import Addition, Edit, KnownRecord
 from fm27_editor.potential import is_range
+from fm27_editor.record_changes import MONEY
 from fm27_editor.record_kinds import GROUPS, RecordGroup
 from fm27_editor.record_rules import NewReference, Setting
 from fm27_editor.rule_words import rule_lines
-from fm27_editor.words import counted, shown
+from fm27_editor.words import amount, counted, shown
 
 
 def preview_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list[str]:
@@ -68,11 +69,12 @@ def _by_field(edits: Iterable[Edit]) -> list[list[Edit]]:
 def _field_line(group: RecordGroup, edits: list[Edit]) -> str:
     field = edits[0].setting.field
     parts = [counted(len(edits), group.one, group.view)]
-    if field.type in ("integer", "attribute"):
+    if field.type in ("integer", "attribute", MONEY):
         parts += _direction(edits)
         numbers = [edit.setting.value for edit in edits if not _has_range(edit)]
         if numbers:
-            parts.append(f"new values {min(numbers)} to {max(numbers)}")
+            lowest, highest = amount(field, min(numbers)), amount(field, max(numbers))
+            parts.append(f"new values {lowest} to {highest}")
     return f"  {field.name} ({field.code}): {', '.join(parts)}"
 
 

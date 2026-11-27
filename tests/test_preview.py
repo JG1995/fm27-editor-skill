@@ -101,6 +101,15 @@ def test_an_old_value_the_lookup_does_not_know_is_not_made_up(lines_for):
     assert lines[-2].endswith("Height unknown -> 190")
 
 
+def test_money_is_shown_in_pounds(lines_for):
+    lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"Pcwg": 19943}}])
+
+    assert (
+        "  Wage (Pcwg): 1 person, 1 from an unknown value, new values £19,943 to £19,943" in lines
+    )
+    assert lines[-2].endswith("Wage unknown -> £19,943")
+
+
 def test_nations_and_clubs_are_shown_by_name(lines_for):
     lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"club_uid": 9102}}])
 

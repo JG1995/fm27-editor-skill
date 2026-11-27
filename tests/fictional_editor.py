@@ -72,6 +72,7 @@ PERSON = synthetic.definition_file(
     synthetic.field_definition("Pcbi", "City Of Birth", *synthetic.reference("city")),
     synthetic.field_definition("Page", "Age", "integer", synthetic.number_range(0, 99)),
     synthetic.field_definition("Phes", "Height", "integer", synthetic.number_range(0, 210)),
+    synthetic.field_definition("Pcwg", "Wage", "cash", synthetic.number_range(0, 3_500_000)),
 )
 PLAYER = synthetic.definition_file(
     "play",
@@ -90,6 +91,7 @@ PLAYER = synthetic.definition_file(
     ),
     synthetic.field_definition("PDfn", "Finishing", "attribute"),
     synthetic.field_definition("Zmod", "Mood", "enum", '<flags id="enum_values" value="mood" />'),
+    synthetic.field_definition("PbvE", "Transfer Value", "cash"),
 )
 NON_PLAYER = synthetic.definition_file(
     "nnpl",
