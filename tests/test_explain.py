@@ -11,7 +11,7 @@ from fm27_editor.editor_file import load_editor_file
 from fm27_editor.explain import explain_lines
 from fm27_editor.plan import approval_code, build_file, make_plan
 
-AWARD, PERSON, CLUB, STADIUM, COMPETITION = 0, 1, 3, 21, 25
+AWARD, PERSON, CLUB, NATION, STADIUM, COMPETITION = 0, 1, 3, 9, 21, 25
 
 
 def number(value):
@@ -62,6 +62,14 @@ def test_changes_are_counted_by_table_and_field(lines_for):
     assert "  Height (Phes): 1" in lines
     assert "Stadium: 1 change to 1 record" in lines
     assert "  Seating Capacity (Secy): 1" in lines
+
+
+def test_changes_to_nations_name_the_nation_and_its_fields(lines_for):
+    lines = lines_for(synthetic.record_change(NATION, 9002, "Necf", number(15)))
+
+    assert "Nation: 1 change to 1 record" in lines
+    assert "  Economic Factor (Necf): 1" in lines
+    assert "  Norwegia (9002): Economic Factor = 15" in lines
 
 
 def test_examples_name_the_person_the_field_and_the_value(lines_for):

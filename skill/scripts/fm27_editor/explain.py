@@ -12,6 +12,7 @@ from fm27_editor.change_reading import (
     REMOVE_RECORD,
     EditError,
     ReadChange,
+    Table,
     is_existing,
     read_change,
     read_number,
@@ -49,10 +50,12 @@ KEPT_HALF = slice(4, ID_SIZE)
 # Where the definition files are not called what the Editor calls the kind of record.
 DEFINED_IN = {
     "Person": [*STAFF.defined_in, *PLAYER.defined_in],
-    "National Team": ["national team container"],
     "Derby Name": ["derby"],
     "Competition": COMPETITION.defined_in,
 }
+# Where the Editor's list of tables does not say what a table holds: it calls the nations' table
+# National Team, but real changes to nations are stored there (see place_lookup).
+KIND_OF_TABLE = {Table.NATION: "Nation"}
 # The lookup's tables, by the Editor's kind of record and by the tag of a reference.
 TABLE_OF_KIND = {
     "Person": "person",
@@ -102,7 +105,7 @@ class _Words:
         self._new_names = _names_of_new_records(changes)
 
     def kind(self, table: int) -> str:
-        return self._kinds.get(table, f"Table {table}")
+        return KIND_OF_TABLE.get(table) or self._kinds.get(table, f"Table {table}")
 
     def field(self, kind: str, code: str) -> str:
         if kind not in self._fields:

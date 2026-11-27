@@ -254,8 +254,17 @@ STADIUM = synthetic.definition_file(
     synthetic.field_definition("Scpy", "Capacity", "integer", synthetic.number_range(0, 200000)),
     synthetic.field_definition("Secy", "Seating Capacity", "integer"),
 )
+NATION = synthetic.definition_file(
+    "nati",
+    synthetic.field_definition("Nnam", "Name", "string"),
+    synthetic.field_definition("Necf", "Economic Factor", "integer", synthetic.number_range(1, 20)),
+    synthetic.field_definition("Nnsi", "National Stadium", *synthetic.reference("stadium")),
+)
 SHARED_CHOICES = synthetic.enum_file(
-    dbts={0: "Award", 1: "Person", 3: "Club", 21: "Stadium", 25: "Competition", 99: "Moon"},
+    dbts={
+        **{0: "Award", 1: "Person", 3: "Club", 9: "National Team", 10: "Nation"},
+        **{21: "Stadium", 25: "Competition", 99: "Moon"},
+    },
     mood={0: "Calm", 2: "Cross"},
     cdbt={0: "Top Division", 2: "Main Cup"},
     posm={64: "Wing-Back Left"},
@@ -279,6 +288,7 @@ def write_definitions(folder: Path, person: bytes = PERSON) -> Path:
         "comp": COMPETITION,
         "award": AWARD,
         "stadium": STADIUM,
+        "nation": NATION,
     }
     path.write_bytes(synthetic.definitions_container(files, SHARED_CHOICES))
     return folder

@@ -244,6 +244,33 @@ def test_a_stadium_cannot_be_made(plan_for):
         plan_for(new=[{"kind": "stadium", "set": {"name": "Example Park"}}])
 
 
+def test_nations_are_edited_by_the_lookups_names_and_their_codes(plan_for):
+    plan = plan_for(edits=[by_hand(9002, of="nations", name="Norway", Necf=15, Nnsi=9401)])
+
+    assert edited(plan) == [
+        (9002, "Nnam", "Norwegia", "Norway"),
+        (9002, "Necf", None, 15),
+        (9002, "Nnsi", None, 9401),
+    ]
+
+
+def test_a_nation_is_changed_in_the_table_that_real_files_use_for_it(plan_for):
+    plan = plan_for(edits=[by_hand(9002, of="nations", Necf=15)])
+
+    (change,) = build_file(plan, approval_code(plan), TODAY).changes.changes
+
+    assert [(item.tag, item.value) for item in change[:3]] == [
+        ("dtty", b"\x09"),
+        ("duni", (9002).to_bytes(4, "little") * 2),
+        ("prty", "Necf"),
+    ]
+
+
+def test_a_nation_cannot_be_made(plan_for):
+    with pytest.raises(FormatError, match="a new nation cannot be made"):
+        plan_for(new=[{"kind": "nation", "set": {"name": "Testland"}}])
+
+
 def test_an_award_cannot_be_made(plan_for):
     with pytest.raises(FormatError, match="a new award cannot be made"):
         plan_for(new=[{"kind": "award", "set": {"name": "Example Award"}}])
