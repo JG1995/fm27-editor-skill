@@ -76,6 +76,7 @@ A request has any of these parts. The uids here are made up:
 ```
 
 - **`of`** is `people`, `clubs`, `competitions`, `awards`, `stadiums`, `nations`, `cities`, `continents`, `injuries`, or `weathers`. A club and a person can have the same uid. A club's ground is its `stadium_uid`; change the ground itself as one of `stadiums`.
+- **A field that names a person,** such as a club's manager (`Cmni`) or captain (`Tcap`), takes the uid of someone in `people`, or `@` and the name of a new person. Someone who is not in the lookup cannot be named. The skill does not check that the person works or plays there, so check it with `find` first.
 - **`query`** returns `uid` and one column for each field to set. The column's value is the new value.
 - **`as`** names a new record. Later ones and edits refer to it with `@` and that name.
 - **Potential is set with `pa` alone,** as a number or a range.

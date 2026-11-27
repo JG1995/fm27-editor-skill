@@ -36,6 +36,7 @@ def lookup():
         "city": 9301,
         "stadium": 9401,
         "language": 8,
+        "person": 100,
     }
     for table, uid in names.items():
         connection.execute(f"CREATE TABLE {table}(uid INTEGER PRIMARY KEY, name TEXT)")
@@ -237,6 +238,24 @@ def test_a_club_can_play_in_a_competition_that_is_new_as_well(editor):
     assert int.from_bytes(number.value, "little") == int.from_bytes(record[:4], "little")
 
 
+def test_a_club_names_its_manager_and_captain_by_the_uid_of_a_person(editor):
+    with lookup() as database:
+        settings = RecordRules(editor, database).settings(CLUB, {"Cmni": 100, "Tcap": 100})
+
+    *_, manager = edit_record(CLUB, 9101, settings[:1], {}, NewIds(ChangeList(), random.Random(1)))
+    assert tagged(manager)["nwvl"].value[1] == Property(
+        "Pers", Kind.ID, struct.pack("<II", 100, 100)
+    )
+    assert [setting.value for setting in settings] == [100, 100]
+
+
+def test_a_club_can_be_managed_by_a_person_who_is_new_as_well(editor):
+    *_, manager = create(editor, CLUB, CLUB_BASICS | {"Cmni": "@Boss"}, {"Boss": STAFF})
+
+    record = NewIds(ChangeList(), random.Random(1)).record()
+    assert tagged(manager)["nwvl"].value[1] == Property("Pers", Kind.ID, record)
+
+
 def test_a_reference_to_a_new_record_keeps_its_name(editor):
     with lookup() as database:
         (setting,) = RecordRules(editor, database).settings(
@@ -254,6 +273,8 @@ def test_a_reference_to_a_new_record_keeps_its_name(editor):
         ({"division_uid": "D1"}, "'D1'"),
         ({"division_uid": 4242}, "4242"),
         ({"stadium_uid": 4242}, "4242"),
+        ({"Cmni": 4242}, "no person 4242"),
+        ({"Cmni": "@Rovers"}, "points to a person, and @Rovers is a club"),
     ],
 )
 def test_a_reference_must_be_to_a_record_of_the_right_kind(editor, values, complaint):

@@ -160,6 +160,7 @@ def test_a_date_is_stored_as_year_and_day_of_the_year(day, raw):
         ("language", "lang"),
         ("competition", "comp"),
         ("stadium", "stad"),
+        ("person", "Pers"),
     ],
 )
 def test_a_reference_names_the_other_record(table, tag):

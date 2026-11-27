@@ -137,6 +137,12 @@ def test_a_stadium_is_described_by_where_it_is(lines_for):
     assert "  Test Park (9401), Testby, Englandia: Capacity unknown -> 30000" in lines
 
 
+def test_a_person_named_by_a_club_is_shown_by_name(lines_for):
+    lines = lines_for(edits=[{"of": "clubs", "uid": 9101, "set": {"Cmni": 102}}])
+
+    assert lines[-2].endswith(": Manager unknown -> Charlie Coach (102)")
+
+
 def test_a_list_that_is_cleared_says_so(lines_for):
     lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PNRs": {"replace": []}}}])
 

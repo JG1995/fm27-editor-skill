@@ -97,6 +97,10 @@ def test_real_numbers_are_listed_with_the_range_the_definitions_give(run):
     assert latitude == ["Slat: Latitude, a number"]
 
 
+def test_a_field_that_names_a_person_is_listed(run):
+    assert run("fields", "club", "manager")[1] == ["Cmni: Manager, the uid of a person"]
+
+
 def test_fields_that_cannot_be_written_are_not_listed(run):
     _, lines, _ = run("fields", "player")
 

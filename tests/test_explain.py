@@ -114,6 +114,12 @@ def test_every_kind_of_value_is_shown_in_plain_words(lines_for, value, shown):
     assert f"  Alfa Striker (100): Height = {shown}" in lines
 
 
+def test_a_person_named_by_a_club_is_named_in_an_explanation(lines_for):
+    lines = lines_for(synthetic.record_change(CLUB, 9101, "Cmni", reference("Pers", 100)))
+
+    assert "  Fictional City (9101): Manager = Alfa Striker (100)" in lines
+
+
 def test_changes_to_awards_name_the_award(lines_for):
     lines = lines_for(synthetic.record_change(AWARD, 9501, "AWap", number(1)))
 
