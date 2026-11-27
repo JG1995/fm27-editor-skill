@@ -151,16 +151,16 @@ class _Words:
 def _names_of_new_records(changes: list[ReadChange]) -> dict[bytes, str]:
     """Names by the half of the ID that stays the same when the Editor saves a file."""
     codes = {group.table: group.name_codes for group in GROUPS.values()}
-    names: dict[bytes, dict[str, str]] = {}
+    names: dict[bytes, tuple[int, dict[str, str]]] = {}
     for change in changes:
         new = change.new
         is_name = change.code in codes.get(change.table, ()) and new is not None
         if is_name and new.kind is Kind.TEXT and new.value and not is_existing(change.record):
-            names.setdefault(change.record[KEPT_HALF], {})[change.code] = new.value
-    order = [code for group in codes.values() for code in group]
+            parts = names.setdefault(change.record[KEPT_HALF], (change.table, {}))[1]
+            parts[change.code] = new.value
     return {
-        record: " ".join(parts[code] for code in order if code in parts)
-        for record, parts in names.items()
+        record: " ".join(parts[code] for code in codes[table] if code in parts)
+        for record, (table, parts) in names.items()
     }
 
 
