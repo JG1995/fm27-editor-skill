@@ -85,7 +85,7 @@ class Person:
     uid: int
     kind: PersonKind
     name: str
-    full_name: str
+    full_name: str | None
     birth_date: datetime.date | None = None
     nation_uid: int | None = None
     club_uid: int | None = None
