@@ -9,10 +9,10 @@ from pathlib import Path
 from fm27_editor import award_lookup, name_lookup, people_lookup, place_lookup
 from fm27_editor.award_lookup import insert_awards
 from fm27_editor.binary import FormatError
-from fm27_editor.dat_tables import read_stream, read_tables
+from fm27_editor.dat_tables import read_seekable, read_stream, read_tables
 from fm27_editor.name_lookup import insert_names
 from fm27_editor.people import parse_basic_people
-from fm27_editor.people_lookup import insert_people
+from fm27_editor.people_lookup import insert_people, insert_playing_histories
 from fm27_editor.place_lookup import insert_places
 
 DATABASE_PATTERN = "shared/data/database/db/*/*_fm"
@@ -22,6 +22,9 @@ SOURCE_FILES = [
     "client_db.dat",
     "server_db.dat",
     "lang_db.dat",
+    "pl_hist_index.dat",
+    "pl_hist_id.dat",
+    "pl_hist_dt.dat",
 ]
 CLIENT_TABLES = (
     place_lookup.CLIENT_TABLES
@@ -118,6 +121,13 @@ def _fill(path: Path, source: Path, fingerprint: str) -> None:
         insert_awards(cache, client, server, name_tables, [person.uid for person in basic])
         insert_names(cache, client, name_tables)
         insert_people(cache, client, basic, content)
+        insert_playing_histories(
+            cache,
+            basic,
+            read_stream(source / "pl_hist_index.dat"),
+            read_seekable(source / "pl_hist_id.dat"),
+            read_seekable(source / "pl_hist_dt.dat"),
+        )
 
 
 def _create_tables(cache: sqlite3.Connection) -> None:

@@ -49,6 +49,18 @@ CLUBS = {
     9103: ("Fictional City", "Fic Women", {"nation": 0, "female": True}, {"division": 1}),
     9104: ("Gone Town", "Gone", {"extinct_nation": 1}, {}),
 }
+# Playing histories by person uid: Alfa Striker's three seasons, none of Bravo Keeper, and one of
+# someone who is not in the database.
+HISTORIES = {
+    999: [synthetic.history_item(2020, 9101)],
+    100: [
+        synthetic.history_item(2021, 9102, division=9203, apps=30, goals=12, joined=(182, 2021)),
+        synthetic.history_item(
+            2022, 9102, order=1, division=9203, apps=12, goals=4, fee=2_500_000, left=(31, 2023)
+        ),
+        synthetic.history_item(2022, 9101, order=2, division=9201, apps=255, goals=255, fee=-2),
+    ],
+}
 
 AWARDS = {
     9501: (
@@ -423,6 +435,10 @@ def write_database(folder: Path, people=None) -> Path:
         )
     )
     (database / "server_db.dat").write_bytes(synthetic.dat_container("server_db", server_tables()))
+    index, offsets, seasons = synthetic.playing_histories(HISTORIES)
+    (database / "pl_hist_index.dat").write_bytes(synthetic.dat_file(index))
+    (database / "pl_hist_id.dat").write_bytes(synthetic.seekable_file(offsets, kind=1))
+    (database / "pl_hist_dt.dat").write_bytes(synthetic.seekable_file(seasons, kind=3))
     (database / "lang_db.dat").write_bytes(synthetic.dat_container("lang_db", name_tables()))
     return folder
 
