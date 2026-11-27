@@ -9,6 +9,8 @@ COMMON = {
     "birth_date": "Pdob",
     "nation_uid": "Pnti",
     "club_uid": "Pcti",
+    "wage": "Pcwg",
+    "contract_expires": "Pcex",
     "adaptability": "Pada",
     "ambition": "Pamb",
     "loyalty": "Ploy",

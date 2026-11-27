@@ -85,7 +85,7 @@ def test_money_fields_are_listed_in_pounds(run):
     _, wage, _ = run("fields", "player", "wage")
     _, value, _ = run("fields", "player", "transfer value")
 
-    assert wage == ["Pcwg: Wage, pounds from 0 to 3,500,000"]
+    assert wage == ["wage (Pcwg): Wage, pounds from 0 to 3,500,000"]
     assert value == ["PbvE: Transfer Value, pounds from 0 to 1,000,000,000"]
 
 
