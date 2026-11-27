@@ -19,6 +19,8 @@ IN_TABLE, WRITTEN_OUT = 0, 1
 # The name's nation, how often it is used, and three more numbers.
 WRITTEN_OUT_TAIL = 12
 EARLIEST_BIRTH_YEAR, LATEST_BIRTH_YEAR = 1900, 2014
+# The Editor's date for no date, in people's records and the files of their histories alike.
+NO_DATE = datetime.date(1900, 1, 1)
 
 
 @dataclass(slots=True, frozen=True)
@@ -36,7 +38,8 @@ class Identity:
     """The name the game shows."""
     full_name: str | None
     """As the record holds it; None when it holds none."""
-    birth_date: datetime.date
+    birth_date: datetime.date | None
+    """None when the record says the first day of 1900, which stands for no date."""
 
 
 def read_identity(record: bytes, marker_at: int, names: Names) -> Identity | None:
@@ -53,7 +56,8 @@ def read_identity(record: bytes, marker_at: int, names: Names) -> Identity | Non
             for second_at, second in _names_ending_at(record, common_at, names.second):
                 for _, first in _names_ending_at(record, second_at, names.first):
                     name = common or " ".join(part for part in (first, second) if part)
-                    return Identity(name, full_name or None, birth_date)
+                    known = None if birth_date == NO_DATE else birth_date
+                    return Identity(name, full_name or None, known)
     return None
 
 

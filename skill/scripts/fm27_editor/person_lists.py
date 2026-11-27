@@ -5,12 +5,10 @@ where people's lists are changed thousands of times. Lists whose added item was 
 as achievements and injuries, are not here.
 """
 
-import datetime
 from collections.abc import Mapping
 
 from fm27_editor.list_changes import ListShape
-
-NO_DATE = datetime.date(1900, 1, 1)
+from fm27_editor.person_names import NO_DATE
 
 PERSON_LISTS: Mapping[str, ListShape] = {
     "Plhs": ListShape(  # Playing History
