@@ -10,22 +10,23 @@ type Layout = tuple[str | int, ...]
 
 
 class NamedTable(Enum):
-    """What a table names, and the shape of its rows behind the ID."""
+    """What a table names: the shape of its rows behind the ID, and whether a short name follows
+    the name. Two tables can have rows of one shape."""
 
-    NATION = (TEXT, 1, TEXT, 1, TEXT, TEXT, 1)
-    CLUB = (TEXT, 1, TEXT, 1, TEXT, TEXT, TEXT, 1, TEXT, 4, TEXT)
-    COMPETITION = (TEXT, 1, TEXT, 1, TEXT, 1)
-    AWARD = (TEXT, 1, TEXT, 2)
-    CITY = (TEXT, 2)
-    STADIUM = (TEXT, TEXT, 3)
+    NATION = ((TEXT, 1, TEXT, 1, TEXT, TEXT, 1), True)
+    CLUB = ((TEXT, 1, TEXT, 1, TEXT, TEXT, TEXT, 1, TEXT, 4, TEXT), True)
+    COMPETITION = ((TEXT, 1, TEXT, 1, TEXT, 1), True)
+    AWARD = ((TEXT, 1, TEXT, 2), True)
+    CITY = ((TEXT, 2), False)
+    STADIUM = ((TEXT, TEXT, 3), False)
 
+    @property
+    def layout(self) -> Layout:
+        return self.value[0]
 
-WITH_SHORT_NAMES = {
-    NamedTable.NATION,
-    NamedTable.CLUB,
-    NamedTable.COMPETITION,
-    NamedTable.AWARD,
-}
+    @property
+    def has_short_names(self) -> bool:
+        return self.value[1]
 
 
 def read_names(kind: NamedTable, table: bytes) -> dict[int, tuple[str, str | None]]:
@@ -35,12 +36,12 @@ def read_names(kind: NamedTable, table: bytes) -> dict[int, tuple[str, str | Non
     for _ in range(count):
         uid = reader.u32()
         texts = []
-        for part in kind.value:
+        for part in kind.layout:
             if part == TEXT:
                 texts.append(reader.text())
             else:
                 reader.take(part)
-        names[uid] = (texts[0], texts[1] if kind in WITH_SHORT_NAMES else None)
+        names[uid] = (texts[0], texts[1] if kind.has_short_names else None)
     if not reader.at_end:
         raise DatError(f"bytes follow the last {kind.name.lower()} name")
     return names
