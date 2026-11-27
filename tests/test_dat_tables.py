@@ -42,6 +42,7 @@ def test_reads_a_file_in_zstds_seekable_format_frame_by_frame(tmp_path, kind):
             id="frames that do not end where the table starts",
         ),
         pytest.param(synthetic.dat_file(b"history" * 9), id="a plain stream"),
+        pytest.param(synthetic.seekable_file(b"history" * 9, descriptor=4), id="reserved flags"),
     ],
 )
 def test_a_file_that_is_not_in_the_seekable_format_is_refused(tmp_path, content):
