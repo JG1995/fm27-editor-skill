@@ -79,6 +79,7 @@ A request has any of these parts. The uids here are made up:
 - **Potential is set with `pa` alone,** as a number or a range.
 - **Leave out records whose new value would be wrong.** `min(pa + 5, 180)` would lower someone who has 185, so limit the query to `pa BETWEEN 1 AND 179`.
 - **Whole numbers only.** Use `CAST(round(...) AS INTEGER)`.
+- **Money is in whole pounds, and wages are per week,** as the Editor stores them. A wage (`Pcwg`) of 100,000 euros a month is 19943. Convert other currencies and periods, and say which exchange rate you used. The Editor shows sums at the game's own rate, so they can differ a little from what the user asked for.
 - **A missing value is an error.** Add `AND finishing IS NOT NULL` when you calculate from it.
 - **`start_from`** puts the new changes behind those of an existing file, in a new file. Use it only when the user wants to build on that file.
 
@@ -86,7 +87,7 @@ A request has any of these parts. The uids here are made up:
 
 `fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
 
-Not possible yet: wages and other money, jobs, formations, second nations, languages, playing history, favourites, injuries, bans, kits other than their colours, reserve teams, stadiums, new awards, and changing nations. If a request needs one of these, say so before doing the rest.
+Not possible yet: jobs, formations, second nations, languages, playing history, favourites, injuries, bans, kits other than their colours, reserve teams, stadiums, new awards, and changing nations. If a request needs one of these, say so before doing the rest.
 
 ## Create people
 

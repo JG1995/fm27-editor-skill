@@ -37,7 +37,13 @@ HIGHEST_UID = 2**31 - 1  # no real file refers to a higher one
 INTEGER_KINDS = [(Kind.INT8, 1), (Kind.INT16, 2), (Kind.INT32, 4), (Kind.INT64, 8)]
 ID_TAG = "id  "
 REFERENCE = "database_record_unique_id"
-WRITTEN_TYPES = {"string", "attribute", "integer", "enum", "boolean", "date", "colour", REFERENCE}
+# Money is a whole number of pounds, wages per week, as real files store sums typed in euros.
+MONEY = "cash"
+HIGHEST_MONEY = 1_000_000_000  # the highest sum that any money field of the Editor allows
+WRITTEN_TYPES = {
+    *("string", "attribute", "integer", "enum", "boolean", "date", "colour"),
+    *(MONEY, REFERENCE),
+}
 REFERENCE_TAGS = {
     "nation": "Nnat",
     "team": "Ttea",
@@ -174,6 +180,12 @@ def reference(tag: str, points_to: str, record: bytes) -> list[Property]:
     ]
 
 
+def money_range(field: Field) -> tuple[int, int]:
+    """The sums a money field takes; where the definitions give no limit, the widest of any."""
+    lowest = 0 if field.lowest is None else field.lowest
+    return lowest, HIGHEST_MONEY if field.highest is None else field.highest
+
+
 def check_whole(called: str, value: object) -> None:
     if not isinstance(value, int) or isinstance(value, bool):
         raise EditError(f"{called} needs a whole number, not {value!r}")
@@ -217,6 +229,8 @@ def _stored(field: Field, value: FieldValue) -> tuple[Kind, Value]:
             )
         case "integer":
             return _stored_number(_checked_number(field, value, field.lowest, field.highest))
+        case _ if field.type == MONEY:
+            return _stored_number(_checked_number(field, value, *money_range(field)))
         case "enum":
             return _stored_number(_checked_choice(field, value))
         case "boolean" if isinstance(value, bool):

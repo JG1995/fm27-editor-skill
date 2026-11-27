@@ -5,7 +5,13 @@ import sqlite3
 
 from fm27_editor.base_database import record_name
 from fm27_editor.field_definitions import Field
-from fm27_editor.record_changes import HIGHEST_ATTRIBUTE, LOWEST_ATTRIBUTE, REFERENCE
+from fm27_editor.record_changes import (
+    HIGHEST_ATTRIBUTE,
+    LOWEST_ATTRIBUTE,
+    MONEY,
+    REFERENCE,
+    money_range,
+)
 from fm27_editor.record_kinds import RecordKind
 from fm27_editor.record_rules import LOOKUP_TABLES, NewReference, RecordRules
 
@@ -25,6 +31,9 @@ def accepted(field: Field) -> str:
             return f"0 to {field.highest}, or a range: {_listed(field.choices)}"
         case "integer":
             return f"{field.lowest} to {field.highest}"
+        case _ if field.type == MONEY:
+            lowest, highest = money_range(field)
+            return f"pounds from {lowest:,} to {highest:,}"
         case "boolean":
             return "true or false"
         case "date":
@@ -57,7 +66,12 @@ def shown(field: Field, value: object, lookup: sqlite3.Connection) -> str:
         return named_reference(lookup, LOOKUP_TABLES[field.points_to], value)
     if field.choices and value in field.choices:
         return f"{field.choices[value]} ({value})"
-    return str(value)
+    return amount(field, value)
+
+
+def amount(field: Field, value: object) -> str:
+    """A number as its field means it: money is in pounds."""
+    return f"£{value:,}" if field.type == MONEY else str(value)
 
 
 def named(lookup: sqlite3.Connection, table: str | None, uid: int) -> str:

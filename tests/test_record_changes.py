@@ -107,6 +107,21 @@ def test_a_choice_is_stored_by_its_number():
     assert new_value(field, 2) == Property("nwvl", Kind.INT8, b"\x02")
 
 
+@pytest.mark.parametrize(
+    ("value", "kind", "raw"),
+    [(19_943, Kind.INT16, "e74d"), (43_210_339, Kind.INT32, "63569302")],
+)
+def test_money_is_stored_as_a_whole_number_of_pounds(value, kind, raw):
+    """As a real file stores a wage of 100,000 euros a month and a fee of 50 million euros."""
+    field = a_field("cash", lowest=0, highest=1_000_000_000)
+
+    assert new_value(field, value) == Property("nwvl", kind, bytes.fromhex(raw))
+
+
+def test_money_without_a_range_is_taken_up_to_the_highest_sum_of_any_money_field():
+    assert new_value(a_field("cash"), 50_000_000).value == bytes.fromhex("80f0fa02")
+
+
 def test_yes_or_no_is_stored_as_one_byte():
     assert new_value(a_field("boolean"), True) == Property("nwvl", Kind.BOOL, b"\x01")
     assert new_value(a_field("boolean"), False) == Property("nwvl", Kind.BOOL, b"\x00")
@@ -194,7 +209,11 @@ def test_a_colour_is_stored_blue_first():
         (a_field("database_record_unique_id", points_to="nation"), 2**31),
         (a_field("database_record_unique_id", points_to="moon"), 5),
         (a_field("list"), 5),
-        (a_field("cash"), 5),
+        (a_field("cash", lowest=0, highest=10), 11),
+        (a_field("cash", lowest=0, highest=10), -1),
+        (a_field("cash", lowest=0, highest=10), 1.5),
+        (a_field("cash"), 1_000_000_001),
+        (a_field("cash"), -1),
         (a_number(is_editable=False), 5),
     ],
 )

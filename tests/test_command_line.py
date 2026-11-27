@@ -81,6 +81,14 @@ def test_fields_are_listed_with_name_code_and_range(run):
     assert "Pfna: First Name, a text" in lines
 
 
+def test_money_fields_are_listed_in_pounds(run):
+    _, wage, _ = run("fields", "player", "wage")
+    _, value, _ = run("fields", "player", "transfer value")
+
+    assert wage == ["Pcwg: Wage, pounds from 0 to 3,500,000"]
+    assert value == ["PbvE: Transfer Value, pounds from 0 to 1,000,000,000"]
+
+
 def test_fields_that_cannot_be_written_are_not_listed(run):
     _, lines, _ = run("fields", "player")
 
