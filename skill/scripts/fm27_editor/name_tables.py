@@ -24,6 +24,8 @@ class NamedTable(Enum):
     # The name as a sentence says it, such as "a cold"
     INJURY = ((TEXT, 1, TEXT, 2), False)
     MEDIA_SOURCE = ((TEXT, 1), False)
+    # Two other names, which the Editor calls alternative ones, follow the name and short name.
+    DERBY = ((TEXT, TEXT, TEXT, TEXT, 5), True)
     # The name, a short name, and the name of more than one, such as "Finals"
     STAGE_NAME = ((TEXT, 1, TEXT, 1, TEXT, 2), True)
 

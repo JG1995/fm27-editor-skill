@@ -282,6 +282,13 @@ def stadium_record(city: int = NO_INDEX) -> bytes:
     return b"\x00\x02\x00\x00" + struct.pack("<I", city) + bytes(range(1, 19))
 
 
+def derby_record(name: str, short_name: str, team_1: int, team_2: int) -> bytes:
+    """A derby holds its names and two empty other ones, its teams as indexes into their table,
+    four empty bytes, and its world and national reputation."""
+    names = text(name) + text(short_name) + text("") + text("")
+    return b"\x00" + names + struct.pack("<II", team_1, team_2) + bytes(4) + bytes([90, 140])
+
+
 def language_record(name: str, *, tail: int = 17) -> bytes:
     """A language holds its own name; its family, group, and difficulty follow."""
     return b"\x00" + text(name) + bytes(range(1, tail + 1))
@@ -381,6 +388,17 @@ def stage_names(stages: dict[int, str]) -> bytes:
             struct.pack("<I", uid) + text(name) + b"\xff" + text(name[:4]) + b"\xff"
             + text(f"{name}s") + b"\xff\x00"
             for uid, name in stages.items()
+        ]
+    )  # fmt: skip
+
+
+def derby_names(derbies: dict[int, tuple[str, str]]) -> bytes:
+    """Name, short name, and two other names, which are empty."""
+    return name_table(
+        [
+            struct.pack("<I", uid) + text(name) + text(short_name) + text("") + text("")
+            + b"\xff\xff\xff\xff\x00"
+            for uid, (name, short_name) in derbies.items()
         ]
     )  # fmt: skip
 

@@ -19,6 +19,12 @@ INJURIES = {1: "cold", 6: "twisted ankle"}
 WEATHER = {1: "Testish Coastal", 115052: "Testish Inland"}
 MEDIA_SOURCES = {18: "Testby Echo", 19: "The Example Times"}
 STAGE_NAMES = {1: "Replay", 3: "Final"}
+# Names, and teams as indexes into the team table: the clubs, then a national team of each nation.
+DERBIES = {
+    50: ("Fictional Derby", "Derby", (0, 1)),
+    51: ("Testian Clásico", "Clásico", (4, 5)),
+    52: ("Lonely Derby", "Lonely", (1, synthetic.NO_INDEX)),
+}
 # Names, symbol, and how many make a pound
 CURRENCIES = {
     7: ("Testish Pound", "Pound", "£", 1.0),
@@ -402,6 +408,10 @@ def client_tables() -> list[tuple[str, bytes]]:
         "table_6": [(uid, b"\x00\x0c\x30\x00") for uid in INJURIES],
         "table_7": [(uid, b"\x00media source") for uid in MEDIA_SOURCES],
         "table_23": [(uid, b"\x00\x00") for uid in STAGE_NAMES],
+        "table_18": [
+            (uid, synthetic.derby_record(name, short_name, *teams))
+            for uid, (name, short_name, teams) in DERBIES.items()
+        ],
         "table_2": [(uid, synthetic.city_record(nation)) for uid, (_, nation) in CITIES.items()],
         "table_21": [(uid, synthetic.stadium_record(city)) for uid, (_, city) in STADIUMS.items()],
         "table_25": [
@@ -421,6 +431,7 @@ def client_tables() -> list[tuple[str, bytes]]:
 
 def server_tables() -> list[tuple[str, bytes]]:
     teams = [(uid, synthetic.team_record(**facts)) for uid, (_, _, _, facts) in CLUBS.items()]
+    teams += [(uid, synthetic.team_record(kind=b"\x0b\x01")) for uid in NATIONS]
     competitions = [
         (uid, synthetic.competition_server_record(female=female))
         for uid, (_, _, _, female) in COMPETITIONS.items()
@@ -444,4 +455,5 @@ def name_tables() -> list[tuple[str, bytes]]:
         ("8_6", synthetic.injury_names(INJURIES)),
         ("8_7", synthetic.media_source_names(MEDIA_SOURCES)),
         ("8_23", synthetic.stage_names(STAGE_NAMES)),
+        ("8_18", synthetic.derby_names({uid: derby[:2] for uid, derby in DERBIES.items()})),
     ]
