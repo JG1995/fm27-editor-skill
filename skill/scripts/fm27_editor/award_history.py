@@ -17,7 +17,7 @@ from fm27_editor.base_database import record_name
 from fm27_editor.change_reading import Change, EditError, Table, existing_record
 from fm27_editor.definition_files import FieldDefinitionError
 from fm27_editor.field_definitions import Field
-from fm27_editor.list_changes import LIST_REFERENCE_TAGS, Item, list_change
+from fm27_editor.list_changes import LIST_REFERENCE_TAGS, Item, ListShape, list_change
 from fm27_editor.record_changes import (
     REFERENCE,
     NewIds,
@@ -41,6 +41,15 @@ PLACE_CODES = {
     "nation_uid": "AH{}c",
     "position": "AHp{}",
 }
+# The Editor stores the parts of a year in the order of their definition.
+HISTORY_SHAPE = ListShape(
+    (
+        YEAR_CODE,
+        *(code.format(number) for number in range(1, PLACES + 1) for code in PLACE_CODES.values()),
+        NO_DATA_CODE,
+        NOT_HELD_CODE,
+    )
+)
 AWARD_UID, YEAR, PLACES_KEY, NOT_HELD, KEEP = "award_uid", "year", "places", "not_held", "keep"
 ENTRY_KEYS = {AWARD_UID, YEAR, PLACES_KEY, NOT_HELD}
 OFFERED = ("person_uid", "name", "team_uid", "points", "age", "nation_uid")
@@ -125,7 +134,7 @@ def history_change(history: AwardHistory, ids: NewIds) -> Change:
     """The change that stores a history."""
     record = existing_record(history.award_uid)
     items = map(_item, history.years)
-    return list_change(Table.AWARD, record, history.field, items, ids)
+    return list_change(Table.AWARD, record, history.field, HISTORY_SHAPE, items, ids)
 
 
 def read_history(lookup: sqlite3.Connection, award_uid: int) -> Iterator[Year]:

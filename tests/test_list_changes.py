@@ -4,7 +4,7 @@ import pytest
 
 from fm27_editor.change_list import ChangeList, Kind, ListItem, Property
 from fm27_editor.field_definitions import Field
-from fm27_editor.list_changes import list_change
+from fm27_editor.list_changes import ListShape, list_change
 from fm27_editor.record_changes import EditError, NewIds, Table
 
 RECORD = b"\x01\x02\x03\x04" * 2
@@ -27,19 +27,20 @@ def a_field(code, kind, *, points_to=None, choices=None, items=()):
 
 
 PARTS = [
-    a_field("Zyer", "integer"),
-    a_field("Zwho", "database_record_unique_id", points_to="person"),
-    a_field("Znam", "string"),
-    a_field("Ztea", "database_record_unique_id", points_to="team"),
-    a_field("Zpos", "enum", choices={64: "Left"}),
     a_field("Zheld", "boolean"),
+    a_field("Zpos", "enum", choices={64: "Left"}),
+    a_field("Ztea", "database_record_unique_id", points_to="team"),
+    a_field("Znam", "string"),
+    a_field("Zwho", "database_record_unique_id", points_to="person"),
+    a_field("Zyer", "integer"),
 ]
+SHAPE = ListShape(("Zyer", "Zwho", "Znam", "Ztea", "Zpos", "Zheld"))
 
 
-def stored(*items, parts=PARTS):
+def stored(*items, parts=PARTS, shape=SHAPE):
     field = a_field("Zlst", "list", items=parts)
     ids = NewIds(ChangeList(), random.Random(1))
-    return list_change(Table.AWARD, RECORD, field, items, ids)
+    return list_change(Table.AWARD, RECORD, field, shape, items, ids)
 
 
 def inside(change):
@@ -48,7 +49,7 @@ def inside(change):
     return new.value
 
 
-def test_every_part_of_an_item_is_stored_in_the_order_of_its_definition():
+def test_every_part_of_an_item_is_stored_in_the_order_of_its_shape():
     given = {"Zheld": True, "Zpos": 64, "Znam": "Zoë", "Ztea": 776, "Zwho": 100, "Zyer": 1973}
 
     assert inside(stored(given)) == [
@@ -114,9 +115,14 @@ def test_the_change_names_the_record_and_the_list():
 )
 def test_a_part_of_a_kind_not_seen_in_a_list_is_refused(part, value):
     with pytest.raises(EditError, match=part.code):
-        stored({part.code: value}, parts=[part])
+        stored({part.code: value}, parts=[part], shape=ListShape((part.code,)))
 
 
 def test_a_part_that_the_list_does_not_have_is_refused():
     with pytest.raises(EditError, match="Zelse"):
         stored({"Zelse": 5})
+
+
+def test_a_shape_with_a_part_that_the_editor_does_not_define_is_refused():
+    with pytest.raises(EditError, match="Zgon"):
+        stored({"Zyer": 1973}, shape=ListShape(("Zyer", "Zgon")))
