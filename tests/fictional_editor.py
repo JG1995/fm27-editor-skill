@@ -17,6 +17,12 @@ CITIES = {9301: ("Testby", 0), 9302: ("Testham", 1)}
 CONTINENTS = {1: "Testica", 3: "Europia"}
 INJURIES = {1: "cold", 6: "twisted ankle"}
 WEATHER = {1: "Testish Coastal", 115052: "Testish Inland"}
+# Names, symbol, and how many make a pound
+CURRENCIES = {
+    7: ("Testish Pound", "Pound", "£", 1.0),
+    12: ("Exampleland Crown", "Crown", "", 2.5),
+    13: ("Old Testmark", "Mark", "M", 0.0),
+}
 STADIUMS = {9401: ("Test Park", 0)}
 COMPETITIONS = {
     9201: ("Example League", "League", {"nation": 0, "level": 1}, False),
@@ -389,6 +395,7 @@ def client_tables() -> list[tuple[str, bytes]]:
         "table_10": [(uid, b"other") for uid in reversed(NATIONS)],
         "table_8": [(uid, synthetic.language_record(name)) for uid, name in LANGUAGES.items()],
         "table_27": [(uid, synthetic.weather_record(name)) for uid, name in WEATHER.items()],
+        "table_41": [(uid, synthetic.currency_record(*facts)) for uid, facts in CURRENCIES.items()],
         "table_5": [(uid, b"continent") for uid in CONTINENTS],
         "table_6": [(uid, b"\x00\x0c\x30\x00") for uid in INJURIES],
         "table_2": [(uid, synthetic.city_record(nation)) for uid, (_, nation) in CITIES.items()],
