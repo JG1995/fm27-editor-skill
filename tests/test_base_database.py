@@ -8,7 +8,7 @@ import synthetic
 from fictional_editor import write_database
 from fm27_editor import base_database
 from fm27_editor.base_database import DatabaseError, open_database
-from fm27_editor.languages import LanguagesError
+from fm27_editor.named_records import NamedRecordError
 from fm27_editor.places import PlacesError
 
 
@@ -203,7 +203,7 @@ def test_a_language_of_another_layout_is_an_error(editor, tmp_path, monkeypatch)
     monkeypatch.setattr(fictional_editor, "client_tables", lambda: [*others, ("table_8", broken)])
     write_database(editor)
 
-    with pytest.raises(LanguagesError, match="language 8"):
+    with pytest.raises(NamedRecordError, match="language 8"):
         open_database(editor, tmp_path / "cache.sqlite")
 
 
