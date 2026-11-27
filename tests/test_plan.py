@@ -266,6 +266,26 @@ def test_continents_injuries_and_weather_are_edited_by_name_and_code(plan_for):
     ]
 
 
+def test_media_sources_derbies_and_stage_names_are_edited_by_name_and_code(plan_for):
+    plan = plan_for(
+        edits=[
+            by_hand(18, of="media_sources", name="Testby Evening Echo", Mcyi=9302),
+            by_hand(50, of="derbies", short_name="Derby Day", club_2_uid=9104, D1tw=12),
+            by_hand(3, of="stage_names", name="Grand Final", SNpn="Grand Finals"),
+        ]
+    )
+
+    assert edited(plan) == [
+        (18, "Mnam", "Testby Echo", "Testby Evening Echo"),
+        (18, "Mcyi", None, 9302),
+        (50, "Dsnm", "Derby", "Derby Day"),
+        (50, "Dtm2", 9102, 9104),
+        (50, "D1tw", None, 12),
+        (3, "SNna", "Final", "Grand Final"),
+        (3, "SNpn", None, "Grand Finals"),
+    ]
+
+
 def test_how_often_an_injury_happens_is_stored_as_a_real_file_stores_it(plan_for):
     plan = plan_for(edits=[by_hand(1, of="injuries", Iocr=1.5)])
 
@@ -289,6 +309,9 @@ def test_how_often_an_injury_happens_is_stored_as_a_real_file_stores_it(plan_for
         ("continents", 3, "Crgs", 0.85, 5),
         ("injuries", 6, "Imip", 50, 6),
         ("weathers", 1, "w0p0", 40, 27),
+        ("media_sources", 19, "Mnam", "The Example Post", 7),
+        ("derbies", 50, "D1tw", 12, 18),
+        ("stage_names", 1, "SNpn", "Replays", 23),
     ],
 )
 def test_a_record_is_changed_in_its_own_table(plan_for, of, uid, code, value, table):
@@ -303,7 +326,13 @@ def test_a_record_is_changed_in_its_own_table(plan_for, of, uid, code, value, ta
     ]
 
 
-@pytest.mark.parametrize("kind", ["stadium", "nation", "city", "continent", "injury", "weather"])
+@pytest.mark.parametrize(
+    "kind",
+    [
+        *("stadium", "nation", "city", "continent", "injury", "weather"),
+        *("media_source", "derby", "stage_name"),
+    ],
+)
 def test_a_kind_that_no_file_adds_cannot_be_made(plan_for, kind):
     with pytest.raises(FormatError, match=f"a new {kind} cannot be made"):
         plan_for(new=[{"kind": kind, "set": {"name": "Example"}}])

@@ -137,6 +137,15 @@ def test_a_stadium_is_described_by_where_it_is(lines_for):
     assert "  Test Park (9401), Testby, Englandia: Capacity unknown -> 30000" in lines
 
 
+def test_a_derby_is_described_by_its_clubs(lines_for):
+    lines = lines_for(edits=[{"of": "derbies", "uid": 50, "set": {"D1tw": 12}}])
+
+    assert "Edits: 1 change to 1 derby" in lines
+    assert lines[-2].endswith(
+        "Fictional Derby (50), Fictional City, Example United: Team 1 Total Games Won unknown -> 12"
+    )
+
+
 def test_a_person_named_by_a_club_is_shown_by_name(lines_for):
     lines = lines_for(edits=[{"of": "clubs", "uid": 9101, "set": {"Cmni": 102}}])
 
