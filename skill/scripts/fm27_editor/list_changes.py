@@ -50,6 +50,13 @@ class ListShape:
     """What an item that was just added holds; it has nothing in the other parts."""
     as_codes: frozenset[str] = frozenset()
     """Numbers that an item holds as four bytes, the highest first."""
+    kept: frozenset[str] = frozenset()
+    """Parts that keep what an added item holds: the Editor works them out, or no file sets them."""
+
+    @property
+    def given(self) -> tuple[str, ...]:
+        """The parts that an item can be given, in the order they are stored."""
+        return tuple(code for code in self.parts if code not in self.kept)
 
 
 def list_change(
@@ -161,7 +168,7 @@ def _defined(field: Field, shape: ListShape) -> dict[str, Field]:
 
 
 def _check_known(field: Field, shape: ListShape, item: Item) -> None:
-    unknown = item.keys() - set(shape.parts)
+    unknown = item.keys() - set(shape.given)
     if unknown:
         raise EditError(f"{field.name} ({field.code}) has no {', '.join(sorted(unknown))}")
 

@@ -33,4 +33,11 @@ PERSON_LISTS: Mapping[str, ListShape] = {
     "PNRs": ListShape(("ntin", "nati"), empty={"ntin": 80}),  # Second Nations
     "Pfvp": ListShape(("leve", "pers", "perm", "rrea"), empty={"leve": 100, "rrea": 1}),
     "Pfvc": ListShape(("leve", "club", "rrea"), empty={"leve": 100, "rrea": 1}),
+    # The Editor works out the description from the proficiency, which real files change alone.
+    # No file sets Cannot Speak Language.
+    "PElg": ListShape(  # Additional Languages
+        ("lang", "prof", "csln", "proe"),
+        empty={"prof": 10, "proe": 2},
+        kept=frozenset({"csln", "proe"}),
+    ),
 }

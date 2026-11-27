@@ -156,7 +156,7 @@ class RecordRules:
         """Items to add to a list, by the codes of their parts."""
         if shape is None or not field.is_editable:
             raise EditError(f"{_called(field)} {refusal(field)}")
-        parts = {part.code: part for part in field.items if part.code in shape.parts}
+        parts = {part.code: part for part in field.items if part.code in shape.given}
         items = tuple(self._item(field, parts, entry, new) for entry in _listed(field, given))
         for item in items:
             refers = any(parts[code].points_to is not None for code in item)
