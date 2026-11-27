@@ -80,10 +80,20 @@ def test_the_codes_that_the_instructions_name_can_be_written():
     text = (Path(__file__).parents[1] / "skill" / "SKILL.md").read_text(encoding="utf-8")
     named = set(re.findall(r"[`\"]([A-Za-z]{4})(?:`|\":)", text)) - WORDS_OF_FOUR_LETTERS
     rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
-    writable = {field.code for kind in KINDS.values() for field in rules.writable_fields(kind)}
+    fields = [field for kind in KINDS.values() for field in rules.writable_fields(kind)]
+    parts = {part.code for field in fields for part in field.items}
 
     assert len(named) > 10
-    assert named <= writable
+    assert named <= {field.code for field in fields} | parts
+
+
+@needs_editor
+def test_the_installed_editor_defines_every_part_of_the_lists_offered():
+    rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
+    defined = rules.fields(PLAYER) | rules.fields(STAFF)
+
+    for code, shape in PLAYER.lists.items():
+        assert set(shape.parts) <= {part.code for part in defined[code].items}, code
 
 
 @needs_editor
