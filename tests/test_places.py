@@ -11,8 +11,10 @@ from fm27_editor.places import (
     parse_cities,
     parse_clubs,
     parse_competitions,
+    parse_derbies,
     parse_stadiums,
     parse_teams,
+    team_clubs,
 )
 
 
@@ -81,6 +83,32 @@ def test_reads_the_standing_of_club_teams_and_leaves_out_national_teams():
     ]
 
 
+def test_national_teams_belong_to_no_club():
+    table = synthetic.record_table(
+        [(5, synthetic.team_record(kind=b"\x0b\x01")), (9101, synthetic.team_record())]
+    )
+
+    assert team_clubs(table) == [None, 9101]
+
+
+def test_reads_the_teams_of_a_derby():
+    table = synthetic.record_table(
+        [
+            (50, synthetic.derby_record("Fictional Derby", "Derby", 0, 1)),
+            (52, synthetic.derby_record("Lonely Derby", "Lonely", 1, synthetic.NO_INDEX)),
+        ]
+    )
+
+    assert parse_derbies(table) == {50: (0, 1), 52: (1, None)}
+
+
+def test_a_derby_of_another_shape_is_an_error():
+    record = synthetic.derby_record("Fictional Derby", "Derby", 0, 1) + b"\x00"
+
+    with pytest.raises(PlacesError, match="50"):
+        parse_derbies(synthetic.record_table([(50, record)]))
+
+
 def test_reads_competitions():
     client = synthetic.record_table(
         [
@@ -134,7 +162,9 @@ def test_reads_the_nation_of_a_city_and_the_city_of_a_stadium():
     assert parse_stadiums(stadiums) == {9401: 1}
 
 
-@pytest.mark.parametrize("parse", [parse_clubs, parse_teams, parse_cities, parse_stadiums])
+@pytest.mark.parametrize(
+    "parse", [parse_clubs, parse_teams, parse_cities, parse_stadiums, parse_derbies]
+)
 @pytest.mark.parametrize(
     "content",
     [b"", b"\x03\x01tad.", b"\x00" * 40],
@@ -152,6 +182,7 @@ def test_broken_tables_raise_a_format_error(parse, content):
         (parse_teams, b"\x0a\x00"),
         (parse_cities, b""),
         (parse_stadiums, b""),
+        (parse_derbies, b"\x00"),
     ],
 )
 def test_a_record_that_is_too_short_is_an_error(parse, start):

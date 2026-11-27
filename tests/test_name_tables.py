@@ -40,6 +40,11 @@ from fm27_editor.name_tables import NamedTable, read_names
             {6: ("twisted ankle", None)},
         ),
         (
+            NamedTable.DERBY,
+            synthetic.derby_names({50: ("Fictional Derby", "Derby")}),
+            {50: ("Fictional Derby", "Derby")},
+        ),
+        (
             NamedTable.MEDIA_SOURCE,
             synthetic.media_source_names({18: "Testby Echo"}),
             {18: ("Testby Echo", None)},

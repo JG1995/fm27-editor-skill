@@ -1,4 +1,4 @@
-"""Clubs, competitions, cities, and stadiums in the base database, without their names.
+"""Clubs, competitions, cities, stadiums, and derbies in the base database, without their names.
 
 Records refer to each other by index: the position of a record in its own table.
 """
@@ -16,6 +16,9 @@ CLUB_TEAM = b"\x0a\x00"  # the team table also holds national teams
 TEAM_HEAD_SIZE = 21
 COMPETITION_SIZE, NO_LEVEL = 115, 100
 CITY_SIZE, STADIUM_SIZE = 31, 26
+DERBY_HEAD = b"\x00"
+DERBY_NAMES = 4  # the name, short name, and two other ones, which lang_db.dat holds as well
+DERBY_TAIL_SIZE = 6  # four bytes that are 0 in every derby, and two reputations
 
 
 class PlacesError(FormatError):
@@ -102,6 +105,30 @@ def parse_teams(table: bytes) -> list[Team]:
             )
         )
     return teams
+
+
+def team_clubs(table: bytes) -> list[int | None]:
+    """The club of each team, in the order of the table; a national team has none."""
+    return [
+        record.uid if record.data[: len(CLUB_TEAM)] == CLUB_TEAM else None
+        for record in read_records(table)
+    ]
+
+
+def parse_derbies(table: bytes) -> dict[int, tuple[int | None, int | None]]:
+    """The two teams of each derby, by the ID of the derby, as indexes into the team table."""
+    derbies = {}
+    for record in read_records(table):
+        reader = Reader(record.data, PlacesError)
+        head = reader.take(len(DERBY_HEAD))
+        for _ in range(DERBY_NAMES):
+            reader.text()
+        teams = reader.take(8)
+        reader.take(DERBY_TAIL_SIZE)
+        if head != DERBY_HEAD or not reader.at_end:
+            raise PlacesError(f"derby {record.uid} does not follow the known layout")
+        derbies[record.uid] = (index_at(teams, 0), index_at(teams, 4))
+    return derbies
 
 
 def parse_competitions(client_table: bytes, server_table: bytes) -> list[Competition]:

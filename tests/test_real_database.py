@@ -249,3 +249,21 @@ def test_the_installed_editor_database_reads_as_plausible_currencies(tmp_path):
     assert records >= 100
     assert records == named == different == with_rate
     assert lowest > 0 and pounds >= 1
+
+
+@needs_editor
+def test_the_installed_editor_database_reads_as_plausible_derbies(tmp_path):
+    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
+        derbies, named, with_clubs = db.execute(
+            "SELECT count(*), count(name), count(club_1_uid + club_2_uid) FROM derbies"
+        ).fetchone()
+        one_club, mixed, across_borders = db.execute(
+            "SELECT sum(one.uid = two.uid), sum(one.gender <> two.gender),"
+            " sum(one.nation_uid <> two.nation_uid) FROM derby"
+            " JOIN club AS one ON one.uid = club_1_uid JOIN club AS two ON two.uid = club_2_uid"
+        ).fetchone()
+
+    assert derbies > 1_000 and named == derbies
+    assert with_clubs > derbies * 0.95
+    assert (one_club, mixed) == (0, 0)
+    assert across_borders < with_clubs * 0.05

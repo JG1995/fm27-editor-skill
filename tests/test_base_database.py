@@ -199,6 +199,28 @@ def test_cities_say_where_they_are(editor, tmp_path):
     assert rows == [(9301, "Testby", 9001, "Englandia"), (9302, "Testham", 9002, "Norwegia")]
 
 
+def test_derbies_say_which_clubs_play_them(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            "SELECT uid, name, short_name, club_1_uid, club_1, club_2_uid, club_2 FROM derbies"
+            " ORDER BY uid"
+        ).fetchall()
+
+    assert rows == [
+        (50, "Fictional Derby", "Derby", 9101, "Fictional City", 9102, "Example United"),
+        (51, "Testian Clásico", "Clásico", None, None, None, None),
+        (52, "Lonely Derby", "Lonely", 9102, "Example United", None, None),
+    ]
+
+
+def test_a_derby_of_a_team_outside_its_table_is_an_error(editor, tmp_path, monkeypatch):
+    monkeypatch.setattr(fictional_editor, "DERBIES", {50: ("Fictional Derby", "Derby", (0, 9))})
+    write_database(editor)
+
+    with pytest.raises(PlacesError, match="team"):
+        open_database(editor, tmp_path / "cache.sqlite")
+
+
 def test_languages_can_be_found(editor, tmp_path):
     with open_database(editor, tmp_path / "cache.sqlite") as db:
         languages = db.execute("SELECT uid, name FROM language ORDER BY uid").fetchall()

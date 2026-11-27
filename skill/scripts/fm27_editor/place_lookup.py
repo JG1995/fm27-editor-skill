@@ -1,4 +1,4 @@
-"""The tables of the lookup for nations, cities, stadiums, competitions, and clubs."""
+"""The tables of the lookup for nations, cities, stadiums, competitions, clubs, and derbies."""
 
 import sqlite3
 from collections.abc import Mapping, Sequence
@@ -11,15 +11,17 @@ from fm27_editor.places import (
     parse_cities,
     parse_clubs,
     parse_competitions,
+    parse_derbies,
     parse_stadiums,
     parse_teams,
+    team_clubs,
 )
 
 # Nations are table 9, not table 10: the names of lang_db, people, and real changes to nations go by
 # its uids, and records refer to a nation by its place there.
 NATIONS, CITIES, STADIUMS = "table_9", "table_2", "table_21"
-COMPETITIONS, CLUBS, TEAMS = "table_25", "table_3", "table_24"
-CLIENT_TABLES = {NATIONS, CITIES, STADIUMS, COMPETITIONS, CLUBS}
+COMPETITIONS, CLUBS, TEAMS, DERBIES = "table_25", "table_3", "table_24", "table_18"
+CLIENT_TABLES = {NATIONS, CITIES, STADIUMS, COMPETITIONS, CLUBS, DERBIES}
 SERVER_TABLES = {COMPETITIONS, TEAMS}
 ENGLISH_NAMES = {
     NamedTable.NATION: "8_9",
@@ -27,6 +29,7 @@ ENGLISH_NAMES = {
     NamedTable.STADIUM: "8_21",
     NamedTable.COMPETITION: "8_25",
     NamedTable.CLUB: "8_3",
+    NamedTable.DERBY: "8_18",
 }
 NAME_TABLES = set(ENGLISH_NAMES.values())
 SCHEMA = """
@@ -39,6 +42,8 @@ CREATE TABLE club(uid INTEGER PRIMARY KEY, name TEXT, short_name TEXT, gender TE
     is_extinct INTEGER, nation_uid INTEGER, based_nation_uid INTEGER, city_uid INTEGER,
     stadium_uid INTEGER, reputation INTEGER, division_uid INTEGER, last_division_uid INTEGER,
     last_position INTEGER);
+CREATE TABLE derby(uid INTEGER PRIMARY KEY, name TEXT, short_name TEXT, club_1_uid INTEGER,
+    club_2_uid INTEGER);
 CREATE INDEX club_division ON club(division_uid);
 CREATE INDEX club_nation ON club(nation_uid);
 CREATE VIEW clubs AS SELECT club.*, nation.name AS nation, city.name AS city,
@@ -47,6 +52,9 @@ CREATE VIEW clubs AS SELECT club.*, nation.name AS nation, city.name AS city,
     LEFT JOIN city ON city.uid = club.city_uid
     LEFT JOIN stadium ON stadium.uid = club.stadium_uid
     LEFT JOIN competition ON competition.uid = club.division_uid;
+CREATE VIEW derbies AS SELECT derby.*, one.name AS club_1, two.name AS club_2
+    FROM derby LEFT JOIN club AS one ON one.uid = derby.club_1_uid
+    LEFT JOIN club AS two ON two.uid = derby.club_2_uid;
 CREATE VIEW nations AS SELECT * FROM nation;
 CREATE VIEW cities AS SELECT city.*, nation.name AS nation
     FROM city LEFT JOIN nation ON nation.uid = city.nation_uid;
@@ -123,6 +131,20 @@ def insert_places(
             for club in parse_clubs(client[CLUBS])
         ],
     )
+    # A national team plays some derbies; it is no club, so the derby has none there.
+    clubs_of_teams = team_clubs(server[TEAMS])
+    insert_rows(
+        cache,
+        "derby",
+        [
+            (
+                uid,
+                *names[NamedTable.DERBY].get(uid, (None, None)),
+                *(uid_at(clubs_of_teams, team, "team") for team in teams),
+            )
+            for uid, teams in parse_derbies(client[DERBIES]).items()
+        ],
+    )
 
 
 def _team(teams: Mapping[int, Team], uid: int) -> Team:
@@ -153,7 +175,7 @@ def _name(names: Mapping[int, tuple[str, str | None]], uid: int) -> str | None:
     return names[uid][0] if uid in names else None
 
 
-def uid_at(uids: Sequence[int], index: int | None, kind: str) -> int | None:
+def uid_at(uids: Sequence[int | None], index: int | None, kind: str) -> int | None:
     if index is None:
         return None
     if index >= len(uids):
