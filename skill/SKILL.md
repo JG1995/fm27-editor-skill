@@ -91,10 +91,11 @@ Not possible yet: jobs, formations, languages, achievements, injuries, bans, rep
 
 ## Lists on people
 
-Playing history (`Plhs`), second nations (`PNRs`), trained at club (`Phgc`) and in nation (`Phgn`), days at club or in nation (`Pdcn`), and favourite people (`Pfvp`) and clubs (`Pfvc`) are given a list of items, each with its parts by code, such as `"PNRs": [{"nati": 12345, "ntin": 85}]`. `fm27 fields player PNRs` lists the parts. A query gives the list as JSON text, such as `json_array(json_object('nati', 12345))`.
+A field that `fm27 fields player` describes as "items of" its parts, such as playing history or second nations, is given a list of items with their parts by code, such as `"PNRs": [{"nati": 12345, "ntin": 85}]`. A query gives the list as JSON text, such as `json_array(json_object('nati', 12345))`.
 
 - **Items are added to what the person has.** The lookup does not know a person's lists, so tell the user that what is there stays. An empty list clears one.
-- **A part that is left out keeps what a new item has,** such as no club, or 1900 as the year in playing history. Give each item of a playing history its `year`, `clid`, and `divi`.
+- **A part that is left out keeps what a new item has,** such as no club, or 1900 as the year in playing history. Give each item of a playing history (`Plhs`) its `year`, `clid`, and `divi`.
+- **A team in a list can be a national team,** given by the uid of its nation.
 
 ## Create people
 
