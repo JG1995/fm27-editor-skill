@@ -44,7 +44,7 @@ Know these before you write a query:
 - **`birth_date`** is text such as `2008-04-25`, and `1900-01-01` means unknown. Count an age from the day the new game starts, not from today: ask when that is if the user has not said. In a request, write the date out, such as `birth_date > '2005-07-01'`. A query with `date('now')` finds other people tomorrow, and the approval code no longer fits.
 - **`nation`** of a person is the one main nationality. Others are not here. Of a club, it is the nation whose leagues it plays in; where it lies is `based_nation_uid`.
 - **Names** are spelled with their accents and often written in full. Search with `LIKE`, show the candidates when there are several, and let the user choose.
-- **`weathers`** are climates that cities and regions use, such as `English Coastal` or `Csa - Rome`. **`injuries`** are the kinds of injury, such as `twisted ankle`, not injured people.
+- **`weathers`** are climates that cities and regions use, named after a region or a city. **`injuries`** are the kinds of injury, such as a sprained ankle, not injured people.
 - Some people in the Editor are not in the lookup. Not finding someone does not mean that they do not exist.
 
 ## Make a file
