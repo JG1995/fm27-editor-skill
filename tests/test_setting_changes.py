@@ -29,7 +29,14 @@ def editor(tmp_path):
 
 def lookup():
     connection = sqlite3.connect(":memory:")
-    names = {"nation": 9001, "club": 9101, "competition": 9201, "city": 9301, "stadium": 9401}
+    names = {
+        "nation": 9001,
+        "club": 9101,
+        "competition": 9201,
+        "city": 9301,
+        "stadium": 9401,
+        "language": 8,
+    }
     for table, uid in names.items():
         connection.execute(f"CREATE TABLE {table}(uid INTEGER PRIMARY KEY, name TEXT)")
         connection.execute(f"INSERT INTO {table} VALUES ({uid}, 'Test {table}')")
@@ -128,8 +135,8 @@ def test_an_editor_without_a_required_field_is_reported(tmp_path):
         create(editor, PLAYER, {"Pfna": "Testy"})
 
 
-@pytest.mark.parametrize("name", ["nation_uid", "club_uid"])
-def test_a_nation_or_club_that_does_not_exist_is_refused(editor, name):
+@pytest.mark.parametrize("name", ["nation_uid", "club_uid", "dfln"])
+def test_a_nation_club_or_language_that_does_not_exist_is_refused(editor, name):
     with pytest.raises(EditError, match="4242"):
         make(editor, **{name: 4242})
 
@@ -142,7 +149,13 @@ def test_a_city_that_exists_is_set(editor):
     assert "Pcbi" in values_by_code(make(editor, Pcbi=9301))
 
 
-@pytest.mark.parametrize("points_to", ["language", "moon"])
+def test_a_language_that_exists_is_set(editor):
+    reference = values_by_code(make(editor, dfln=8))["dfln"].value
+
+    assert (reference[1].tag, reference[1].value) == ("lang", struct.pack("<II", 8, 8))
+
+
+@pytest.mark.parametrize("points_to", ["continent", "moon"])
 def test_a_record_the_lookup_cannot_confirm_is_refused(tmp_path, points_to):
     field = synthetic.field_definition("Plng", "Tongue", *synthetic.reference(points_to))
     editor = write_definitions(tmp_path, synthetic.definition_file("pers", field))
