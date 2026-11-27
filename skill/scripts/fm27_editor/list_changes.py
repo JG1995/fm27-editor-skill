@@ -100,6 +100,17 @@ def item_changes(
     return changes
 
 
+def is_blank(field: Field, shape: ListShape, item: Item) -> bool:
+    """Whether an item holds only what an item just added holds.
+
+    The Editor names an item by all it holds, so such an item could not be told from the next.
+    """
+    parts = _defined(field, shape)
+    return all(
+        _is_same(parts[code], shape, value, shape.empty.get(code)) for code, value in item.items()
+    )
+
+
 def _is_same(
     part: Field, shape: ListShape, value: FieldValue | None, other: FieldValue | None
 ) -> bool:

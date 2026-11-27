@@ -527,6 +527,16 @@ def test_fields_the_starting_file_changes_already_are_counted(plan_for, started)
     assert plan.replaced == 1
 
 
+def test_items_added_behind_those_of_the_starting_file_replace_nothing(plan_for, tmp_path):
+    plan = plan_for(edits=[by_hand(100, PNRs=[{"nati": 9001}])])
+    path = tmp_path / "Lists.fmf"
+    save_editor_file(build_file(plan, approval_code(plan), TODAY), path)
+
+    plan = plan_for(start_from=str(path), edits=[by_hand(100, PNRs=[{"nati": 9002}])])
+
+    assert plan.replaced == 0
+
+
 def test_a_starting_file_that_does_not_exist_is_reported(plan_for, tmp_path):
     with pytest.raises(FormatError, match="Nowhere.fmf"):
         plan_for(start_from=str(tmp_path / "Nowhere.fmf"), edits=[by_hand(100, finishing=3)])

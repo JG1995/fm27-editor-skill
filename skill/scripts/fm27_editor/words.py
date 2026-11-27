@@ -81,6 +81,8 @@ def shown(field: Field, value: object, lookup: sqlite3.Connection) -> str:
         return _shown_items(field, value, lookup)
     if isinstance(value, datetime.date):
         return value.isoformat()
+    if field.points_to == "team" and isinstance(value, int):
+        return named_team(lookup, value)
     if field.points_to is not None:
         return named_reference(lookup, LOOKUP_TABLES[field.points_to], value)
     if field.choices and value in field.choices:
