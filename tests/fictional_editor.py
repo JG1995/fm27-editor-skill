@@ -386,18 +386,25 @@ def write_database(folder: Path, people=None) -> Path:
         )
         for index, uid, _, year, ca, nation, club, kind in people
     ]
-    records = [
-        synthetic.person_record(
-            index,
-            uid,
-            full_name=name,
-            year=year,
-            nation=nation,
-            attributes={52: 15, 84: 13},
-            kind=kind,
+    # Each person's first word is a first name, and the rest a second name.
+    first_names, second_names = {1: "Testy"}, {2: "McTestface"}
+    records = []
+    for index, uid, name, year, _, nation, _, kind in people:
+        first, _, second = name.partition(" ")
+        first_names[10 + index], second_names[10 + index] = first, second
+        records.append(
+            synthetic.person_record(
+                index,
+                uid,
+                full_name=name,
+                first=10 + index,
+                second=10 + index,
+                year=year,
+                nation=nation,
+                attributes={52: 15, 84: 13},
+                kind=kind,
+            )
         )
-        for index, uid, name, year, ca, nation, club, kind in people
-    ]
     (database / "basic_people_db.dat").write_bytes(
         synthetic.dat_file(synthetic.basic_people(basic))
     )
@@ -408,8 +415,8 @@ def write_database(folder: Path, people=None) -> Path:
         synthetic.dat_container(
             "client_db",
             [
-                ("name_table_extra_0", synthetic.string_table({1: "Testy"})),
-                ("name_table_extra_1", synthetic.string_table({2: "McTestface"})),
+                ("name_table_extra_0", synthetic.string_table(first_names)),
+                ("name_table_extra_1", synthetic.string_table(second_names)),
                 ("name_table_extra_2", synthetic.string_table({5: "Testo"})),
                 *client_tables(),
             ],

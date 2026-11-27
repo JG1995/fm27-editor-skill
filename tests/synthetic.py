@@ -445,14 +445,26 @@ def basic_people(records: list[bytes]) -> bytes:
     return struct.pack("<I", len(records)) + b"\x00" + b"".join(records) + footer
 
 
+OWN_NAME_NUMBER = 900
+
+
+def name_reference(name: int | str) -> bytes:
+    """A number in a name table, or a name the tables lack, written out with its number."""
+    if isinstance(name, int):
+        return struct.pack("<I", name) + b"\x00"
+    number = struct.pack("<I", OWN_NAME_NUMBER)
+    tail = struct.pack("<IHIBB", 9001, 3, NO_INDEX, 0, 0xFF)
+    return number + b"\x01" + text(name) + number + tail
+
+
 def person_record(
     index: int,
     uid: int,
     *,
     full_name: str = "Testy McTestface",
-    first: int = 1,
-    second: int = 2,
-    common: int = 0xFFFFFFFF,
+    first: int | str = 1,
+    second: int | str = 2,
+    common: int | str = 0xFFFFFFFF,
     day: int = 60,
     year: int = 2004,
     nation: tuple[int, int] = (3, 9001),
@@ -468,8 +480,8 @@ def person_record(
     for offset, value in (attributes or {}).items():
         record[offset] = value
     record += b"\x03\x01" + struct.pack("<II", *nation) if decoy else b""
-    name_block = struct.pack("<I", first) + b"\x00" + struct.pack("<I", second) + b"\x00"
-    name_block += struct.pack("<I", common) + b"\x00" + text(full_name)
+    name_block = b"".join(name_reference(name) for name in (first, second, common))
+    name_block += text(full_name)
     record += b"\x06\x10\x00" + name_block + struct.pack("<HH", day, year)
     record += b"\xff\x00\x07\x01" + struct.pack("<I", 2) + b"\x03\x01"
     record += struct.pack("<II", *nation) + personality + b"\x01\x00"

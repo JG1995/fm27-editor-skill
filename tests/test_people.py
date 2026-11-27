@@ -86,22 +86,46 @@ def test_unresearched_values_are_missing_rather_than_zero():
 
 
 @pytest.mark.parametrize(
-    ("first", "second", "common", "full", "expected"),
+    ("common", "full", "name", "full_name"),
     [
-        (1, 2, 0xFFFFFFFF, "Testy Long McTestface", "Testy Long McTestface"),
-        (1, 2, 0xFFFFFFFF, "", "Testy McTestface"),
-        (1, 2, 5, "Testy Long McTestface", "Testo"),
+        (0xFFFFFFFF, "Testy Long McTestface", "Testy McTestface", "Testy Long McTestface"),
+        (0xFFFFFFFF, "", "Testy McTestface", "Testy McTestface"),
+        (5, "Testy Long McTestface", "Testo", "Testy Long McTestface"),
     ],
 )
-def test_display_name_prefers_common_then_full_then_first_and_second(
-    first, second, common, full, expected
-):
-    record = synthetic.person_record(
-        0, 100, first=first, second=second, common=common, full_name=full
-    )
+def test_the_name_is_the_common_name_or_the_first_and_second_name(common, full, name, full_name):
+    """As the game shows a person; the full name is the one written out in the record."""
+    record = synthetic.person_record(0, 100, common=common, full_name=full)
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert (person.name, person.full_name) == (name, full_name)
+
+
+@pytest.mark.parametrize(
+    ("part", "expected"),
+    [("first", "Ownly McTestface"), ("second", "Testy Ownly"), ("common", "Ownly")],
+)
+def test_a_name_that_the_name_tables_lack_is_read_from_the_record(part, expected):
+    record = synthetic.person_record(0, 100, **{part: "Ownly"})
     (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
 
     assert person.name == expected
+
+
+def test_a_written_name_must_repeat_its_number_after_it():
+    record = bytearray(synthetic.person_record(0, 100, second="Ownly"))
+    after = record.index(b"Ownly") + len("Ownly")
+    record[after : after + 4] = (901).to_bytes(4, "little")
+
+    assert read_all([synthetic.basic_person(2, 0, 100)], [bytes(record)]) == []
+
+
+def test_a_long_full_name_is_read():
+    full = "Testy " + "Middle " * 25 + "McTestface"
+    record = synthetic.person_record(0, 100, full_name=full)
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert person.full_name == full
 
 
 def test_people_are_matched_by_uid_not_by_order():
