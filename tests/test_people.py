@@ -324,6 +324,14 @@ def test_a_person_without_a_club_has_no_contract():
     assert (person.wage, person.contract_expires) == (None, None)
 
 
+def test_a_birth_date_on_the_first_day_of_1900_is_missing():
+    """The Editor's date for no date."""
+    record = synthetic.person_record(0, 100, day=1, year=1900)
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert person.birth_date is None
+
+
 @pytest.mark.parametrize(("year", "found"), [(2004, True), (2005, False)])
 def test_day_366_only_exists_in_leap_years(year, found):
     record = synthetic.person_record(0, 100, day=366, year=year)

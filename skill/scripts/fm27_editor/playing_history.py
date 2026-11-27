@@ -16,6 +16,7 @@ from typing import NamedTuple
 import numpy as np
 
 from fm27_editor.binary import FormatError
+from fm27_editor.person_names import NO_DATE
 
 SEASON = np.dtype(
     [
@@ -41,7 +42,6 @@ SEASON = np.dtype(
 NO_ID = 0xFFFFFFFF
 NOT_KNOWN = 255
 NO_FEE = -1
-UNSET_DAY, UNSET_YEAR = 1, 1900
 # One season was joined in 1887, so dates before the first day of 1900 are real too.
 EARLIEST_YEAR, LATEST_YEAR = 1800, 2100
 BATCH = 100_000
@@ -143,7 +143,7 @@ def _dates(days: np.ndarray, years: np.ndarray) -> np.ndarray:
         raise PlayingHistoryError(f"season {wrong[0]} has a date that is not one")
     first_days = (years.astype(np.int64) - 1970).astype("datetime64[Y]").astype("datetime64[D]")
     text = np.datetime_as_string(first_days + (days.astype(np.int64) - 1), unit="D").astype(object)
-    text[(days == UNSET_DAY) & (years == UNSET_YEAR)] = None
+    text[(days == NO_DATE.timetuple().tm_yday) & (years == NO_DATE.year)] = None
     return text
 
 

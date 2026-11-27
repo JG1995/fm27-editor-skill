@@ -24,7 +24,7 @@ from fm27_editor.person_fields import (
     STAFF_LIST_ITEM_MARKS,
     STAFF_LIST_ITEM_SIZE,
 )
-from fm27_editor.person_names import Names, read_date, read_identity
+from fm27_editor.person_names import NO_DATE, Names, read_date, read_identity
 
 BASIC_HEADER_SIZE = 5
 BASIC_FOOTER_SIZE = 9
@@ -42,7 +42,6 @@ RETIRED_GAP, RETIRED_TAIL = bytes(4), bytes(8)
 # Matched against an FM27 save: the expiry date of 88,983 of 99,700 people, and most of the others
 # expire later there, renewed; the wage of 34,854 of the 38,127 people whose wage the database sets.
 CONTRACT_DATE_BEFORE, CONTRACT_EXPIRES_BEFORE, CONTRACT_CLUB_AT, CONTRACT_WAGE_AT = 5, 43, 8, 12
-NO_DATE = datetime.date(1900, 1, 1)
 
 
 class PeopleError(FormatError):
