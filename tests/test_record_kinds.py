@@ -8,6 +8,7 @@ from fm27_editor.change_reading import EditError
 from fm27_editor.person_fields import FIELD_NAMES
 from fm27_editor.record_kinds import (
     AWARD,
+    CITY,
     CLUB,
     COMPETITION,
     NATION,
@@ -33,6 +34,7 @@ def test_every_fact_the_lookup_has_for_players_has_a_code_or_a_reason_not_to():
         (AWARD, "award", {"uid", "gender"}),  # the Editor's definitions have no gender of an award
         (STADIUM, "stadium", {"uid"}),
         (NATION, "nation", {"uid"}),
+        (CITY, "city", {"uid"}),
     ],
     ids=lambda value: value if isinstance(value, str) else "",
 )
@@ -45,7 +47,7 @@ def test_every_fact_the_lookup_has_for_other_records_has_a_code(kind, table, wit
 
 
 @pytest.mark.parametrize(
-    "kind", [PLAYER, CLUB, COMPETITION, AWARD, STADIUM, NATION], ids=lambda kind: kind.name
+    "kind", [PLAYER, CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY], ids=lambda kind: kind.name
 )
 def test_no_two_facts_share_a_code(kind):
     assert len(kind.names) == len(kind.codes)

@@ -30,6 +30,7 @@ class Table(IntEnum):
 
     AWARD = 0
     PERSON = 1
+    CITY = 2
     CLUB = 3
     NATION = 9  # the Editor's list of tables calls it National Team; see place_lookup
     STADIUM = 21
