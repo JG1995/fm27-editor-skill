@@ -436,6 +436,8 @@ def basic_person(
     if sizes[kind] == 84:
         struct.pack_into("<IIII", record, 2, *nation, *club)
         struct.pack_into("<HHHHHH", record, 42, *reputations, ca, pa & 0xFFFF, birth_year)
+    elif kind == 4:
+        struct.pack_into("<II", record, 2, *nation)
     struct.pack_into("<III", record, sizes[kind] - 12, index, uid, uid)
     return bytes(record)
 
@@ -486,6 +488,12 @@ def person_record(
     record += b"\xff\x00\x07\x01" + struct.pack("<I", 2) + b"\x03\x01"
     record += struct.pack("<II", *nation) + personality + b"\x01\x00"
     return bytes(record) + struct.pack("<III", index, uid, uid)
+
+
+def retired_record(index: int, uid: int, name: str) -> bytes:
+    """A retired person, who has only a name."""
+    record = struct.pack("<IB", index, 5) + b"\x00" * 4 + text(name) + b"\x00" * 8
+    return record + struct.pack("<III", index, uid, uid)
 
 
 def people_stream(records: list[bytes], count: int) -> bytes:

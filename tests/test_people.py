@@ -149,11 +149,46 @@ def test_people_whose_names_cannot_be_found_are_skipped_not_guessed():
     assert read_all([synthetic.basic_person(2, 0, 100)], [unknown_name]) == []
 
 
-def test_records_without_player_details_are_skipped():
-    records = [synthetic.person_record(1, 101)]
-    basic = [synthetic.basic_person(5, 0, 100), synthetic.basic_person(2, 1, 101)]
+def test_an_official_is_read_with_the_nation_of_the_short_record():
+    basic = synthetic.basic_person(4, 0, 100, nation=(7, 9007))
+    record = synthetic.person_record(0, 100, nation=(7, 9007), kind=4, attributes={52: 17})
 
-    assert [p.uid for p in read_all(basic, records)] == [101]
+    (person,) = read_all([basic], [record])
+
+    assert (person.kind, person.name, person.nation_uid) == (
+        PersonKind.OFFICIAL,
+        "Testy McTestface",
+        9007,
+    )
+    assert person.birth_date == datetime.date(2004, 2, 29)
+    assert person.fields == {}
+
+
+def test_a_retired_person_has_only_a_name():
+    basic = [synthetic.basic_person(5, 0, 100)]
+
+    (person,) = read_all(basic, [synthetic.retired_record(0, 100, "Old Testman")])
+
+    assert (person.kind, person.name, person.full_name) == (
+        PersonKind.RETIRED,
+        "Old Testman",
+        "Old Testman",
+    )
+    assert (person.birth_date, person.nation_uid, person.club_uid, person.fields) == (
+        None,
+        None,
+        None,
+        {},
+    )
+
+
+@pytest.mark.parametrize("at", [4, 5, -12 - 1])
+def test_a_retired_person_outside_the_known_layout_is_skipped(at):
+    """The kind, the four zero bytes before the name, and the eight after it are checked."""
+    record = bytearray(synthetic.retired_record(0, 100, "Old Testman"))
+    record[at] = 9
+
+    assert read_all([synthetic.basic_person(5, 0, 100)], [bytes(record)]) == []
 
 
 def test_staff_and_other_kinds_do_not_get_player_fields():
