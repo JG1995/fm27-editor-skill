@@ -86,10 +86,6 @@ def test_examples_name_the_person_the_field_and_the_value(lines_for):
         (reference("Ttea", 9101), "Fictional City (9101)"),
         (reference("city", 12), "12"),
         (synthetic.prop("nwvl", 0x0B, struct.pack("<I", 0)), "a list of 0"),
-        (
-            synthetic.prop("nwvl", 0x0A, synthetic.props(synthetic.prop("lsop", 0x11, b"\x00"))),
-            "a change to a list",
-        ),
     ],
 )
 def test_every_kind_of_value_is_shown_in_plain_words(lines_for, value, shown):
@@ -211,6 +207,26 @@ def test_rules_for_a_nation_are_mentioned(tmp_path):
         lines = explain_lines(file, editor, lookup, find="", examples=10)
 
     assert "Rules for Englandia (9001): 1 division, 0 cups" in lines
+
+
+def test_what_each_change_does_to_a_list_is_said(tmp_path):
+    editor = write_editor(tmp_path / "editor")
+    with open_database(editor, tmp_path / "cache.sqlite") as lookup:
+        edits = [
+            {"of": "people", "uid": 100, "set": {"PNRs": [{"nati": 9002, "ntin": 85}]}},
+            {"of": "people", "uid": 101, "set": {"PNRs": []}},
+        ]
+        plan = make_plan({"edits": edits}, editor, lookup)
+        file = build_file(plan, approval_code(plan), datetime.date(2026, 11, 12))
+
+        lines = explain_lines(file, editor, lookup, find="", examples=10)
+
+    assert lines[-4:] == [
+        "  Alfa Striker (100): Second Nations: an item is added",
+        "  Alfa Striker (100): Second Nations: its Nationality Info = 85",
+        "  Alfa Striker (100): Second Nations: its Nation = Norwegia (9002)",
+        "  Bravo Keeper (101): Second Nations: cleared",
+    ]
 
 
 def test_removed_records_are_counted(lines_for):
