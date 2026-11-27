@@ -3,7 +3,6 @@
 A value must be one the Editor's definitions allow, and what it refers to must be in the lookup.
 """
 
-import contextlib
 import datetime
 import json
 import sqlite3
@@ -15,6 +14,7 @@ from pathlib import Path
 from fm27_editor.base_database import record_name
 from fm27_editor.change_reading import EditError
 from fm27_editor.field_definitions import Field, read_fields
+from fm27_editor.json_text import RepeatedNameError, read_json
 from fm27_editor.list_changes import LIST, LIST_REFERENCE_TAGS, ListShape, is_blank
 from fm27_editor.potential import check_potential, with_ranges
 from fm27_editor.record_changes import (
@@ -219,8 +219,12 @@ def _can_write(kind: RecordKind, field: Field) -> bool:
 def _listed(field: Field, given: object) -> list:
     """Items as a list; a query gives them as JSON text."""
     if isinstance(given, str):
-        with contextlib.suppress(json.JSONDecodeError):
-            given = json.loads(given)
+        try:
+            given = read_json(given)
+        except json.JSONDecodeError:
+            pass  # not JSON, so refused below as no list
+        except RepeatedNameError as error:
+            raise EditError(f"{_called(field)}: {error}") from error
     if not isinstance(given, list):
         raise EditError(f"{_called(field)} needs a list of items, not {given!r}")
     return given
