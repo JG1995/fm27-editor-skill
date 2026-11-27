@@ -89,6 +89,14 @@ def test_money_fields_are_listed_in_pounds(run):
     assert value == ["PbvE: Transfer Value, pounds from 0 to 1,000,000,000"]
 
 
+def test_real_numbers_are_listed_with_the_range_the_definitions_give(run):
+    _, coefficient, _ = run("fields", "club", "Cffy")
+    _, latitude, _ = run("fields", "stadium", "Slat")
+
+    assert coefficient == ["Cffy: Five Year Total, a number from 0 to 200"]
+    assert latitude == ["Slat: Latitude, a number"]
+
+
 def test_fields_that_cannot_be_written_are_not_listed(run):
     _, lines, _ = run("fields", "player")
 

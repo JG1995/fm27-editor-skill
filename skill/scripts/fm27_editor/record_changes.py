@@ -6,6 +6,7 @@ error, and so is a type of field that was not seen in those files.
 """
 
 import datetime
+import math
 import random
 import re
 import struct
@@ -37,12 +38,13 @@ HIGHEST_UID = 2**31 - 1  # no real file refers to a higher one
 INTEGER_KINDS = [(Kind.INT8, 1), (Kind.INT16, 2), (Kind.INT32, 4), (Kind.INT64, 8)]
 ID_TAG = "id  "
 REFERENCE = "database_record_unique_id"
+REAL = "real"
 # Money is a whole number of pounds, wages per week, as real files store sums typed in euros.
 MONEY = "cash"
 HIGHEST_MONEY = 1_000_000_000  # the highest sum that any money field of the Editor allows
 WRITTEN_TYPES = {
     *("string", "attribute", "integer", "enum", "boolean", "date", "colour"),
-    *(MONEY, REFERENCE),
+    *(MONEY, REFERENCE, REAL),
 }
 REFERENCE_TAGS = {
     "nation": "Nnat",
@@ -55,7 +57,7 @@ REFERENCE_TAGS = {
 COLOUR = re.compile("#[0-9a-fA-F]{6}")
 OPAQUE = b"\xff"
 
-type FieldValue = str | int | bool | datetime.date | bytes
+type FieldValue = str | int | float | bool | datetime.date | bytes
 """What a field is set to; a record is given by its uid, or by its whole ID when it is new."""
 
 
@@ -231,6 +233,8 @@ def _stored(field: Field, value: FieldValue) -> tuple[Kind, Value]:
             return _stored_number(_checked_number(field, value, field.lowest, field.highest))
         case _ if field.type == MONEY:
             return _stored_number(_checked_number(field, value, *money_range(field)))
+        case _ if field.type == REAL:
+            return Kind.REAL, _real_bytes(field, value)
         case "enum":
             return _stored_number(_checked_choice(field, value))
         case "boolean" if isinstance(value, bool):
@@ -259,6 +263,20 @@ def _checked_text(field: Field, value: FieldValue) -> str:
 
 def _checked_number(field: Field, value: FieldValue, lowest: int, highest: int) -> int:
     return checked_number(_called(field), value, lowest, highest)
+
+
+def _real_bytes(field: Field, value: FieldValue) -> bytes:
+    """A number in four bytes, the way real files store one; the definitions may leave it open."""
+    if not isinstance(value, int | float) or isinstance(value, bool) or not math.isfinite(value):
+        raise _refused(field, f"needs a number, not {value!r}")
+    if field.lowest is not None and value < field.lowest:
+        raise _refused(field, f"must be at least {field.lowest}, not {value}")
+    if field.highest is not None and value > field.highest:
+        raise _refused(field, f"must be at most {field.highest}, not {value}")
+    try:
+        return struct.pack("<f", value)
+    except OverflowError as error:
+        raise _refused(field, f"cannot hold a number as large as {value}") from error
 
 
 def _checked_choice(field: Field, value: FieldValue) -> int:

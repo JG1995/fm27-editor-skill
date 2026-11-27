@@ -10,6 +10,7 @@ from fm27_editor.record_changes import (
     HIGHEST_ATTRIBUTE,
     LOWEST_ATTRIBUTE,
     MONEY,
+    REAL,
     REFERENCE,
     money_range,
     refusal,
@@ -36,6 +37,11 @@ def accepted(field: Field) -> str:
         case _ if field.type == MONEY:
             lowest, highest = money_range(field)
             return f"pounds from {lowest:,} to {highest:,}"
+        case _ if field.type == REAL:
+            bounds = [(field.lowest, "from"), (field.highest, "to")]
+            return " ".join(
+                ["a number", *(f"{word} {end}" for end, word in bounds if end is not None)]
+            )
         case "boolean":
             return "true or false"
         case "date":
