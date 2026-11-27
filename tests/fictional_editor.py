@@ -12,6 +12,7 @@ PEOPLE = [
 PLAYER_KIND, STAFF_KIND = 2, 1
 
 NATIONS = {9001: "Englandia", 9002: "Norwegia"}
+LANGUAGES = {8: "Englandish", 22: "Norwegish"}
 CITIES = {9301: ("Testby", 0), 9302: ("Testham", 1)}
 STADIUMS = {9401: ("Test Park", 0)}
 COMPETITIONS = {
@@ -313,6 +314,7 @@ def write_database(folder: Path, people=None) -> Path:
 def client_tables() -> list[tuple[str, bytes]]:
     records = {
         "table_10": [(uid, b"nation") for uid in NATIONS],
+        "table_8": [(uid, synthetic.language_record(name)) for uid, name in LANGUAGES.items()],
         "table_2": [(uid, synthetic.city_record(nation)) for uid, (_, nation) in CITIES.items()],
         "table_21": [(uid, synthetic.stadium_record(city)) for uid, (_, city) in STADIUMS.items()],
         "table_25": [
