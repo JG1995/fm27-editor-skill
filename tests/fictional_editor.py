@@ -248,7 +248,11 @@ AWARD = synthetic.definition_file(
 )
 
 STADIUM = synthetic.definition_file(
-    "stad", synthetic.field_definition("Secy", "Seating Capacity", "integer")
+    "stad",
+    synthetic.field_definition("Snam", "Name", "string"),
+    synthetic.field_definition("Scti", "City", *synthetic.reference("city")),
+    synthetic.field_definition("Scpy", "Capacity", "integer", synthetic.number_range(0, 200000)),
+    synthetic.field_definition("Secy", "Seating Capacity", "integer"),
 )
 SHARED_CHOICES = synthetic.enum_file(
     dbts={0: "Award", 1: "Person", 3: "Club", 21: "Stadium", 25: "Competition", 99: "Moon"},

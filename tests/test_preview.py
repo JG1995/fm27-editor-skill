@@ -122,6 +122,13 @@ def test_items_added_to_a_list_are_shown_with_their_parts(lines_for):
     )
 
 
+def test_a_stadium_is_described_by_where_it_is(lines_for):
+    lines = lines_for(edits=[{"of": "stadiums", "uid": 9401, "set": {"Scpy": 30_000}}])
+
+    assert "Edits: 1 change to 1 stadium" in lines
+    assert "  Test Park (9401), Testby, Englandia: Capacity unknown -> 30000" in lines
+
+
 def test_a_list_that_is_cleared_says_so(lines_for):
     lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PNRs": {"replace": []}}}])
 
