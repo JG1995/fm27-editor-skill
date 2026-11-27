@@ -160,6 +160,27 @@ def test_the_installed_editor_database_reads_as_plausible_people(tmp_path):
 
 
 @needs_editor
+def test_the_installed_editor_database_reads_everyone_with_a_name(tmp_path):
+    """Names as the game shows them differ from the full name for many people."""
+    with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
+        kinds = dict(db.execute("SELECT kind, count(*) FROM people GROUP BY kind").fetchall())
+        unnamed, shortened = db.execute(
+            "SELECT count(*) - count(NULLIF(name, '')), count(NULLIF(name, full_name)) FROM people"
+        ).fetchone()
+        coached, wages, contracts, odd_dates = db.execute(
+            "SELECT count(working_with_youngsters), count(wage), count(contract_expires),"
+            " count(*) FILTER (WHERE contract_expires NOT BETWEEN '2000' AND '2045') FROM people"
+        ).fetchone()
+
+    assert set(kinds) == {"player", "staff", "both", "official", "retired"}
+    assert sum(kinds.values()) > 690_000
+    assert unnamed == 0
+    assert shortened > 100_000
+    assert coached > 10_000
+    assert (wages > 20_000, contracts > 100_000, odd_dates) == (True, True, 0)
+
+
+@needs_editor
 def test_the_installed_editor_database_reads_as_plausible_awards(tmp_path):
     with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
         awards, named = db.execute("SELECT count(*), count(name) FROM awards").fetchone()
