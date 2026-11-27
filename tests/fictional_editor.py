@@ -274,10 +274,32 @@ CITY = synthetic.definition_file(
     synthetic.field_definition("Clat", "Latitude", "real"),
     synthetic.field_definition("Cwea", "Weather", *synthetic.reference("weather")),
 )
+CONTINENT = synthetic.definition_file(
+    "cont",
+    synthetic.field_definition("Cnam", "Name", "string"),
+    synthetic.field_definition("Crgs", "Regional Strength", "real"),
+    synthetic.field_definition("DBvw", "", "enum", '<flags id="enum_values" value="mood" />'),
+)
+INJURY = synthetic.definition_file(
+    "inju",
+    synthetic.field_definition("Inam", "Name", "string"),
+    synthetic.field_definition(
+        "Iocr", "Occurrence Ratio", "real", '<integer id="min" value="0" />'
+    ),
+    synthetic.field_definition(
+        "Imip", "Match Injury Percentage", "integer", synthetic.number_range(0, 100)
+    ),
+)
+WEATHER_DEFINITIONS = synthetic.definition_file(
+    "weat",
+    synthetic.field_definition("wnam", "Name", "string"),
+    synthetic.field_definition("w0p0", "Dry", "integer", synthetic.number_range(0, 100)),
+)
 SHARED_CHOICES = synthetic.enum_file(
     dbts={
         **{0: "Award", 1: "Person", 2: "City", 3: "Club", 9: "National Team", 10: "Nation"},
-        **{21: "Stadium", 25: "Competition", 99: "Moon"},
+        **{5: "Continent", 6: "Injury", 21: "Stadium", 25: "Competition", 27: "Weather"},
+        99: "Moon",
     },
     mood={0: "Calm", 2: "Cross"},
     cdbt={0: "Top Division", 2: "Main Cup"},
@@ -304,6 +326,9 @@ def write_definitions(folder: Path, person: bytes = PERSON) -> Path:
         "stadium": STADIUM,
         "nation": NATION,
         "city": CITY,
+        "continent": CONTINENT,
+        "injury": INJURY,
+        "weather": WEATHER_DEFINITIONS,
     }
     path.write_bytes(synthetic.definitions_container(files, SHARED_CHOICES))
     return folder

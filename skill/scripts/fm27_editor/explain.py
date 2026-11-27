@@ -65,6 +65,9 @@ TABLE_OF_KIND = {
     "Nation": "nation",
     "City": "city",
     "Stadium": "stadium",
+    "Continent": "continent",
+    "Injury": "injury",
+    "Weather": "weather",
 }
 TABLE_OF_TAG = {tag: LOOKUP_TABLES.get(kind) for kind, tag in LIST_REFERENCE_TAGS.items()}
 LIST_STEPS = {

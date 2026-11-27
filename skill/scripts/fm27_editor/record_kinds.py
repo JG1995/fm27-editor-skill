@@ -107,8 +107,33 @@ CITIES = RecordGroup(
     details={"nation": "{}"},
     name_codes=("Cnam",),
 )
+CONTINENTS = RecordGroup(
+    one="continent",
+    view="continents",
+    table=Table.CONTINENT,
+    details={},
+    name_codes=("Cnam",),
+)
+INJURIES = RecordGroup(
+    one="injury",
+    view="injuries",
+    table=Table.INJURY,
+    details={},
+    name_codes=("Inam",),
+)
+WEATHERS = RecordGroup(
+    one="weather",
+    view="weathers",
+    table=Table.WEATHER,
+    details={},
+    name_codes=("wnam",),
+)
 GROUPS = {
-    group.view: group for group in (PEOPLE, CLUBS, COMPETITIONS, AWARDS, STADIUMS, NATIONS, CITIES)
+    group.view: group
+    for group in (
+        *(PEOPLE, CLUBS, COMPETITIONS, AWARDS, STADIUMS, NATIONS, CITIES),
+        *(CONTINENTS, INJURIES, WEATHERS),
+    )
 }
 PERSON_NEEDS = {
     "Pfna": "First Name",
@@ -251,8 +276,39 @@ CITY = RecordKind(
     left_out=frozenset(COMPUTED_NAMES),
     can_be_new=False,
 )
+CONTINENT = RecordKind(
+    name="continent",
+    group=CONTINENTS,
+    defined_in=("continent",),
+    codes={"name": "Cnam"},
+    needed={},
+    left_out=frozenset({*COMPUTED_NAMES, "DBvw"}),
+    can_be_new=False,
+)
+INJURY = RecordKind(
+    name="injury",
+    group=INJURIES,
+    defined_in=("injury",),
+    codes={"name": "Inam"},
+    needed={},
+    left_out=frozenset(COMPUTED_NAMES),
+    can_be_new=False,
+)
+WEATHER = RecordKind(
+    name="weather",
+    group=WEATHERS,
+    defined_in=("weather",),
+    codes={"name": "wnam"},
+    needed={},
+    left_out=frozenset(COMPUTED_NAMES),
+    can_be_new=False,
+)
 KINDS = {
-    kind.name: kind for kind in (PLAYER, STAFF, CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY)
+    kind.name: kind
+    for kind in (
+        *(PLAYER, STAFF, CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY),
+        *(CONTINENT, INJURY, WEATHER),
+    )
 }
 
 

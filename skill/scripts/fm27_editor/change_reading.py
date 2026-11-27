@@ -32,9 +32,12 @@ class Table(IntEnum):
     PERSON = 1
     CITY = 2
     CLUB = 3
+    CONTINENT = 5
+    INJURY = 6
     NATION = 9  # the Editor's list of tables calls it National Team; see place_lookup
     STADIUM = 21
     COMPETITION = 25
+    WEATHER = 27
     DATABASE = 55  # the table of tables; records are added to it
 
 
