@@ -98,12 +98,12 @@ def test_unresearched_values_are_missing_rather_than_zero():
     ("common", "full", "name", "full_name"),
     [
         (0xFFFFFFFF, "Testy Long McTestface", "Testy McTestface", "Testy Long McTestface"),
-        (0xFFFFFFFF, "", "Testy McTestface", "Testy McTestface"),
+        (0xFFFFFFFF, "", "Testy McTestface", None),
         (5, "Testy Long McTestface", "Testo", "Testy Long McTestface"),
     ],
 )
 def test_the_name_is_the_common_name_or_the_first_and_second_name(common, full, name, full_name):
-    """As the game shows a person; the full name is the one written out in the record."""
+    """As the game shows a person; the full name is the one written out in the record, if any."""
     record = synthetic.person_record(0, 100, common=common, full_name=full)
     (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
 

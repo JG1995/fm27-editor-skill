@@ -235,7 +235,7 @@ class _Checker:
                 raise EditError(f"{where}: {error}") from error
 
     def _person_name(self, uid: int) -> str | None:
-        """The name that most awards use, which is often shorter than the lookup's own."""
+        """The name that most awards use, which may differ from the one the game shows."""
         row = self._lookup.execute(
             "SELECT name FROM award_place WHERE person_uid = ? AND name IS NOT NULL"
             " GROUP BY name ORDER BY count(*) DESC, name LIMIT 1",

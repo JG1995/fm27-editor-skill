@@ -34,7 +34,8 @@ class Names:
 class Identity:
     name: str
     """The name the game shows."""
-    full_name: str
+    full_name: str | None
+    """As the record holds it; None when it holds none."""
     birth_date: datetime.date
 
 
@@ -52,7 +53,7 @@ def read_identity(record: bytes, marker_at: int, names: Names) -> Identity | Non
             for second_at, second in _names_ending_at(record, common_at, names.second):
                 for _, first in _names_ending_at(record, second_at, names.first):
                     name = common or " ".join(part for part in (first, second) if part)
-                    return Identity(name, full_name or name, birth_date)
+                    return Identity(name, full_name or None, birth_date)
     return None
 
 
