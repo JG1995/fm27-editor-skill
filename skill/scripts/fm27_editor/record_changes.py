@@ -270,16 +270,21 @@ def _checked_number(field: Field, value: FieldValue, lowest: int, highest: int) 
 
 def _real_bytes(field: Field, value: FieldValue) -> bytes:
     """A number in four bytes, the way real files store one; the definitions may leave it open."""
-    if not isinstance(value, int | float) or isinstance(value, bool) or not math.isfinite(value):
+    if not isinstance(value, int | float) or isinstance(value, bool):
         raise _refused(field, f"needs a number, not {value!r}")
+    try:
+        stored = struct.pack("<f", float(value))
+    except OverflowError as error:
+        raise _refused(field, "cannot hold a number that large") from error
+    if not math.isfinite(value):
+        raise _refused(field, f"needs a number, not {value!r}")
+    if value and not struct.unpack("<f", stored)[0]:
+        raise _refused(field, f"cannot hold a number as small as {value}")
     if field.lowest is not None and value < field.lowest:
         raise _refused(field, f"must be at least {field.lowest}, not {value}")
     if field.highest is not None and value > field.highest:
         raise _refused(field, f"must be at most {field.highest}, not {value}")
-    try:
-        return struct.pack("<f", value)
-    except OverflowError as error:
-        raise _refused(field, f"cannot hold a number as large as {value}") from error
+    return stored
 
 
 def _checked_choice(field: Field, value: FieldValue) -> int:
