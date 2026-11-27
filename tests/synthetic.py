@@ -541,6 +541,44 @@ def retired_record(index: int, uid: int, name: str) -> bytes:
     return record + struct.pack("<III", index, uid, uid)
 
 
+HISTORY_ITEM_SIZE = 44
+NO_DATE = (1, 1900)
+
+
+def history_item(
+    year: int,
+    club: int,
+    *,
+    order: int = 0,
+    division: int = NO_INDEX,
+    apps: int = 0,
+    goals: int = 0,
+    fee: int = -1,
+    joined: tuple[int, int] = NO_DATE,
+    left: tuple[int, int] = NO_DATE,
+) -> bytes:
+    """A season of a person at a club, without the offset of the next one that ends it."""
+    item = struct.pack(
+        "<HHBBBiIIIIB", year, year, 0x40, apps, goals, fee, club, club, division, division, order
+    )
+    return item + struct.pack("<HHHH", *joined, *left) + struct.pack("<HH", *NO_DATE)
+
+
+def playing_histories(histories: dict[int, list[bytes]]) -> tuple[bytes, bytes, bytes]:
+    """pl_hist_index, pl_hist_id, and pl_hist_dt as their streams hold them."""
+    index = struct.pack("<I", len(histories))
+    offsets, items = b"", b""
+    for entry, (uid, seasons) in enumerate(histories.items()):
+        index += struct.pack("<II", uid, entry)
+        first = len(items)
+        for number, season in enumerate(seasons):
+            at = len(items)
+            last = number == len(seasons) - 1
+            items += season + struct.pack("<I", NO_INDEX if last else at + HISTORY_ITEM_SIZE)
+        offsets += struct.pack("<II", first, len(items) - HISTORY_ITEM_SIZE)
+    return index, offsets, items
+
+
 def people_stream(records: list[bytes], count: int) -> bytes:
     return b"\x00\x00" + struct.pack("<I", count) + b"".join(records)
 
