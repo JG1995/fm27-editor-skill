@@ -145,8 +145,31 @@ ADDITIONAL_LANGUAGES = synthetic.list_items(
     ),
     synthetic.field_definition("csln", "Cannot Speak Language", "boolean"),
 )
+PLAYING_HISTORY = synthetic.list_items(
+    synthetic.field_definition("year", "Year", "integer", synthetic.number_range(1900, 2100)),
+    synthetic.field_definition("yror", "Order", "integer", synthetic.number_range(0, 10)),
+    synthetic.field_definition("clid", "Club", *synthetic.reference("team")),
+    synthetic.field_definition("divi", "Division", *synthetic.reference("competition")),
+    synthetic.field_definition("join", "Date Joined", "date"),
+    synthetic.field_definition("leav", "Date Left", "date"),
+    *(
+        synthetic.field_definition(code, name, "boolean")
+        for code, name in (("onln", "On Loan"), ("trib", "Tribunal Fee"), ("ytht", "Youth Team"))
+    ),
+    synthetic.field_definition("apps", "Apps", "integer", synthetic.number_range(0, 200)),
+    synthetic.field_definition("gols", "Goals", "integer", synthetic.number_range(0, 200)),
+    synthetic.field_definition("cash", "Transfer Fee", "cash", synthetic.number_range(0, 10**9)),
+    synthetic.field_definition(
+        "info",
+        "Other",
+        "enum",
+        '<list id="enum_values"><record enum="-2"><string id="name" value="Undisc." /></record>'
+        "</list>",
+    ),
+)
 PERSON = synthetic.definition_file(
     "pers",
+    synthetic.field_definition("Plhs", "Playing History", "list", PLAYING_HISTORY),
     synthetic.field_definition("PElg", "Additional Languages", "list", ADDITIONAL_LANGUAGES),
     synthetic.field_definition("PNRs", "Second Nations", "list", SECOND_NATIONS),
     synthetic.field_definition("Pfvc", "Favourite Clubs", "list", FAVOURITE_CLUBS),

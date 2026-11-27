@@ -12,7 +12,7 @@ from fm27_editor.record_changes import MONEY, REAL
 from fm27_editor.record_kinds import GROUPS, RecordGroup
 from fm27_editor.record_rules import NewReference, Setting
 from fm27_editor.rule_words import rule_lines
-from fm27_editor.words import amount, counted, shown
+from fm27_editor.words import amount, counted, shown, shown_list
 
 
 def preview_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> list[str]:
@@ -76,6 +76,8 @@ def _field_line(group: RecordGroup, edits: list[Edit]) -> str:
         if numbers:
             lowest, highest = amount(field, min(numbers)), amount(field, max(numbers))
             parts.append(f"new values {lowest} to {highest}")
+    if field.type == LIST:
+        parts += _taken_out(edits)
     return f"  {field.name} ({field.code}): {', '.join(parts)}"
 
 
@@ -93,6 +95,19 @@ def _direction(edits: list[Edit]) -> list[str]:
     return [f"{count:,} {what}" for count, what in counts if count]
 
 
+def _taken_out(edits: list[Edit]) -> list[str]:
+    """How many items replacing the lists takes out, and of how many lists that is not known."""
+    replacing = [edit for edit in edits if edit.setting.value.replace]
+    if not replacing:
+        return []
+    held = [len(edit.old) for edit in replacing if edit.old is not None]
+    unknown = len(replacing) - len(held)
+    return [
+        *([counted(sum(held), "item", "items") + " taken out"] if held else []),
+        *([f"{unknown:,} whose items are not known"] if unknown else []),
+    ]
+
+
 def _has_range(edit: Edit) -> bool:
     field = edit.setting.field
     return is_range(field, edit.old) or is_range(field, edit.setting.value)
@@ -108,11 +123,12 @@ def _spread[T](items: Sequence[T], count: int) -> Sequence[T]:
 
 
 def _example_line(edit: Edit, lookup: sqlite3.Connection) -> str:
-    """The old value and the new one; a list is not known, so only what is done to it is said."""
+    """The old value and the new one; for a list, what is done to it."""
     field = edit.setting.field
-    new = shown(field, edit.setting.value, lookup)
     if field.type == LIST:
-        return f"  {_described(edit.record)}: {field.name} {new}"
+        done = shown_list(field, edit.setting.value, edit.old, lookup)
+        return f"  {_described(edit.record)}: {field.name} {done}"
+    new = shown(field, edit.setting.value, lookup)
     old = "unknown" if edit.old is None else shown(field, edit.old, lookup)
     return f"  {_described(edit.record)}: {field.name} {old} -> {new}"
 

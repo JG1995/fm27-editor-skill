@@ -17,6 +17,8 @@ from fm27_editor.request import RequestError
 
 type Address = tuple[int, int]
 """The table and the uid of a record in the database."""
+type HeldItems = tuple[Mapping[str, object], ...]
+"""The items a list holds now, by the codes of their parts, without the parts not known."""
 
 
 @dataclass(frozen=True)
@@ -65,11 +67,31 @@ def known_record(group: RecordGroup, uid: Any, lookup: sqlite3.Connection) -> Kn
     return KnownRecord(facts["uid"], kind_of(group, facts), facts)
 
 
+def known_value(record: KnownRecord, code: str, lookup: sqlite3.Connection) -> object:
+    """What the lookup says a field of the record is now, or None when it does not know."""
+    held = record.kind.held_lists.get(code)
+    if held is None:
+        return record.facts.get(record.kind.names.get(code, ""))
+    columns = ", ".join(held.parts)
+    rows = lookup.execute(
+        f"SELECT {columns} FROM {held.table} WHERE {held.owner} = ? ORDER BY {held.order}",
+        (record.uid,),
+    )
+    return tuple(
+        {
+            code: value
+            for code, value in zip(held.parts.values(), row, strict=True)
+            if value is not None
+        }
+        for row in rows
+    )
+
+
 @dataclass(frozen=True)
 class Edit:
     record: KnownRecord
     setting: Setting
-    old: str | int | None
+    old: str | int | HeldItems | None
     """What the lookup says now; nothing when it does not know."""
 
 

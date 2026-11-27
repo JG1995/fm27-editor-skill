@@ -27,6 +27,7 @@ from fm27_editor.planned import (
     KnownRecord,
     StartingFile,
     known_record,
+    known_value,
 )
 from fm27_editor.potential import ABILITY, POTENTIAL, has_more_ability_than_potential
 from fm27_editor.record_changes import NewIds, stored_value
@@ -194,7 +195,7 @@ def _planned(
             if (record.address, field.code) in seen:
                 raise RequestError(f"{field.name} of {record.name} ({record.uid}) is set twice")
             seen.add((record.address, field.code))
-            yield Edit(record, setting, record.facts.get(record.kind.names.get(field.code, "")))
+            yield Edit(record, setting, known_value(record, field.code, lookup))
 
 
 def _check_values(record: KnownRecord, values: Mapping[str, Any]) -> None:

@@ -152,10 +152,11 @@ def test_a_person_named_by_a_club_is_shown_by_name(lines_for):
     assert lines[-2].endswith(": Manager unknown -> Charlie Coach (102)")
 
 
-def test_a_list_that_is_cleared_says_so(lines_for):
+def test_a_list_that_is_cleared_says_that_what_it_holds_is_not_known(lines_for):
     lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PNRs": {"replace": []}}}])
 
-    assert lines[-2].endswith(": Second Nations cleared")
+    assert "  Second Nations (PNRs): 1 person, 1 whose items are not known" in lines
+    assert lines[-2].endswith(": Second Nations cleared of what it holds, which is not known")
 
 
 def test_a_list_that_is_replaced_says_it_is_cleared_first(lines_for):
@@ -163,7 +164,48 @@ def test_a_list_that_is_replaced_says_it_is_cleared_first(lines_for):
 
     lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PNRs": replaced}}])
 
-    assert lines[-2].endswith(": Second Nations cleared, then + Nation Englandia (9001)")
+    assert lines[-2].endswith(
+        ": Second Nations cleared of what it holds, which is not known,"
+        " then + Nation Englandia (9001)"
+    )
+
+
+def test_replacing_a_list_that_the_lookup_holds_shows_every_item_it_takes_out(lines_for):
+    replaced = {"replace": [{"year": 2025, "clid": 9101}]}
+
+    lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"Plhs": replaced}}])
+
+    assert "  Playing History (Plhs): 1 person, 3 items taken out" in lines
+    assert lines[-2].endswith(
+        ": Playing History cleared of"
+        " - Year 2021, Order 0, Club Example United (9102), Division Example League North (9203),"
+        " Apps 30, Goals 12, Date Joined 2021-07-01"
+        " - Year 2022, Order 1, Club Example United (9102), Division Example League North (9203),"
+        " Apps 12, Goals 4, Transfer Fee £2,500,000, Date Left 2023-01-31"
+        " - Year 2022, Order 2, Club Fictional City (9101), Division Example League (9201),"
+        " Other Undisc. (-2)"
+        ", then + Year 2025, Club Fictional City (9101)"
+    )
+
+
+def test_replacing_an_empty_list_says_it_holds_nothing(lines_for):
+    replaced = {"replace": [{"year": 2025, "clid": 9101}]}
+
+    lines = lines_for(edits=[{"of": "people", "uid": 101, "set": {"Plhs": replaced}}])
+
+    assert "  Playing History (Plhs): 1 person, 0 items taken out" in lines
+    assert lines[-2].endswith(
+        ": Playing History cleared of nothing, then + Year 2025, Club Fictional City (9101)"
+    )
+
+
+def test_adding_to_a_list_takes_nothing_out(lines_for):
+    added = [{"year": 2025, "clid": 9101}]
+
+    lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"Plhs": added}}])
+
+    assert "  Playing History (Plhs): 1 person" in lines
+    assert lines[-2].endswith(": Playing History + Year 2025, Club Fictional City (9101)")
 
 
 def test_a_new_person_is_shown_with_the_items_of_a_list(lines_for):

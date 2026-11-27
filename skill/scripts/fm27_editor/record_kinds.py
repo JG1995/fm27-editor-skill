@@ -25,6 +25,18 @@ class RecordGroup:
     """The fields a name is made of, in the order they are said."""
 
 
+@dataclass(frozen=True)
+class HeldList:
+    """Where the lookup holds the items of a list: a table with a row for each item."""
+
+    table: str
+    owner: str
+    """The column with the uid of the record whose list it is."""
+    order: str
+    parts: Mapping[str, str]
+    """The Editor's codes of the parts by the lookup's names."""
+
+
 @dataclass(frozen=True, eq=False)
 class RecordKind:
     name: str
@@ -48,6 +60,8 @@ class RecordKind:
     """Whether a file was seen that adds a record of this kind."""
     lists: Mapping[str, ListShape] = field(default_factory=dict)
     """The lists that can be given items, by code, in the shape real files show."""
+    held_lists: Mapping[str, HeldList] = field(default_factory=dict)
+    """The lists whose items the lookup holds, by code."""
 
     @cached_property
     def names(self) -> dict[str, str]:
@@ -172,6 +186,9 @@ PERSON_LEFT_OUT = frozenset(
         *(f"BR{position:02}" for position in range(1, 15)),
     }
 )
+PERSON_HELD_LISTS = {
+    "Plhs": HeldList("history_season", "person_uid", "item", person_codes.PLAYING_HISTORY)
+}
 PLAYER = RecordKind(
     name="player",
     group=PEOPLE,
@@ -182,6 +199,7 @@ PLAYER = RecordKind(
     person_type=PersonKind.PLAYER,
     pointed_to_as=("person",),
     lists=PERSON_LISTS,
+    held_lists=PERSON_HELD_LISTS,
 )
 STAFF = RecordKind(
     name="staff",
@@ -193,6 +211,7 @@ STAFF = RecordKind(
     person_type=PersonKind.STAFF,
     pointed_to_as=("person",),
     lists=PERSON_LISTS,
+    held_lists=PERSON_HELD_LISTS,
 )
 GENDER = "gender"
 GENDER_CODE = "PLgn"
