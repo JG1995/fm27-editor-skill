@@ -97,6 +97,14 @@ def test_the_installed_editor_defines_every_part_of_the_lists_offered():
 
 
 @needs_editor
+def test_the_installed_editor_names_the_jobs_of_staff():
+    rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
+    jobs = {code: rules.fields(STAFF)[code].choices for code in ("PCJO", "PSJO")}
+
+    assert all(len(choices or {}) > 20 for choices in jobs.values()), jobs
+
+
+@needs_editor
 def test_the_installed_editor_defines_every_rule_that_is_offered():
     definitions = RuleDefinitions(Path(EDITOR))
 

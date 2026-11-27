@@ -450,8 +450,10 @@ def definition_file(group: str, *fields: str) -> bytes:
     ).encode()
 
 
-def enum_file(**choices: dict[int, str]) -> bytes:
-    records = "".join(
+def enum_file(*filled_by_the_editor: str, **choices: dict[int, str]) -> bytes:
+    """Shared choices by name; those the Editor fills in itself are empty records."""
+    records = "".join(f'<record id="{name}" />' for name in filled_by_the_editor)
+    records += "".join(
         f'<record id="{name}"><list id="enum_values">'
         + "".join(
             f'<record enum="{number}"><translation id="name" value="{label}" /></record>'
