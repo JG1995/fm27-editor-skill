@@ -1,4 +1,8 @@
-"""Reading the files of the Editor's base database: a 12-byte prefix, then a stream or tables."""
+"""Reading the files of the Editor's base database: a 12-byte prefix, then a stream or tables.
+
+The files of people's histories are in zstd's seekable format instead: an 8-byte prefix, frames,
+and a table of the frames' sizes in a skippable frame at the end.
+"""
 
 import struct
 from collections.abc import Iterator
@@ -18,6 +22,14 @@ NO_RECORD = 0xFFFFFFFF
 TABLE_FOOTER_SIZE = 9
 MAX_RECORD_SIZE = 64 * 1024
 MAX_STREAM_SIZE = 4 * 1024 * 1024 * 1024
+SEEKABLE_TAG = b"\x03\x01tadc"
+SEEKABLE_PREFIX_SIZE = 8
+# Bytes 6-7: 1 in the files of offsets, 3 in those of items. Their meaning is not known.
+SEEKABLE_KINDS = {1, 3}
+SKIPPABLE_MAGIC = 0x184D2A5E
+SEEK_TABLE_MAGIC = 0x8F92EAB1
+SEEK_TABLE_FOOTER_SIZE = 9
+SEEK_ENTRY_SIZE, CHECKSUM_FLAG = 8, 0x80
 
 
 class DatError(FormatError):
@@ -33,6 +45,27 @@ class Record:
 def read_stream(path: Path) -> bytes:
     """The body of a file that is one compressed stream, such as people_db.dat."""
     return unpack_frame(_body(path), path.name, DatError, MAX_STREAM_SIZE)
+
+
+def read_seekable(path: Path) -> bytes:
+    """The body of a file in zstd's seekable format, such as pl_hist_dt.dat."""
+    content = path.read_bytes()
+    if content[: len(SEEKABLE_TAG)] != SEEKABLE_TAG or len(content) < SEEKABLE_PREFIX_SIZE:
+        raise DatError(f"{path.name} is not a seekable Editor database file")
+    kind = struct.unpack_from("<H", content, len(SEEKABLE_TAG))[0]
+    if kind not in SEEKABLE_KINDS:
+        raise DatError(f"{path.name} is of seekable kind {kind}, which is not known")
+    sizes, frames_end = _seek_table(content, path.name)
+    data, at = [], SEEKABLE_PREFIX_SIZE
+    for packed, unpacked in sizes:
+        frame = unpack_frame(content[at : at + packed], path.name, DatError, unpacked)
+        if len(frame) != unpacked:
+            raise DatError(f"{path.name} has a frame that is not the size its table says")
+        data.append(frame)
+        at += packed
+    if at != frames_end:
+        raise DatError(f"{path.name} has frames that do not end where its table starts")
+    return b"".join(data)
 
 
 def read_tables(path: Path, names: set[str]) -> dict[str, bytes]:
@@ -107,6 +140,24 @@ def _are_ids(table: bytes, at: int, marker: bytes) -> bool:
         return False
     uid, repeated = struct.unpack_from("<II", table, at + 4)
     return uid == repeated and uid not in (0, NO_RECORD)
+
+
+def _seek_table(content: bytes, name: str) -> tuple[list[tuple[int, int]], int]:
+    """The packed and unpacked size of each frame, and where the frames end."""
+    if len(content) < SEEKABLE_PREFIX_SIZE + 8 + SEEK_TABLE_FOOTER_SIZE:
+        raise DatError(f"{name} has no seek table")
+    count, descriptor, magic = struct.unpack_from(
+        "<IBI", content, len(content) - SEEK_TABLE_FOOTER_SIZE
+    )
+    entry = SEEK_ENTRY_SIZE + (4 if descriptor & CHECKSUM_FLAG else 0)
+    table_size = count * entry + SEEK_TABLE_FOOTER_SIZE
+    table_at = len(content) - table_size
+    if magic != SEEK_TABLE_MAGIC or table_at - 8 < SEEKABLE_PREFIX_SIZE:
+        raise DatError(f"{name} has no seek table")
+    if struct.unpack_from("<II", content, table_at - 8) != (SKIPPABLE_MAGIC, table_size):
+        raise DatError(f"{name} has no seek table")
+    sizes = [struct.unpack_from("<II", content, table_at + i * entry) for i in range(count)]
+    return sizes, table_at - 8
 
 
 def _body(path: Path) -> bytes:
