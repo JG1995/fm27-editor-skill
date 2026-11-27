@@ -1,8 +1,8 @@
 """Where the values of a person are stored in a people_db record.
 
-Offsets count from the start of the record. Every position was matched against 3,999 players of an
-FM27 save and agrees for 99 to 100 percent of the values that are set. A value of 0 means that the
-database leaves it to the game.
+Offsets of players count from the start of the record. Every position was matched against 3,999
+players of an FM27 save and agrees for 99 to 100 percent of the values that are set. A value of 0
+means that the database leaves it to the game.
 """
 
 ATTRIBUTES = {
@@ -80,7 +80,8 @@ POSITIONS = {
     "position_wbr": 49,
 }
 
-# Personality is stored after the nation, so its offsets count from the nation marker.
+# Personality is stored after the nation, so its offsets count from the nation marker. It was
+# matched on players, and on 15,885 staff of the save, all of whose values that are set agree.
 PERSONALITY = {
     "adaptability": 10,
     "ambition": 11,
@@ -92,4 +93,36 @@ PERSONALITY = {
     "controversy": 17,
 }
 
-FIELD_NAMES = [*ATTRIBUTES, *POSITIONS, *PERSONALITY]
+# A staff record has a list after its kind: a count of two bytes, then items of seven bytes, each
+# 01 05, two bytes, 05, and two bytes. Staff attributes count from the end of that list. Matched
+# against 63,413 staff of the save: where the database sets a value, the save mostly shows the same,
+# and otherwise one to three points less, as the game moves staff values once it starts. The bytes
+# between them hold values too, but no known one matches them.
+STAFF_LIST_ITEM_SIZE = 7
+STAFF_LIST_ITEM_MARKS = {0: 1, 1: 5, 4: 5}
+STAFF_ATTRIBUTES = {
+    "working_with_youngsters": 32,
+    "determination": 33,
+    "coaching_goalkeeping": 47,
+    "judging_player_ability": 48,
+    "judging_player_potential": 49,
+    "people_management": 50,
+    "motivating": 51,
+    "physiotherapy": 52,
+    "tactical_knowledge": 53,
+    "coaching_attacking": 54,
+    "coaching_defending": 55,
+    "coaching_fitness": 56,
+    "coaching_possession": 57,
+    "coaching_technical": 58,
+    "coaching_tactical": 59,
+    "judging_player_data": 64,
+    "sports_science": 67,
+    "authority": 68,
+    "negotiating": 69,
+    "judging_staff_ability": 70,
+    "coaching_set_pieces": 71,
+}
+
+# Determination is both a player's and a staff member's: one column, with a code for each.
+FIELD_NAMES = list(dict.fromkeys([*ATTRIBUTES, *POSITIONS, *PERSONALITY, *STAFF_ATTRIBUTES]))

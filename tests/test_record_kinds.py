@@ -5,7 +5,12 @@ import pytest
 
 from fm27_editor import award_lookup, name_lookup, place_lookup
 from fm27_editor.change_reading import EditError
-from fm27_editor.person_fields import FIELD_NAMES
+from fm27_editor.person_fields import (
+    ATTRIBUTES,
+    PERSONALITY,
+    POSITIONS,
+    STAFF_ATTRIBUTES,
+)
 from fm27_editor.record_kinds import (
     AWARD,
     CITY,
@@ -18,18 +23,26 @@ from fm27_editor.record_kinds import (
     NATION,
     PLAYER,
     STADIUM,
+    STAFF,
     STAGE_NAME,
     WEATHER,
     kind_named,
 )
 
 WITHOUT_A_CODE = {"name", "position_sw"}
+FACTS_OF_ANYONE = {"name", "full_name", "birth_date", "nation_uid", "club_uid", "ca", "pa"}
 
 
-def test_every_fact_the_lookup_has_for_players_has_a_code_or_a_reason_not_to():
-    facts = {"name", "full_name", "birth_date", "nation_uid", "club_uid", "ca", "pa", *FIELD_NAMES}
-
-    assert set(PLAYER.codes) == facts - WITHOUT_A_CODE
+@pytest.mark.parametrize(
+    ("kind", "fields"),
+    [
+        (PLAYER, {*ATTRIBUTES, *POSITIONS, *PERSONALITY}),
+        (STAFF, {*STAFF_ATTRIBUTES, *PERSONALITY}),
+    ],
+    ids=["player", "staff"],
+)
+def test_every_fact_the_lookup_has_for_people_has_a_code_or_a_reason_not_to(kind, fields):
+    assert set(kind.codes) == (FACTS_OF_ANYONE | fields) - WITHOUT_A_CODE
 
 
 @pytest.mark.parametrize(

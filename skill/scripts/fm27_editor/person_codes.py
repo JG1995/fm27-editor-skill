@@ -92,7 +92,31 @@ PLAYER = {
     "position_wbr": "Pwbr",
 }
 
-STAFF = {"ca": "Ncra", "pa": "Npta"}
+STAFF = {
+    "ca": "Ncra",
+    "pa": "Npta",
+    "working_with_youngsters": "NDwy",
+    "determination": "NDde",
+    "coaching_goalkeeping": "NDgs",
+    "judging_player_ability": "NDja",
+    "judging_player_potential": "NDjp",
+    "people_management": "NDmm",
+    "motivating": "NDmo",
+    "physiotherapy": "NDph",
+    "tactical_knowledge": "NDtk",
+    "coaching_attacking": "NDca",
+    "coaching_defending": "NDdf",
+    "coaching_fitness": "NDfi",
+    "coaching_possession": "NDmn",
+    "coaching_technical": "NDth",
+    "coaching_tactical": "NDtc",
+    "judging_player_data": "NDjd",
+    "sports_science": "NDim",
+    "authority": "NDld",
+    "negotiating": "NNeg",
+    "judging_staff_ability": "NDjs",
+    "coaching_set_pieces": "NDsp",
+}
 
 # The parts a name is made of, in the order they are said.
 NAME_CODES = ("Pfna", "Psna")

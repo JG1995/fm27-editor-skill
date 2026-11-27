@@ -16,7 +16,14 @@ from enum import IntEnum
 import numpy as np
 
 from fm27_editor.binary import FormatError, Reader
-from fm27_editor.person_fields import ATTRIBUTES, PERSONALITY, POSITIONS
+from fm27_editor.person_fields import (
+    ATTRIBUTES,
+    PERSONALITY,
+    POSITIONS,
+    STAFF_ATTRIBUTES,
+    STAFF_LIST_ITEM_MARKS,
+    STAFF_LIST_ITEM_SIZE,
+)
 from fm27_editor.person_names import Names, read_identity
 
 BASIC_HEADER_SIZE = 5
@@ -65,11 +72,6 @@ class BasicPerson:
     club_uid: int | None = None
     ca: int | None = None
     pa: int | None = None
-
-    @property
-    def is_player(self) -> bool:
-        """Players are the only kind whose attribute positions were checked."""
-        return self.kind is PersonKind.PLAYER
 
 
 @dataclass(slots=True)
@@ -179,7 +181,7 @@ def _read_person(record: bytes, basic: BasicPerson, names: Names) -> Person | No
                 basic.club_uid,
                 basic.ca,
                 basic.pa,
-                _read_fields(record, at) if _has_player_layout(record, basic) else {},
+                _read_fields(record, basic, at),
             )
         at = record.find(marker, at + 1)
     return None
@@ -197,18 +199,39 @@ def _read_retired(record: bytes, basic: BasicPerson) -> Person | None:
     return Person(basic.uid, basic.kind, name, name) if reader.at_end else None
 
 
-def _has_player_layout(record: bytes, basic: BasicPerson) -> bool:
-    """Whether the record starts where a player's does, so that fixed positions hold."""
-    start = struct.pack("<IB", basic.index, PersonKind.PLAYER)
-    return basic.is_player and record[: len(start)] == start
+def _read_fields(record: bytes, basic: BasicPerson, marker_at: int) -> dict[str, int]:
+    """Values between 1 and 20, of players and staff whose record starts with its index and kind.
 
-
-def _read_fields(record: bytes, marker_at: int) -> dict[str, int]:
-    """Values between 1 and 20. Anything else is missing: the game fills it in or it is a range."""
-    positions = {**ATTRIBUTES, **POSITIONS}
+    Anything else is missing: the game fills it in, or it is a range.
+    """
+    if not record.startswith(struct.pack("<IB", basic.index, basic.kind)):
+        return {}
+    if basic.kind is PersonKind.PLAYER:
+        positions = {**ATTRIBUTES, **POSITIONS}
+    elif basic.kind is PersonKind.STAFF:
+        start = _staff_attributes_start(record)
+        known = start is not None
+        positions = (
+            {name: start + offset for name, offset in STAFF_ATTRIBUTES.items()} if known else {}
+        )
+    else:
+        return {}
     positions |= {name: marker_at + offset for name, offset in PERSONALITY.items()}
     return {
         name: record[position]
         for name, position in positions.items()
         if position < len(record) and LOWEST_VALUE <= record[position] <= HIGHEST_VALUE
     }
+
+
+def _staff_attributes_start(record: bytes) -> int | None:
+    """Where staff attributes count from: after the list that follows the kind, if it checks out."""
+    if len(record) < 7:
+        return None
+    start = 7 + STAFF_LIST_ITEM_SIZE * struct.unpack_from("<H", record, 5)[0]
+    if start >= len(record):
+        return None
+    for item_at in range(7, start, STAFF_LIST_ITEM_SIZE):
+        if any(record[item_at + at] != mark for at, mark in STAFF_LIST_ITEM_MARKS.items()):
+            return None
+    return start

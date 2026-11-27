@@ -77,6 +77,7 @@ EDITOR_NAMES = {
     "position_st": "striker",
     "position_wbl": "wing_back_left",
     "position_wbr": "wing_back_right",
+    "coaching_goalkeeping": "coaching_goakeeping",
 }
 
 

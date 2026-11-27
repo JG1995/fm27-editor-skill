@@ -7,6 +7,15 @@ from fm27_editor.people import PeopleError, PersonKind, iter_people, parse_basic
 from fm27_editor.person_names import Names
 
 NAMES = Names({1: "Testy"}, {2: "McTestface"}, {5: "Testo"})
+STAFF_SAMPLE = [
+    "working_with_youngsters",
+    "determination",
+    "coaching_goalkeeping",
+    "coaching_attacking",
+    "authority",
+    "coaching_set_pieces",
+    "negotiating",
+]
 
 
 def read_all(basic_records, people_records):
@@ -192,16 +201,49 @@ def test_a_retired_person_outside_the_known_layout_is_skipped(at):
 
 
 def test_staff_and_other_kinds_do_not_get_player_fields():
-    """The byte positions were only checked on players."""
-    records = [synthetic.person_record(i, 100 + i, attributes={52: 17}) for i in range(4)]
-    basic = [
-        synthetic.basic_person(kind, index, 100 + index) for index, kind in enumerate([1, 2, 3, 2])
+    """Players' byte positions were only checked on players, and personality on staff as well."""
+    kinds = [1, 2, 3, 2]
+    records = [
+        synthetic.person_record(i, 100 + i, attributes={52: 17}, kind=kind)
+        for i, kind in enumerate(kinds)
     ]
+    basic = [synthetic.basic_person(kind, index, 100 + index) for index, kind in enumerate(kinds)]
 
     people = {p.uid: p.fields for p in read_all(basic, records)}
 
-    assert people[100] == people[102] == {}
+    assert "finishing" not in people[100]
+    assert people[100]["adaptability"] == 10
+    assert people[102] == {}
     assert people[101]["finishing"] == 17
+
+
+@pytest.mark.parametrize("items", [0, 3])
+def test_staff_attributes_count_from_the_end_of_the_list_at_the_start(items):
+    staff = {32: 16, 33: 18, 47: 1, 54: 20, 68: 12, 71: 14}
+    record = synthetic.person_record(0, 100, kind=1, staff_items=items, staff_attributes=staff)
+    (person,) = read_all([synthetic.basic_person(1, 0, 100)], [record])
+
+    assert {name: person.fields.get(name) for name in STAFF_SAMPLE} == {
+        "working_with_youngsters": 16,
+        "determination": 18,
+        "coaching_goalkeeping": 1,
+        "coaching_attacking": 20,
+        "authority": 12,
+        "coaching_set_pieces": 14,
+        "negotiating": None,
+    }
+    assert person.fields["adaptability"] == 10
+
+
+def test_staff_whose_first_list_is_not_in_the_known_layout_get_no_staff_attributes():
+    record = bytearray(
+        synthetic.person_record(0, 100, kind=1, staff_items=1, staff_attributes={32: 16})
+    )
+    record[7] = 2
+    (person,) = read_all([synthetic.basic_person(1, 0, 100)], [bytes(record)])
+
+    assert "working_with_youngsters" not in person.fields
+    assert person.fields["adaptability"] == 10
 
 
 def test_a_record_that_does_not_start_with_its_own_index_gets_no_fields():
