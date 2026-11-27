@@ -149,6 +149,8 @@ def _seek_table(content: bytes, name: str) -> tuple[list[tuple[int, int]], int]:
     count, descriptor, magic = struct.unpack_from(
         "<IBI", content, len(content) - SEEK_TABLE_FOOTER_SIZE
     )
+    if descriptor & ~CHECKSUM_FLAG:
+        raise DatError(f"{name} has a seek table with flags {descriptor:#x}, which are not known")
     entry = SEEK_ENTRY_SIZE + (4 if descriptor & CHECKSUM_FLAG else 0)
     table_size = count * entry + SEEK_TABLE_FOOTER_SIZE
     table_at = len(content) - table_size

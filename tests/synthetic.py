@@ -167,7 +167,9 @@ def dat_file(content: bytes) -> bytes:
 SEEKABLE_PREFIX = b"\x03\x01tadc"
 
 
-def seekable_file(data: bytes, *, kind: int = 3, frame_size: int = 16) -> bytes:
+def seekable_file(
+    data: bytes, *, kind: int = 3, frame_size: int = 16, descriptor: int = 0
+) -> bytes:
     """zstd's seekable format: frames of `frame_size` bytes, then a table of their sizes."""
     frames = [zstd_frame(data[at : at + frame_size]) for at in range(0, len(data), frame_size)]
     sizes = [
@@ -175,7 +177,7 @@ def seekable_file(data: bytes, *, kind: int = 3, frame_size: int = 16) -> bytes:
         for frame, at in zip(frames, range(0, len(data), frame_size), strict=True)
     ]
     table = b"".join(struct.pack("<II", *size) for size in sizes)
-    table += struct.pack("<IBI", len(frames), 0, 0x8F92EAB1)
+    table += struct.pack("<IBI", len(frames), descriptor, 0x8F92EAB1)
     skippable = struct.pack("<II", 0x184D2A5E, len(table)) + table
     return SEEKABLE_PREFIX + struct.pack("<H", kind) + b"".join(frames) + skippable
 
