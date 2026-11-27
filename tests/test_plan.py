@@ -227,23 +227,6 @@ def test_stadiums_are_edited_by_the_lookups_names_and_their_codes(plan_for):
     assert edited(plan) == [(9401, "Snam", "Test Park", "New Park"), (9401, "Scpy", None, 30_000)]
 
 
-def test_a_stadium_is_changed_in_its_own_table(plan_for):
-    plan = plan_for(edits=[by_hand(9401, of="stadiums", city_uid=9302)])
-
-    (change,) = build_file(plan, approval_code(plan), TODAY).changes.changes
-
-    assert [(item.tag, item.value) for item in change[:3]] == [
-        ("dtty", b"\x15"),
-        ("duni", (9401).to_bytes(4, "little") * 2),
-        ("prty", "Scti"),
-    ]
-
-
-def test_a_stadium_cannot_be_made(plan_for):
-    with pytest.raises(FormatError, match="a new stadium cannot be made"):
-        plan_for(new=[{"kind": "stadium", "set": {"name": "Example Park"}}])
-
-
 def test_nations_are_edited_by_the_lookups_names_and_their_codes(plan_for):
     plan = plan_for(edits=[by_hand(9002, of="nations", name="Norway", Necf=15, Nnsi=9401)])
 
@@ -254,21 +237,41 @@ def test_nations_are_edited_by_the_lookups_names_and_their_codes(plan_for):
     ]
 
 
-def test_a_nation_is_changed_in_the_table_that_real_files_use_for_it(plan_for):
-    plan = plan_for(edits=[by_hand(9002, of="nations", Necf=15)])
+def test_cities_are_edited_by_the_lookups_names_and_their_codes(plan_for):
+    plan = plan_for(edits=[by_hand(9301, of="cities", name="Testbury", nation_uid=9002, Catt=12)])
+
+    assert edited(plan) == [
+        (9301, "Cnam", "Testby", "Testbury"),
+        (9301, "Cnti", 9001, 9002),
+        (9301, "Catt", None, 12),
+    ]
+
+
+# Nations are table 9, which real files use, though the Editor's list calls it National Team.
+@pytest.mark.parametrize(
+    ("of", "uid", "code", "value", "table"),
+    [
+        ("stadiums", 9401, "Scti", 9302, 21),
+        ("nations", 9002, "Necf", 15, 9),
+        ("cities", 9301, "Catt", 12, 2),
+    ],
+)
+def test_a_place_is_changed_in_its_own_table(plan_for, of, uid, code, value, table):
+    plan = plan_for(edits=[by_hand(uid, of=of, **{code: value})])
 
     (change,) = build_file(plan, approval_code(plan), TODAY).changes.changes
 
     assert [(item.tag, item.value) for item in change[:3]] == [
-        ("dtty", b"\x09"),
-        ("duni", (9002).to_bytes(4, "little") * 2),
-        ("prty", "Necf"),
+        ("dtty", bytes([table])),
+        ("duni", uid.to_bytes(4, "little") * 2),
+        ("prty", code),
     ]
 
 
-def test_a_nation_cannot_be_made(plan_for):
-    with pytest.raises(FormatError, match="a new nation cannot be made"):
-        plan_for(new=[{"kind": "nation", "set": {"name": "Testland"}}])
+@pytest.mark.parametrize("kind", ["stadium", "nation", "city"])
+def test_a_kind_that_no_file_adds_cannot_be_made(plan_for, kind):
+    with pytest.raises(FormatError, match=f"a new {kind} cannot be made"):
+        plan_for(new=[{"kind": kind, "set": {"name": "Example"}}])
 
 
 def test_an_award_cannot_be_made(plan_for):

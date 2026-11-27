@@ -48,6 +48,8 @@ CREATE VIEW clubs AS SELECT club.*, nation.name AS nation, city.name AS city,
     LEFT JOIN stadium ON stadium.uid = club.stadium_uid
     LEFT JOIN competition ON competition.uid = club.division_uid;
 CREATE VIEW nations AS SELECT * FROM nation;
+CREATE VIEW cities AS SELECT city.*, nation.name AS nation
+    FROM city LEFT JOIN nation ON nation.uid = city.nation_uid;
 CREATE VIEW stadiums AS SELECT stadium.*, city.name AS city, city.nation_uid,
     nation.name AS nation
     FROM stadium LEFT JOIN city ON city.uid = stadium.city_uid
