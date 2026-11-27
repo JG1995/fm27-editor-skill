@@ -476,6 +476,7 @@ def person_record(
     kind: int = 2,
     staff_items: int = 0,
     staff_attributes: dict[int, int] | None = None,
+    contract: bytes = b"",
 ) -> bytes:
     """A person: fixed fields from the start, then name, birth date, nation, personality, ids.
 
@@ -495,12 +496,27 @@ def person_record(
     for offset, value in (attributes or {}).items():
         record[offset] = value
     record += b"\x03\x01" + struct.pack("<II", *nation) if decoy else b""
+    record += contract
     name_block = b"".join(name_reference(name) for name in (first, second, common))
     name_block += text(full_name)
     record += b"\x06\x10\x00" + name_block + struct.pack("<HH", day, year)
     record += b"\xff\x00\x07\x01" + struct.pack("<I", 2) + b"\x03\x01"
     record += struct.pack("<II", *nation) + personality + b"\x01\x00"
     return bytes(record) + struct.pack("<III", index, uid, uid)
+
+
+def contract_block(
+    index: int,
+    club: tuple[int, int] = (9, 9101),
+    *,
+    wage: int = 25_000,
+    expires: tuple[int, int] = (181, 2029),
+    before: bytes = b"\x01\x00\x6c\x07\x00",
+) -> bytes:
+    """A contract: the date it expires, 39 bytes on, the date and zero byte in `before`, then the
+    person's index, the club's index and uid, and the weekly wage."""
+    head = struct.pack("<HH", *expires) + b"\x00" * (43 - 4 - len(before)) + before
+    return head + struct.pack("<IIII", index, *club, wage) + b"\x01\x0b\x00"
 
 
 def retired_record(index: int, uid: int, name: str) -> bytes:

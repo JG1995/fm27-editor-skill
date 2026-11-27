@@ -273,6 +273,50 @@ def test_ability_of_zero_and_no_club_are_missing():
     assert (person.ca, person.pa, person.club_uid) == (None, None, None)
 
 
+@pytest.mark.parametrize("kind", [1, 2])
+def test_the_contract_with_the_club_gives_the_wage_and_when_it_expires(kind):
+    record = synthetic.person_record(0, 100, kind=kind, contract=synthetic.contract_block(0))
+    (person,) = read_all([synthetic.basic_person(kind, 0, 100)], [record])
+
+    assert (person.wage, person.contract_expires) == (25_000, datetime.date(2029, 6, 30))
+
+
+def test_a_wage_of_0_and_the_first_day_of_1900_are_missing():
+    contract = synthetic.contract_block(0, wage=0, expires=(1, 1900))
+    record = synthetic.person_record(0, 100, contract=contract)
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert (person.wage, person.contract_expires) == (None, None)
+
+
+@pytest.mark.parametrize(
+    "contract",
+    [
+        pytest.param(synthetic.contract_block(0, (8, 9102)), id="another club"),
+        pytest.param(synthetic.contract_block(1), id="another person"),
+        pytest.param(
+            synthetic.contract_block(0, before=b"\xff\xff\xff\xff\x05\x05"), id="not after a date"
+        ),
+        pytest.param(synthetic.contract_block(0, expires=(0, 0)), id="no date where it expires"),
+        pytest.param(synthetic.contract_block(0) * 2, id="twice"),
+    ],
+)
+def test_only_one_contract_with_the_persons_club_after_a_date_is_read(contract):
+    """Staff have another block with the index and the club, which follows no date."""
+    record = synthetic.person_record(0, 100, contract=contract)
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert (person.wage, person.contract_expires) == (None, None)
+
+
+def test_a_person_without_a_club_has_no_contract():
+    basic = synthetic.basic_person(2, 0, 100, club=(0xFFFFFFFF, 0xFFFFFFFF))
+    record = synthetic.person_record(0, 100, contract=synthetic.contract_block(0))
+    (person,) = read_all([basic], [record])
+
+    assert (person.wage, person.contract_expires) == (None, None)
+
+
 @pytest.mark.parametrize(("year", "found"), [(2004, True), (2005, False)])
 def test_day_366_only_exists_in_leap_years(year, found):
     record = synthetic.person_record(0, 100, day=366, year=year)

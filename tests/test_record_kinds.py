@@ -30,7 +30,10 @@ from fm27_editor.record_kinds import (
 )
 
 WITHOUT_A_CODE = {"name", "position_sw"}
-FACTS_OF_ANYONE = {"name", "full_name", "birth_date", "nation_uid", "club_uid", "ca", "pa"}
+FACTS_OF_ANYONE = {
+    *("name", "full_name", "birth_date", "nation_uid", "club_uid", "ca", "pa"),
+    *("wage", "contract_expires"),
+}
 
 
 @pytest.mark.parametrize(

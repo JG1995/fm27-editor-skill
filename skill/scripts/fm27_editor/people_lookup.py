@@ -17,7 +17,7 @@ _FIELD_COLUMNS = ", ".join(f"{name} INTEGER" for name in FIELD_NAMES)
 SCHEMA = f"""
 CREATE TABLE person(uid INTEGER PRIMARY KEY, kind TEXT, name TEXT, full_name TEXT,
     birth_date TEXT, nation_uid INTEGER, club_uid INTEGER, ca INTEGER, pa INTEGER,
-    {_FIELD_COLUMNS});
+    wage INTEGER, contract_expires TEXT, {_FIELD_COLUMNS});
 CREATE VIEW people AS SELECT person.*, nation.name AS nation, club.name AS club,
     club.gender AS club_gender, club.division_uid, competition.name AS division
     FROM person LEFT JOIN nation ON nation.uid = person.nation_uid
@@ -43,7 +43,7 @@ def insert_people(
 
 
 def _insert(cache: sqlite3.Connection, people: Iterable[Person]) -> None:
-    placeholders = ", ".join("?" * (9 + len(FIELD_NAMES)))
+    placeholders = ", ".join("?" * (11 + len(FIELD_NAMES)))
     statement = f"INSERT INTO person VALUES ({placeholders})"
     batch = []
     for person in people:
@@ -58,6 +58,8 @@ def _insert(cache: sqlite3.Connection, people: Iterable[Person]) -> None:
                 person.club_uid,
                 person.ca,
                 person.pa,
+                person.wage,
+                person.contract_expires and person.contract_expires.isoformat(),
                 *(person.fields.get(name) for name in FIELD_NAMES),
             )
         )

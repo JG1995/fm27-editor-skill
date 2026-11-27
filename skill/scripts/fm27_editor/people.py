@@ -24,7 +24,7 @@ from fm27_editor.person_fields import (
     STAFF_LIST_ITEM_MARKS,
     STAFF_LIST_ITEM_SIZE,
 )
-from fm27_editor.person_names import Names, read_identity
+from fm27_editor.person_names import Names, read_date, read_identity
 
 BASIC_HEADER_SIZE = 5
 BASIC_FOOTER_SIZE = 9
@@ -37,6 +37,12 @@ SEARCH_CHUNK = 16_000_000
 LOWEST_VALUE, HIGHEST_VALUE = 1, 20
 # A retired person's record: the index and kind, four zero bytes, the name, and eight zero bytes.
 RETIRED_GAP, RETIRED_TAIL = bytes(4), bytes(8)
+# A contract starts with the person's index, then the club's index and uid, and the weekly wage in
+# pounds. It follows a date and a zero byte, and the date it expires stands 43 bytes before it.
+# Matched against an FM27 save: the expiry date of 88,983 of 99,700 people, and most of the others
+# expire later there, renewed; the wage of 34,854 of the 38,127 people whose wage the database sets.
+CONTRACT_DATE_BEFORE, CONTRACT_EXPIRES_BEFORE, CONTRACT_CLUB_AT, CONTRACT_WAGE_AT = 5, 43, 8, 12
+NO_DATE = datetime.date(1900, 1, 1)
 
 
 class PeopleError(FormatError):
@@ -86,6 +92,8 @@ class Person:
     ca: int | None = None
     pa: int | None = None
     fields: dict[str, int] = field(default_factory=dict)
+    wage: int | None = None
+    contract_expires: datetime.date | None = None
 
 
 def parse_basic_people(content: bytes) -> list[BasicPerson]:
@@ -171,6 +179,7 @@ def _read_person(record: bytes, basic: BasicPerson, names: Names) -> Person | No
     while at >= 0:
         identity = read_identity(record, at, names)
         if identity is not None:
+            wage, expires = _read_contract(record, basic)
             return Person(
                 basic.uid,
                 basic.kind,
@@ -182,9 +191,50 @@ def _read_person(record: bytes, basic: BasicPerson, names: Names) -> Person | No
                 basic.ca,
                 basic.pa,
                 _read_fields(record, basic, at),
+                wage,
+                expires,
             )
         at = record.find(marker, at + 1)
     return None
+
+
+def _read_contract(record: bytes, basic: BasicPerson) -> tuple[int | None, datetime.date | None]:
+    """The wage and the date the contract with the person's club expires, if one contract has both.
+
+    Staff have another block that starts with their index and club, which follows no date.
+    """
+    if basic.club_uid is None:
+        return None, None
+    starts = [
+        at
+        for at in _found(record, struct.pack("<I", basic.index))
+        if _is_contract(record, at, basic.club_uid)
+    ]
+    if len(starts) != 1:
+        return None, None
+    (at,) = starts
+    wage = struct.unpack_from("<I", record, at + CONTRACT_WAGE_AT)[0]
+    expires = read_date(record, at - CONTRACT_EXPIRES_BEFORE)
+    return wage or None, None if expires == NO_DATE else expires
+
+
+def _is_contract(record: bytes, at: int, club_uid: int) -> bool:
+    if at < CONTRACT_EXPIRES_BEFORE or at + CONTRACT_WAGE_AT + 4 > len(record):
+        return False
+    club = struct.unpack_from("<I", record, at + CONTRACT_CLUB_AT)[0]
+    return (
+        club == club_uid
+        and record[at - 1] == 0
+        and read_date(record, at - CONTRACT_DATE_BEFORE) is not None
+        and read_date(record, at - CONTRACT_EXPIRES_BEFORE) is not None
+    )
+
+
+def _found(record: bytes, part: bytes) -> Iterator[int]:
+    at = record.find(part)
+    while at >= 0:
+        yield at
+        at = record.find(part, at + 1)
 
 
 def _read_retired(record: bytes, basic: BasicPerson) -> Person | None:
