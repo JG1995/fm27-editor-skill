@@ -219,21 +219,15 @@ def test_the_installed_editor_database_reads_as_plausible_clubs(tmp_path):
 
 @needs_editor
 @pytest.mark.parametrize(
-    ("table", "at_least", "one"),
-    [
-        ("language", 100, "English"),
-        ("continent", 7, "Europe"),
-        ("injury", 100, "twisted ankle"),
-        ("weather", 300, "English Coastal"),
-    ],
+    ("table", "at_least"),
+    [("language", 100), ("continent", 7), ("injury", 100), ("weather", 300)],
 )
-def test_the_installed_editor_database_reads_as_plausible_names(tmp_path, table, at_least, one):
+def test_the_installed_editor_database_reads_as_plausible_names(tmp_path, table, at_least):
     with open_database(Path(EDITOR), tmp_path / "cache.sqlite") as db:
-        records, named, different = db.execute(
-            f"SELECT count(*), count(name), count(DISTINCT name) FROM {table}"
+        records, named, different, printable = db.execute(
+            f"SELECT count(*), count(name), count(DISTINCT name),"
+            f" sum(name GLOB '*[A-Za-z]*') FROM {table}"
         ).fetchone()
-        found = db.execute(f"SELECT count(*) FROM {table} WHERE name = ?", (one,)).fetchone()
 
     assert records >= at_least
-    assert records == named == different
-    assert found == (1,)
+    assert records == named == different == printable
