@@ -200,6 +200,13 @@ def test_a_retired_person_outside_the_known_layout_is_skipped(at):
     assert read_all([synthetic.basic_person(5, 0, 100)], [bytes(record)]) == []
 
 
+def test_a_retired_person_without_a_name_is_skipped():
+    """A name is all such a record has."""
+    record = synthetic.retired_record(0, 100, "")
+
+    assert read_all([synthetic.basic_person(5, 0, 100)], [record]) == []
+
+
 def test_staff_and_other_kinds_do_not_get_player_fields():
     """Players' byte positions were only checked on players, and personality on staff as well."""
     kinds = [1, 2, 3, 2]

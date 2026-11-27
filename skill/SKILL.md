@@ -22,7 +22,7 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 
 | Table | Columns |
 | --- | --- |
-| `people` | `uid`, `kind`, `name`, `full_name`, `birth_date`, `nation`, `nation_uid`, `club`, `club_uid`, `club_gender`, `division`, `division_uid`, `ca`, `pa`, attributes, positions, personality |
+| `people` | `uid`, `kind`, `name`, `full_name`, `birth_date`, `nation`, `nation_uid`, `club`, `club_uid`, `club_gender`, `division`, `division_uid`, `ca`, `pa`, `wage`, `contract_expires`, attributes, positions, personality, staff attributes |
 | `clubs` | `uid`, `name`, `short_name`, `gender`, `is_extinct`, `nation`, `nation_uid`, `based_nation_uid`, `city`, `city_uid`, `stadium`, `stadium_uid`, `reputation`, `division`, `division_uid`, `last_division_uid`, `last_position` |
 | `competitions` | `uid`, `name`, `short_name`, `gender`, `level`, `nation`, `nation_uid`, `parent`, `parent_uid`, `clubs` (how many have it as their division) |
 | `awards` | `uid`, `name`, `short_name`, `gender`, `nation`, `nation_uid`, `competition`, `competition_uid`, `previous_winner`, `years` (how many are in its history) |
@@ -34,21 +34,21 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 | `continents`, `injuries`, `weathers`, `media_sources`, `stage_names`, `language` | `uid`, `name` |
 | `currency` | `uid`, `name`, `short_name`, `symbol`, `per_pound` (how many of it make a pound) |
 
-Attributes, positions, and personality go by their usual names, such as `finishing`, `off_the_ball`, `left_foot`, `position_st`, and `professionalism`. `fm27 fields player` lists them.
+Attributes, positions, and personality go by their usual names, such as `finishing`, `off_the_ball`, `left_foot`, `position_st`, and `professionalism`. `fm27 fields player` lists them. Staff attributes go by the Editor's names, such as `coaching_attacking`, `judging_player_potential`, and `working_with_youngsters`; `fm27 fields staff` lists them. `determination` is a player's or a staff member's, by `kind`.
 
 Know these before you write a query:
 
-- **`kind`** is `player`, `staff`, `both`, `official`, or `retired`. Only `player` and `staff` can be changed.
+- **`kind`** is `player`, `staff`, `both`, `official`, or `retired`. Only `player` and `staff` can be changed. Retired people have only a name here.
 - **`pa` below 0 is a range, not a number.** Most young players have one. `fm27 fields player PPAB` lists what each stands for. You cannot add to a range. When a request is about potential, count the people with a range and those with a number, and ask what to do with the ranges before you preview them. Offer to leave them, to move each up or down a range, or to replace each by a number. Say how any limit the user gave applies, because the top of a range can be above it.
-- **`NULL` means not known**, or left for the game to fill in. It is not 0. Only players have attributes, positions, and personality here, and many of those are `NULL`.
+- **`NULL` means not known**, or left for the game to fill in. It is not 0. Players have attributes and positions, staff have staff attributes, and both have personality; other kinds have none of them here, and many values are `NULL`. Most wages are `NULL`: the game sets them when it starts. So is `contract_expires` of people whose contract the game makes.
 - **Men and women are together.** People have no gender of their own here, only the gender of their club in `club_gender`, which is `male`, `female`, or `NULL` without a club. When the user means one of them, limit the query by it and say how many people without a club that leaves out. Otherwise tell the user that the request covers both.
 - **Club names repeat,** mostly as a men's and a women's club. Choose a club by `uid`, and check `gender` and `division`. Clubs with `is_extinct` 1 no longer play.
 - **`birth_date`** is text such as `2008-04-25`, and `1900-01-01` means unknown. Count an age from the day the new game starts, not from today: ask when that is if the user has not said. In a request, write the date out, such as `birth_date > '2005-07-01'`. A query with `date('now')` finds other people tomorrow, and the approval code no longer fits.
 - **`nation`** of a person is the one main nationality. Others are not here. Of a club, it is the nation whose leagues it plays in; where it lies is `based_nation_uid`.
-- **Names** are spelled with their accents and often written in full. Search with `LIKE`, show the candidates when there are several, and let the user choose.
+- **Names** are spelled with their accents. `name` is the name the game shows: the common name, or the first and second name. `full_name` is the whole name, as the Editor's Full Name field holds it. Search both with `LIKE`, show the candidates when there are several, and let the user choose.
 - **`weathers`** are climates that cities and regions use, named after a region or a city. **`injuries`** are the kinds of injury, such as a sprained ankle, not injured people.
 - **`derbies`** are rivalries between two clubs. Their names repeat, so tell them apart by their clubs. A derby between national teams has no clubs here. **`stage_names`** are what competitions call their rounds, such as a final. **`media_sources`** are newspapers, magazines, and websites.
-- Some people in the Editor are not in the lookup. Not finding someone does not mean that they do not exist.
+- A few people in the Editor are not in the lookup. Not finding someone does not mean that they do not exist.
 
 ## Make a file
 
@@ -85,7 +85,7 @@ A request has any of these parts. The uids here are made up:
 - **Potential is set with `pa` alone,** as a number or a range.
 - **Leave out records whose new value would be wrong.** `min(pa + 5, 180)` would lower someone who has 185, so limit the query to `pa BETWEEN 1 AND 179`.
 - **Whole numbers,** unless `fields` says "a number", such as how often an injury happens (`Iocr`). Use `CAST(round(...) AS INTEGER)` for the others.
-- **Money is in whole pounds, and wages are per week,** as the Editor stores them. Convert other currencies at the game's own rate, the `per_pound` of the currency in `currency`, which the Editor shows sums at. A wage (`Pcwg`) of 100,000 euros a month is `CAST(round(100000 * 12.0 / 52 / per_pound) AS INTEGER)` with the euro's `per_pound`. Write one number with a decimal point, because SQLite drops the fraction when it divides whole numbers. Tell the user the rate you used.
+- **Money is in whole pounds, and wages are per week,** as the Editor stores them and as `wage` holds them. Convert other currencies at the game's own rate, the `per_pound` of the currency in `currency`, which the Editor shows sums at. A wage (`Pcwg`) of 100,000 euros a month is `CAST(round(100000 * 12.0 / 52 / per_pound) AS INTEGER)` with the euro's `per_pound`. Write one number with a decimal point, because SQLite drops the fraction when it divides whole numbers. Tell the user the rate you used.
 - **A missing value is an error.** Add `AND finishing IS NOT NULL` when you calculate from it.
 - **`start_from`** puts the new changes behind those of an existing file, in a new file. Use it only when the user wants to build on that file.
 

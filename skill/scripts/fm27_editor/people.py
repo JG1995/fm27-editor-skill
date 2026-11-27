@@ -246,7 +246,7 @@ def _read_retired(record: bytes, basic: BasicPerson) -> Person | None:
         name = reader.text()
     except PeopleError:
         return None
-    return Person(basic.uid, basic.kind, name, name) if reader.at_end else None
+    return Person(basic.uid, basic.kind, name, name) if name and reader.at_end else None
 
 
 def _read_fields(record: bytes, basic: BasicPerson, marker_at: int) -> dict[str, int]:
