@@ -87,7 +87,14 @@ A request has any of these parts. The uids here are made up:
 
 `fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
 
-Not possible yet: jobs, formations, second nations, languages, playing history, favourites, injuries, bans, kits other than their colours, reserve teams, stadiums, new awards, and changing nations. If a request needs one of these, say so before doing the rest.
+Not possible yet: jobs, formations, languages, achievements, injuries, bans, replacing a list that a person has, kits other than their colours, reserve teams, stadiums, new awards, and changing nations. If a request needs one of these, say so before doing the rest.
+
+## Lists on people
+
+Playing history (`Plhs`), second nations (`PNRs`), trained at club (`Phgc`) and in nation (`Phgn`), days at club or in nation (`Pdcn`), and favourite people (`Pfvp`) and clubs (`Pfvc`) are given a list of items, each with its parts by code, such as `"PNRs": [{"nati": 12345, "ntin": 85}]`. `fm27 fields player PNRs` lists the parts. A query gives the list as JSON text, such as `json_array(json_object('nati', 12345))`.
+
+- **Items are added to what the person has.** The lookup does not know a person's lists, so tell the user that what is there stays. An empty list clears one.
+- **A part that is left out keeps what a new item has,** such as no club, or 1900 as the year in playing history. Give each item of a playing history its `year`, `clid`, and `divi`.
 
 ## Create people
 
