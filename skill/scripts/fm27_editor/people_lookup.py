@@ -4,8 +4,9 @@ import sqlite3
 from collections.abc import Iterable
 
 from fm27_editor.dat_tables import read_string_table
-from fm27_editor.people import BasicPerson, Names, Person, iter_people
+from fm27_editor.people import BasicPerson, Person, iter_people
 from fm27_editor.person_fields import FIELD_NAMES
+from fm27_editor.person_names import Names
 from fm27_editor.place_lookup import Tables
 
 # First names, second names, and common names, by number.
