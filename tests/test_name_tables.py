@@ -2,7 +2,7 @@ import pytest
 
 import synthetic
 from fm27_editor.dat_tables import DatError
-from fm27_editor.language_tables import NamedTable, read_names
+from fm27_editor.name_tables import NamedTable, read_names
 
 
 @pytest.mark.parametrize(

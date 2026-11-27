@@ -4,7 +4,7 @@ import sqlite3
 from collections.abc import Mapping, Sequence
 
 from fm27_editor.dat_tables import read_records
-from fm27_editor.language_tables import NamedTable, read_names
+from fm27_editor.name_tables import NamedTable, read_names
 from fm27_editor.places import (
     PlacesError,
     Team,
@@ -26,7 +26,7 @@ ENGLISH_NAMES = {
     NamedTable.COMPETITION: "8_25",
     NamedTable.CLUB: "8_3",
 }
-LANGUAGE_TABLES = set(ENGLISH_NAMES.values())
+NAME_TABLES = set(ENGLISH_NAMES.values())
 SCHEMA = """
 CREATE TABLE nation(uid INTEGER PRIMARY KEY, name TEXT);
 CREATE TABLE city(uid INTEGER PRIMARY KEY, name TEXT, nation_uid INTEGER);
@@ -55,9 +55,9 @@ type Tables = Mapping[str, bytes]
 
 
 def insert_places(
-    cache: sqlite3.Connection, client: Tables, server: Tables, language: Tables
+    cache: sqlite3.Connection, client: Tables, server: Tables, name_tables: Tables
 ) -> None:
-    names = {kind: read_names(kind, language[table]) for kind, table in ENGLISH_NAMES.items()}
+    names = {kind: read_names(kind, name_tables[table]) for kind, table in ENGLISH_NAMES.items()}
     nations = [record.uid for record in read_records(client[NATIONS])]
     city_nations, stadium_cities = parse_cities(client[CITIES]), parse_stadiums(client[STADIUMS])
     cities, stadiums = list(city_nations), list(stadium_cities)

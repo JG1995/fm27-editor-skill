@@ -29,7 +29,7 @@ CLIENT_TABLES = (
     place_lookup.CLIENT_TABLES | award_lookup.CLIENT_TABLES | language_lookup.CLIENT_TABLES
 )
 SERVER_TABLES = place_lookup.SERVER_TABLES | award_lookup.SERVER_TABLES
-LANGUAGE_TABLES = place_lookup.LANGUAGE_TABLES | award_lookup.LANGUAGE_TABLES
+NAME_TABLES = place_lookup.NAME_TABLES | award_lookup.NAME_TABLES
 
 
 class DatabaseError(FormatError):
@@ -106,17 +106,17 @@ def _build(source: Path, cache_path: Path, fingerprint: str) -> None:
 
 def _fill(path: Path, source: Path, fingerprint: str) -> None:
     basic = parse_basic_people(read_stream(source / "basic_people_db.dat"))
-    name_tables = [f"name_table_extra_{i}" for i in range(3)]
-    client = read_tables(source / "client_db.dat", {*name_tables, *CLIENT_TABLES})
+    person_names = [f"name_table_extra_{i}" for i in range(3)]
+    client = read_tables(source / "client_db.dat", {*person_names, *CLIENT_TABLES})
     server = read_tables(source / "server_db.dat", SERVER_TABLES)
-    language = read_tables(source / "lang_db.dat", LANGUAGE_TABLES)
-    names = Names(*(read_string_table(client[name]) for name in name_tables))
+    name_tables = read_tables(source / "lang_db.dat", NAME_TABLES)
+    names = Names(*(read_string_table(client[name]) for name in person_names))
     content = read_stream(source / "people_db.dat")
     with closing(sqlite3.connect(path)) as cache, cache:
         _create_tables(cache)
         cache.execute("INSERT INTO meta VALUES (?)", (fingerprint,))
-        insert_places(cache, client, server, language)
-        insert_awards(cache, client, server, language, [person.uid for person in basic])
+        insert_places(cache, client, server, name_tables)
+        insert_awards(cache, client, server, name_tables, [person.uid for person in basic])
         insert_languages(cache, client)
         _insert_people(cache, iter_people(basic, content, names))
         cache.executescript(
