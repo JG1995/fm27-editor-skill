@@ -56,19 +56,9 @@ DEFINED_IN = {
 # Where the Editor's list of tables does not say what a table holds: it calls the nations' table
 # National Team, but real changes to nations are stored there (see place_lookup).
 KIND_OF_TABLE = {Table.NATION: "Nation"}
-# The lookup's tables, by the Editor's kind of record and by the tag of a reference.
-TABLE_OF_KIND = {
-    "Person": "person",
-    "Club": "club",
-    "Competition": "competition",
-    "Award": "award",
-    "Nation": "nation",
-    "City": "city",
-    "Stadium": "stadium",
-    "Continent": "continent",
-    "Injury": "injury",
-    "Weather": "weather",
-}
+# Where the lookup names a record: the view of its kind, by the table a change is about, and the
+# lookup's table, by the tag of a reference.
+VIEW_OF_TABLE = {group.table: group.view for group in GROUPS.values()}
 TABLE_OF_TAG = {tag: LOOKUP_TABLES.get(kind) for kind, tag in LIST_REFERENCE_TAGS.items()}
 LIST_STEPS = {
     ADD: "an item is added",
@@ -266,7 +256,7 @@ def _searched_lines(item: ReadChange, words: _Words) -> Iterator[str]:
 
 def _changed_field(item: ReadChange, words: _Words) -> str:
     kind = words.kind(item.table)
-    record = words.record(TABLE_OF_KIND.get(kind), item.record)
+    record = words.record(VIEW_OF_TABLE.get(item.table), item.record)
     return f"  {record}: {words.field(kind, item.code)}"
 
 
