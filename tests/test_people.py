@@ -3,13 +3,8 @@ import datetime
 import pytest
 
 import synthetic
-from fm27_editor.people import (
-    Names,
-    PeopleError,
-    PersonKind,
-    iter_people,
-    parse_basic_people,
-)
+from fm27_editor.people import PeopleError, PersonKind, iter_people, parse_basic_people
+from fm27_editor.person_names import Names
 
 NAMES = Names({1: "Testy"}, {2: "McTestface"}, {5: "Testo"})
 
