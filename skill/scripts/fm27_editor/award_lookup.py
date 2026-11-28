@@ -6,11 +6,19 @@ from collections.abc import Iterator, Sequence
 from fm27_editor.awards import AwardPlace, AwardYear, parse_award_years, parse_awards
 from fm27_editor.dat_tables import read_records
 from fm27_editor.name_tables import NamedTable, read_names
-from fm27_editor.place_lookup import COMPETITIONS, NATIONS, Tables, insert_rows, uid_at
+from fm27_editor.place_lookup import (
+    COMPETITIONS,
+    NATION_COUNT,
+    NATIONS,
+    Tables,
+    insert_rows,
+    nation_uids,
+    uid_at,
+)
 
 AWARDS, HISTORY = "table_0", "table_12"
 AWARD_NAMES = "8_0"
-CLIENT_TABLES = {AWARDS, NATIONS, COMPETITIONS}
+CLIENT_TABLES = {AWARDS, NATIONS, NATION_COUNT, COMPETITIONS}
 SERVER_TABLES = {HISTORY}
 NAME_TABLES = {AWARD_NAMES}
 SCHEMA = """
@@ -49,7 +57,7 @@ def insert_awards(
 ) -> None:
     """Fill the tables; `people` are the IDs of everyone in the database, by index."""
     names = read_names(NamedTable.AWARD, name_tables[AWARD_NAMES])
-    nations = [record.uid for record in read_records(client[NATIONS])]
+    nations = nation_uids(client)
     competitions = [record.uid for record in read_records(client[COMPETITIONS])]
     awards = parse_awards(client[AWARDS])
     uids = [award.uid for award in awards]
