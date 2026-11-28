@@ -1,4 +1,5 @@
-"""Clubs, competitions, cities, stadiums, and derbies in the base database, without their names.
+"""Clubs, competitions, cities, stadiums, derbies, and local regions in the base database, without
+their names.
 
 Records refer to each other by index: the position of a record in its own table.
 """
@@ -19,6 +20,10 @@ CITY_SIZE, STADIUM_SIZE = 31, 26
 DERBY_HEAD = b"\x00"
 DERBY_NAMES = 4  # the name, short name, and two other ones, which lang_db.dat holds as well
 DERBY_TAIL_SIZE = 6  # four bytes that are 0 in every derby, and two reputations
+# A local region: a zero byte, its nation and population, 14 bytes not read, the languages spoken
+# there as a count and each language with its share, and its weather.
+LOCAL_REGION_HEAD, LOCAL_REGION_LANGUAGES_AT = b"\x00", 23
+LOCAL_REGION_LANGUAGE_SIZE, LOCAL_REGION_TAIL_SIZE = 5, 4
 
 
 class PlacesError(FormatError):
@@ -59,6 +64,13 @@ class Competition:
     parent: int | None
     level: int | None
     gender: Gender
+
+
+@dataclass(frozen=True, slots=True)
+class LocalRegion:
+    uid: int
+    nation: int | None
+    population: int | None
 
 
 def parse_clubs(table: bytes) -> list[Club]:
@@ -162,6 +174,22 @@ def parse_cities(table: bytes) -> dict[int, int | None]:
 def parse_stadiums(table: bytes) -> dict[int, int | None]:
     """The city of each stadium, by the ID of the stadium."""
     return _references(table, STADIUM_SIZE, 4)
+
+
+def parse_local_regions(table: bytes) -> list[LocalRegion]:
+    """Each local region with its nation and population; a population of 0 is missing."""
+    regions = []
+    for record in read_records(table):
+        data = record.data
+        languages_end = LOCAL_REGION_LANGUAGES_AT + 2
+        if len(data) >= languages_end:
+            count = struct.unpack_from("<H", data, LOCAL_REGION_LANGUAGES_AT)[0]
+            languages_end += count * LOCAL_REGION_LANGUAGE_SIZE
+        if data[:1] != LOCAL_REGION_HEAD or len(data) != languages_end + LOCAL_REGION_TAIL_SIZE:
+            raise PlacesError(f"local region {record.uid} does not follow the known layout")
+        population = struct.unpack_from("<I", data, 5)[0]
+        regions.append(LocalRegion(record.uid, index_at(data, 1), population or None))
+    return regions
 
 
 def _references(table: bytes, size: int, offset: int) -> dict[int, int | None]:

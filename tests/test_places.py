@@ -6,12 +6,14 @@ from fm27_editor.places import (
     Club,
     Competition,
     Gender,
+    LocalRegion,
     PlacesError,
     Team,
     parse_cities,
     parse_clubs,
     parse_competitions,
     parse_derbies,
+    parse_local_regions,
     parse_stadiums,
     parse_teams,
     team_clubs,
@@ -162,8 +164,36 @@ def test_reads_the_nation_of_a_city_and_the_city_of_a_stadium():
     assert parse_stadiums(stadiums) == {9401: 1}
 
 
+def test_reads_the_nation_and_population_of_a_local_region():
+    regions = synthetic.record_table(
+        [
+            (9601, synthetic.local_region_record(1, 2_500_000, languages=((8, 60), (22, 40)))),
+            (9602, synthetic.local_region_record(weather=0)),
+        ]
+    )
+
+    assert parse_local_regions(regions) == [
+        LocalRegion(9601, 1, 2_500_000),
+        LocalRegion(9602, None, None),
+    ]
+
+
 @pytest.mark.parametrize(
-    "parse", [parse_clubs, parse_teams, parse_cities, parse_stadiums, parse_derbies]
+    "record",
+    [
+        pytest.param(b"\x01" + synthetic.local_region_record()[1:], id="another first byte"),
+        pytest.param(synthetic.local_region_record(languages=((8, 100),))[:-1], id="cut short"),
+        pytest.param(synthetic.local_region_record() + b"\x00", id="a byte too many"),
+    ],
+)
+def test_a_local_region_of_another_shape_is_an_error(record):
+    with pytest.raises(PlacesError, match="local region 9601"):
+        parse_local_regions(synthetic.record_table([(9601, record)]))
+
+
+@pytest.mark.parametrize(
+    "parse",
+    [parse_clubs, parse_teams, parse_cities, parse_stadiums, parse_derbies, parse_local_regions],
 )
 @pytest.mark.parametrize(
     "content",
