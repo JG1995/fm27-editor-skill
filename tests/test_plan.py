@@ -299,7 +299,7 @@ def test_local_regions_and_agreements_are_edited_by_name(plan_for):
         (9601, "Lnam", "Testshire", "Test County"),
         (9601, "Lnat", 9001, 9002),
         (9602, "Lpop", None, 12_000),
-        (4, "AGsn", None, "TA"),
+        (4, "AGsn", "", "TA"),
     ]
 
 

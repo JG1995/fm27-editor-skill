@@ -73,10 +73,7 @@ def insert_names(cache: sqlite3.Connection, client: Tables, name_tables: Tables)
     ]
     insert_rows(cache, "currency", rows)
     names = read_names(NamedTable.AGREEMENT, name_tables[AGREEMENT_NAMES])
-    rows = [
-        (uid, *(name or None for name in names.get(uid, (None, None))))
-        for uid in _uids(client[AGREEMENTS])
-    ]
+    rows = [(uid, *names.get(uid, (None, None))) for uid in _uids(client[AGREEMENTS])]
     insert_rows(cache, "agreement", rows)
 
 

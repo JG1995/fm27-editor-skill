@@ -322,7 +322,7 @@ def test_the_installed_editor_database_reads_as_plausible_local_regions_and_agre
         " count(*) FILTER (WHERE population > 100000000) FROM local_regions"
     ).fetchone()
     agreements, short_names = lookup.execute(
-        "SELECT count(name), count(short_name) FROM agreements"
+        "SELECT count(name), count(NULLIF(short_name, '')) FROM agreements"
     ).fetchone()
 
     assert regions > 2_000
