@@ -33,7 +33,7 @@ MODULES = {
     "nation rules": ["nation_rules", "rule_changes", "rule_shapes"],
     "award history": ["award_history"],
     "edits": [
-        *("record_kinds", "record_rules", "record_changes", "setting_changes", "list_changes"),
+        *("record_kinds", "record_fields", "record_changes", "setting_changes", "list_changes"),
         *("change_reading", "potential", "new_file", "person_lists", "person_codes"),
     ],
     "definitions": ["definition_files", "field_definitions", "rule_definitions"],

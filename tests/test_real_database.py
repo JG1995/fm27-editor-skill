@@ -8,6 +8,7 @@ from pathlib import Path
 import pytest
 
 from fm27_editor.base_database import open_database
+from fm27_editor.record_fields import RecordFields
 from fm27_editor.record_kinds import (
     AGREEMENT,
     AWARD,
@@ -28,7 +29,6 @@ from fm27_editor.record_kinds import (
     STAGE_NAME,
     WEATHER,
 )
-from fm27_editor.record_rules import RecordRules
 from fm27_editor.rule_definitions import RuleDefinitions
 from fm27_editor.rule_words import RULES_OF, offered_lines
 
@@ -98,7 +98,7 @@ EDITOR_NAMES = {
 @needs_editor
 @pytest.mark.parametrize("kind", [PLAYER, STAFF])
 def test_every_code_names_the_same_fact_in_the_installed_editor(kind):
-    fields = RecordRules(Path(EDITOR), sqlite3.connect(":memory:")).fields(kind)
+    fields = RecordFields(Path(EDITOR), sqlite3.connect(":memory:")).fields(kind)
 
     for name, code in kind.codes.items():
         worded = re.sub("[^a-z]+", "_", fields[code].name.lower()).strip("_")
@@ -110,8 +110,8 @@ def test_every_code_names_the_same_fact_in_the_installed_editor(kind):
 def test_the_codes_that_the_instructions_name_can_be_written():
     text = (Path(__file__).parents[1] / "skill" / "SKILL.md").read_text(encoding="utf-8")
     named = set(re.findall(r"[`\"]([A-Za-z]{4})(?:`|\":)", text)) - WORDS_OF_FOUR_LETTERS
-    rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
-    fields = [field for kind in KINDS.values() for field in rules.writable_fields(kind)]
+    record_fields = RecordFields(Path(EDITOR), sqlite3.connect(":memory:"))
+    fields = [field for kind in KINDS.values() for field in record_fields.writable_fields(kind)]
     parts = {part.code for field in fields for part in field.items}
 
     assert len(named) > 10
@@ -120,8 +120,8 @@ def test_the_codes_that_the_instructions_name_can_be_written():
 
 @needs_editor
 def test_the_installed_editor_defines_every_part_of_the_lists_offered():
-    rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
-    defined = rules.fields(PLAYER) | rules.fields(STAFF)
+    record_fields = RecordFields(Path(EDITOR), sqlite3.connect(":memory:"))
+    defined = record_fields.fields(PLAYER) | record_fields.fields(STAFF)
 
     for code, shape in PLAYER.lists.items():
         assert set(shape.parts) <= {part.code for part in defined[code].items}, code
@@ -129,8 +129,8 @@ def test_the_installed_editor_defines_every_part_of_the_lists_offered():
 
 @needs_editor
 def test_the_installed_editor_names_the_jobs_of_staff():
-    rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
-    jobs = {code: rules.fields(STAFF)[code].choices for code in ("PCJO", "PSJO")}
+    record_fields = RecordFields(Path(EDITOR), sqlite3.connect(":memory:"))
+    jobs = {code: record_fields.fields(STAFF)[code].choices for code in ("PCJO", "PSJO")}
 
     assert all(len(choices or {}) > 20 for choices in jobs.values()), jobs
 
@@ -146,21 +146,21 @@ def test_the_installed_editor_defines_every_rule_that_is_offered():
 
 @needs_editor
 def test_every_code_of_a_place_or_award_names_a_field_that_can_be_written():
-    rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
+    record_fields = RecordFields(Path(EDITOR), sqlite3.connect(":memory:"))
 
     for kind in (
         *(CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY, CONTINENT, INJURY, WEATHER),
         *(MEDIA_SOURCE, DERBY, STAGE_NAME, LOCAL_REGION, AGREEMENT),
     ):
-        writable = {field.code for field in rules.writable_fields(kind)}
+        writable = {field.code for field in record_fields.writable_fields(kind)}
         assert {*kind.codes.values(), *kind.needed, *kind.group.name_codes} <= writable
 
 
 @needs_editor
 def test_a_national_team_offers_its_own_fields_but_not_its_nations():
-    rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
+    record_fields = RecordFields(Path(EDITOR), sqlite3.connect(":memory:"))
 
-    writable = {field.code for field in rules.writable_fields(NATIONAL_TEAM)}
+    writable = {field.code for field in record_fields.writable_fields(NATIONAL_TEAM)}
 
     assert {"Nrep", "Nfpa", "NYRt", "Natt", "Tcap"} <= writable
     assert not {"Nnam", "NTCn", "PLgn", "Nmni", "Snam", "RP00", "NGpe", "EDsd", "Neu1"} & writable

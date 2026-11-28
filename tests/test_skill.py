@@ -13,8 +13,8 @@ from fictional_rules import write_rules
 from fm27_editor import award_lookup, place_lookup
 from fm27_editor.award_history import check_award_history
 from fm27_editor.nation_rules import check_nation_rules
+from fm27_editor.record_fields import NewReference, RecordFields
 from fm27_editor.record_kinds import AWARD, KINDS
-from fm27_editor.record_rules import NewReference, RecordRules
 from fm27_editor.request import HISTORY_KEY, check_request, wanted_records
 from fm27_editor.rule_definitions import RuleDefinitions
 from fm27_editor.rule_plan import fit_warnings
@@ -59,7 +59,8 @@ def test_the_example_history_fits(tmp_path):
         lookup.execute("INSERT INTO award_year VALUES (1, 24680, 1973, 0, 0)")
         lookup.execute("INSERT INTO award_place (year_uid, place, name) VALUES (1, 2, 'Runner-up')")
 
-        (history,) = check_award_history(HISTORY, RecordRules(editor, lookup).fields(AWARD), lookup)
+        fields = RecordFields(editor, lookup).fields(AWARD)
+        (history,) = check_award_history(HISTORY, fields, lookup)
 
     assert [new.year for _, new in history.changed] == [1973, 2020]
 

@@ -7,18 +7,18 @@ from typing import Any
 
 from fm27_editor.award_history import HISTORY_CODE, Year, check_award_history
 from fm27_editor.planned import HistoryEdit, StartingFile, known_record
+from fm27_editor.record_fields import RecordFields
 from fm27_editor.record_kinds import AWARD
-from fm27_editor.record_rules import RecordRules
 from fm27_editor.request import RequestError
 
 
 def plan_histories(
-    given: Any, rules: RecordRules, lookup: sqlite3.Connection, start: StartingFile | None
+    given: Any, record_fields: RecordFields, lookup: sqlite3.Connection, start: StartingFile | None
 ) -> list[HistoryEdit]:
     """The history of each award that is asked for, also when nothing in it is to change."""
     edits = [
         HistoryEdit(known_record(AWARD.group, history.award_uid, lookup), history)
-        for history in check_award_history(given, rules.fields(AWARD), lookup)
+        for history in check_award_history(given, record_fields.fields(AWARD), lookup)
     ]
     for edit in edits:
         _check_not_changed_before(edit, start)

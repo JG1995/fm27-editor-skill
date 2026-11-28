@@ -15,8 +15,8 @@ from fm27_editor.explain import explain_lines
 from fm27_editor.history_words import offered_history_lines
 from fm27_editor.plan import Plan, build_file, make_plan
 from fm27_editor.preview import preview_lines
+from fm27_editor.record_fields import RecordFields
 from fm27_editor.record_kinds import KINDS, kind_named
-from fm27_editor.record_rules import RecordRules
 from fm27_editor.request import HISTORY_KEY, read_request, run_query
 from fm27_editor.rule_definitions import RuleDefinitions
 from fm27_editor.rule_words import RULES_OF, offered_lines
@@ -104,9 +104,9 @@ def _fields(options: argparse.Namespace, lookup: sqlite3.Connection) -> list[str
     if options.kind in RULES_OF:
         lines = offered_lines(options.kind, RuleDefinitions(options.editor))
     elif options.kind == HISTORY_KEY:
-        lines = offered_history_lines(RecordRules(options.editor, lookup))
+        lines = offered_history_lines(RecordFields(options.editor, lookup))
     else:
-        lines = field_lines(kind_named(options.kind), RecordRules(options.editor, lookup))
+        lines = field_lines(kind_named(options.kind), RecordFields(options.editor, lookup))
     matching = [line for line in lines if options.text.lower() in line.lower()]
     return matching or [f"No field matches {options.text!r}"]
 

@@ -14,8 +14,8 @@ from fm27_editor.binary import FormatError
 from fm27_editor.change_list import ChangeList, Kind
 from fm27_editor.change_reading import EditError, read_number
 from fm27_editor.record_changes import NewIds
+from fm27_editor.record_fields import RecordFields
 from fm27_editor.record_kinds import AWARD
-from fm27_editor.record_rules import RecordRules
 
 NOBODY = synthetic.NO_INDEX
 OLD_MASTER_2023 = Place(name="Old Master", team_uid=9102, points=30, nation_uid=9001)
@@ -41,7 +41,7 @@ NOT_HELD_2020 = Year(2020, {}, not_held=True)
 def editor(tmp_path):
     folder = write_editor(tmp_path / "editor")
     with closing(open_database(folder, tmp_path / "cache.sqlite")) as lookup:
-        yield SimpleNamespace(lookup=lookup, fields=RecordRules(folder, lookup).fields(AWARD))
+        yield SimpleNamespace(lookup=lookup, fields=RecordFields(folder, lookup).fields(AWARD))
 
 
 @pytest.fixture
@@ -199,7 +199,7 @@ def test_a_year_that_the_database_has_twice_cannot_be_changed(check, tmp_path, m
     monkeypatch.setattr(fictional_editor, "AWARD_YEARS", twice)
     editor = write_editor(tmp_path / "twice")
     with closing(open_database(editor, tmp_path / "twice.sqlite")) as lookup:
-        fields = RecordRules(editor, lookup).fields(AWARD)
+        fields = RecordFields(editor, lookup).fields(AWARD)
 
         (history,) = check_award_history([year(2024, {"keep": 2})], fields, lookup)
         assert [entry.year for entry in history.years] == [2020, 2023, 2023, 2024]
@@ -246,7 +246,7 @@ def test_a_person_goes_by_the_name_that_most_awards_use(tmp_path, monkeypatch):
     monkeypatch.setattr(fictional_editor, "AWARD_YEARS", [*fictional_editor.AWARD_YEARS, *others])
     editor = write_editor(tmp_path / "more")
     with closing(open_database(editor, tmp_path / "more.sqlite")) as lookup:
-        fields = RecordRules(editor, lookup).fields(AWARD)
+        fields = RecordFields(editor, lookup).fields(AWARD)
         (history,) = check_award_history([year(2025, {"person_uid": 100})], fields, lookup)
 
     assert history.changed[0][1].places[1].name == "A. Striker"
@@ -262,7 +262,7 @@ def test_a_person_known_only_from_awards_can_be_named(tmp_path, monkeypatch):
     monkeypatch.setattr(fictional_editor, "AWARD_YEARS", [*fictional_editor.AWARD_YEARS, known])
     editor = write_editor(tmp_path / "more", people)
     with closing(open_database(editor, tmp_path / "more.sqlite")) as lookup:
-        fields = RecordRules(editor, lookup).fields(AWARD)
+        fields = RecordFields(editor, lookup).fields(AWARD)
         assert lookup.execute("SELECT count(*) FROM person WHERE uid = 102").fetchone() == (0,)
         (history,) = check_award_history([year(2025, {"person_uid": 102})], fields, lookup)
 

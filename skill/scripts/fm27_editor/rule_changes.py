@@ -10,7 +10,7 @@ from fm27_editor.change_list import ChangeList, Kind, ListItem, Property
 from fm27_editor.change_reading import EditError, existing_record
 from fm27_editor.nation_rules import NationRules, choices_of
 from fm27_editor.record_changes import ID_TAG, date_bytes, number, reference
-from fm27_editor.record_rules import NewReference
+from fm27_editor.record_fields import NewReference
 from fm27_editor.rule_definitions import Rule, RuleDefinitions
 from fm27_editor.rule_shapes import CODES, CUP_GROUP, DAYS, DIVISION_GROUP, MONTHS, NATION_GROUP
 from fm27_editor.setting_changes import NewRecords, resolved

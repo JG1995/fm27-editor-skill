@@ -16,8 +16,8 @@ from fm27_editor.record_changes import (
     money_range,
     refusal,
 )
+from fm27_editor.record_fields import LOOKUP_TABLES, ListItems, NewReference, RecordFields
 from fm27_editor.record_kinds import RecordKind
-from fm27_editor.record_rules import LOOKUP_TABLES, ListItems, NewReference, RecordRules
 
 
 def counted(number: int, one: str, many: str) -> str:
@@ -56,10 +56,10 @@ def accepted(field: Field) -> str:
     raise ValueError(f"no words for a field of type {field.type}")
 
 
-def field_lines(kind: RecordKind, rules: RecordRules) -> list[str]:
+def field_lines(kind: RecordKind, record_fields: RecordFields) -> list[str]:
     """What can be given for each field of a kind of record."""
     lines = []
-    for field in rules.writable_fields(kind):
+    for field in record_fields.writable_fields(kind):
         name = kind.names.get(field.code)
         called = field.code if name is None else f"{name} ({field.code})"
         words = kind.words.get(field.code)

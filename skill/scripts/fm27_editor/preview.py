@@ -9,8 +9,8 @@ from fm27_editor.plan import Plan, approval_code
 from fm27_editor.planned import Addition, Edit, KnownRecord
 from fm27_editor.potential import is_range
 from fm27_editor.record_changes import MONEY, REAL
+from fm27_editor.record_fields import NewReference, Setting
 from fm27_editor.record_kinds import GROUPS, RecordGroup
-from fm27_editor.record_rules import NewReference, Setting
 from fm27_editor.rule_words import rule_lines
 from fm27_editor.words import amount, counted, shown, shown_list
 

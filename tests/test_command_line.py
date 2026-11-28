@@ -5,7 +5,7 @@ import pytest
 from fictional_editor import STAFF_KIND, write_editor
 from fm27_editor.command_line import main
 from fm27_editor.editor_file import load_editor_file
-from fm27_editor.record_rules import RecordRules
+from fm27_editor.record_fields import RecordFields
 
 TEAM = [
     (0, 100, "Alfa Striker", 2004, 120, (51, 9002), (1, 9101)),
@@ -165,7 +165,7 @@ def test_what_can_be_given_for_past_winners_is_listed(run):
 
 
 def test_an_editor_without_the_history_of_awards_is_reported(run, monkeypatch):
-    monkeypatch.setattr(RecordRules, "fields", lambda *_: {})
+    monkeypatch.setattr(RecordFields, "fields", lambda *_: {})
 
     status, _, error = run("fields", "award_history")
 

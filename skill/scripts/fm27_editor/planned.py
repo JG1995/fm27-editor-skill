@@ -11,8 +11,8 @@ from fm27_editor.award_history import AwardHistory
 from fm27_editor.change_reading import is_existing, read_change, uid_of
 from fm27_editor.editor_file import EditorFile
 from fm27_editor.record_changes import is_uid
+from fm27_editor.record_fields import Setting
 from fm27_editor.record_kinds import RecordGroup, RecordKind, kind_of
-from fm27_editor.record_rules import Setting
 from fm27_editor.request import RequestError
 
 type Address = tuple[int, int]

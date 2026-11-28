@@ -26,7 +26,7 @@ from fm27_editor.record_changes import (
     refusal,
     stored_value,
 )
-from fm27_editor.record_rules import LOOKUP_TABLES, TEAM_TABLES, check_exists
+from fm27_editor.record_fields import LOOKUP_TABLES, TEAM_TABLES, check_exists
 
 HISTORY_CODE = "AWsh"
 YEAR_CODE, NO_DATA_CODE, NOT_HELD_CODE = "AHye", "AHnd", "Ahnt"
