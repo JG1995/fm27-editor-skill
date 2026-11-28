@@ -190,6 +190,31 @@ def test_the_installed_editor_database_reads_everyone_with_a_name(lookup):
 
 
 @needs_editor
+def test_the_installed_editor_database_reads_as_plausible_days_at_clubs_and_in_nations(lookup):
+    """The Editor allows up to 30,000 days. Many are in the second half of the nations, which has
+    no names and which women's football uses."""
+    known, unknown = lookup.execute(
+        "SELECT count(clubs_and_nations), count(*) - count(clubs_and_nations) FROM people"
+        " WHERE kind IN ('player', 'staff', 'both')"
+    ).fetchone()
+    items, unknown_places, too_many = lookup.execute(
+        "SELECT count(*), count(*) FILTER (WHERE club_or_nation_uid NOT IN (SELECT uid FROM club)"
+        " AND club_or_nation_uid NOT IN (SELECT uid FROM nation)),"
+        " count(*) FILTER (WHERE days > 30000) FROM days_at_club_or_nation"
+    ).fetchone()
+    counted = lookup.execute("SELECT sum(clubs_and_nations) FROM people").fetchone()[0]
+    open_ended = lookup.execute(
+        "SELECT count(wage) FROM people WHERE kind = 'staff' AND contract_expires IS NULL"
+    ).fetchone()[0]
+
+    assert known > 690_000
+    assert unknown < 100
+    assert items > 3_000_000
+    assert (unknown_places, too_many, counted) == (0, 0, items)
+    assert open_ended > 1_000
+
+
+@needs_editor
 def test_the_installed_editor_database_reads_as_plausible_playing_histories(lookup):
     seasons, people, unnamed_clubs, odd_years = lookup.execute(
         "SELECT count(*), count(DISTINCT person_uid),"
