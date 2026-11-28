@@ -12,7 +12,7 @@ from typing import Any
 from fm27_editor.change_reading import EditError
 from fm27_editor.definition_files import FieldDefinitionError
 from fm27_editor.record_changes import checked_date, checked_number
-from fm27_editor.record_rules import NewReference
+from fm27_editor.record_fields import NewReference
 from fm27_editor.rule_definitions import Rule, RuleDefinitions
 from fm27_editor.rule_shapes import (
     CHOICES_LEFT_OUT,

@@ -39,6 +39,7 @@ from fm27_editor.list_changes import (
     REMOVE,
 )
 from fm27_editor.record_changes import ID_TAG, REFERENCE_TAGS
+from fm27_editor.record_fields import LOOKUP_TABLES
 from fm27_editor.record_kinds import (
     COMPETITION,
     GROUPS,
@@ -49,7 +50,6 @@ from fm27_editor.record_kinds import (
     PLAYER,
     STAFF,
 )
-from fm27_editor.record_rules import LOOKUP_TABLES
 from fm27_editor.rule_changes import read_rules
 from fm27_editor.words import counted, named, named_team
 

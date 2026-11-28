@@ -31,8 +31,8 @@ from fm27_editor.planned import (
 )
 from fm27_editor.potential import ABILITY, POTENTIAL, has_more_ability_than_potential
 from fm27_editor.record_changes import NewIds, stored_value
+from fm27_editor.record_fields import NewReference, RecordFields, Setting
 from fm27_editor.record_kinds import RecordKind
-from fm27_editor.record_rules import NewReference, RecordRules, Setting
 from fm27_editor.request import (
     HISTORY_KEY,
     RULES_KEY,
@@ -70,20 +70,20 @@ class Plan:
 
 def make_plan(request: Any, editor_dir: Path, lookup: sqlite3.Connection) -> Plan:
     check_request(request)
-    rules = RecordRules(editor_dir, lookup)
+    record_fields = RecordFields(editor_dir, lookup)
     start = _starting_file(request.get("start_from"))
-    additions = _additions(wanted_records(request), rules)
+    additions = _additions(wanted_records(request), record_fields)
     new = {addition.name: addition.kind for addition in additions if addition.name is not None}
-    planned = list(_planned(wanted_edits(request, lookup), new, rules, lookup, start))
+    planned = list(_planned(wanted_edits(request, lookup), new, record_fields, lookup, start))
     edits = [edit for edit in planned if edit.old != edit.setting.as_the_lookup_says]
     found = []
     if HISTORY_KEY in request:
-        found = plan_histories(request[HISTORY_KEY], rules, lookup, start)
+        found = plan_histories(request[HISTORY_KEY], record_fields, lookup, start)
     histories = [edit for edit in found if edit.history.changed]
     nation_rules = None
     if RULES_KEY in request:
         definitions = RuleDefinitions(editor_dir)
-        refer = partial(rules.refer, new=new)
+        refer = partial(record_fields.refer, new=new)
         nation_rules = plan_rules(request[RULES_KEY], definitions, refer, additions, lookup, start)
     if not edits and not additions and not histories and nation_rules is None:
         raise RequestError("the request changes nothing")
@@ -166,11 +166,11 @@ def _starting_file(path: str | None) -> StartingFile | None:
     return StartingFile(source, load_editor_file(source), digest)
 
 
-def _additions(wanted: Iterable[WantedRecord], rules: RecordRules) -> list[Addition]:
+def _additions(wanted: Iterable[WantedRecord], record_fields: RecordFields) -> list[Addition]:
     additions: list[Addition] = []
     new: dict[str, RecordKind] = {}
     for record in wanted:
-        settings = rules.new_record_settings(record.kind, record.values, new)
+        settings = record_fields.new_record_settings(record.kind, record.values, new)
         additions.append(Addition(record.kind, record.name, settings))
         if record.name is not None:
             new[record.name] = record.kind
@@ -180,7 +180,7 @@ def _additions(wanted: Iterable[WantedRecord], rules: RecordRules) -> list[Addit
 def _planned(
     wanted: Iterable[WantedEdit],
     new: Mapping[str, RecordKind],
-    rules: RecordRules,
+    record_fields: RecordFields,
     lookup: sqlite3.Connection,
     start: StartingFile | None,
 ) -> Iterator[Edit]:
@@ -191,7 +191,7 @@ def _planned(
     for edit in wanted:
         record = known_record(edit.group, edit.uid, lookup)
         _check_values(record, edit.values)
-        for setting in rules.settings(record.kind, edit.values, new):
+        for setting in record_fields.settings(record.kind, edit.values, new):
             field = setting.field
             if (record.address, field.code) in seen:
                 raise RequestError(f"{field.name} of {record.name} ({record.uid}) is set twice")

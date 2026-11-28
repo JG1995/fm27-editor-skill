@@ -9,7 +9,7 @@ from fm27_editor.binary import FormatError
 from fm27_editor.change_list import ChangeList, Kind, ListItem, Property
 from fm27_editor.change_reading import EditError
 from fm27_editor.nation_rules import check_nation_rules
-from fm27_editor.record_rules import NewReference
+from fm27_editor.record_fields import NewReference
 from fm27_editor.rule_changes import add_rules
 from fm27_editor.rule_definitions import RuleDefinitions
 from fm27_editor.rule_plan import fit_warnings

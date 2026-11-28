@@ -9,8 +9,8 @@ from fm27_editor.change_reading import EditError
 from fm27_editor.nation_rules import NationRules, Refer, Values, check_nation_rules, parts_of
 from fm27_editor.places import Gender
 from fm27_editor.planned import Addition, Edit, StartingFile
+from fm27_editor.record_fields import NewReference
 from fm27_editor.record_kinds import CLUB, GENDER_CODE, GENDER_WORDS
-from fm27_editor.record_rules import NewReference
 from fm27_editor.rule_changes import check_has_no_rules
 from fm27_editor.rule_definitions import RuleDefinitions
 from fm27_editor.words import counted, named, named_reference

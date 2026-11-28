@@ -20,8 +20,8 @@ from fm27_editor.award_history import (
 )
 from fm27_editor.awards import PLACES
 from fm27_editor.field_definitions import Field
+from fm27_editor.record_fields import RecordFields
 from fm27_editor.record_kinds import AWARD
-from fm27_editor.record_rules import RecordRules
 from fm27_editor.words import accepted, counted, named, named_team
 
 # What can be given where the Editor's definition does not say it all.
@@ -31,9 +31,9 @@ IN_WORDS = {
 }
 
 
-def offered_history_lines(rules: RecordRules) -> list[str]:
+def offered_history_lines(record_fields: RecordFields) -> list[str]:
     """What can be given for a year of an award."""
-    field = history_field(rules.fields(AWARD))
+    field = history_field(record_fields.fields(AWARD))
     offered = "; ".join(f"{name}: {_accepted(name, field)}" for name in OFFERED)
     return [
         f"{AWARD_UID}: the uid of an award, needed",

@@ -87,7 +87,7 @@ class Setting:
 NO_NEW: Mapping[str, RecordKind] = {}
 
 
-class RecordRules:
+class RecordFields:
     def __init__(self, editor_dir: Path, lookup: sqlite3.Connection):
         self._editor_dir = editor_dir
         self._lookup = lookup

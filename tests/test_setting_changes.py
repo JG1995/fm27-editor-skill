@@ -10,8 +10,8 @@ import synthetic
 from fictional_editor import write_definitions
 from fm27_editor.change_list import ChangeList, Kind, Property
 from fm27_editor.record_changes import EditError, NewIds
+from fm27_editor.record_fields import ListItems, NewReference, RecordFields
 from fm27_editor.record_kinds import CLUB, COMPETITION, PLAYER, STAFF
-from fm27_editor.record_rules import ListItems, NewReference, RecordRules
 from fm27_editor.setting_changes import edit_record, new_record
 
 BASICS = {
@@ -51,7 +51,7 @@ def make(editor, kind=PLAYER, **values):
 
 def create(editor, kind, values, new=None):
     with lookup() as database:
-        settings = RecordRules(editor, database).new_record_settings(kind, values, new or {})
+        settings = RecordFields(editor, database).new_record_settings(kind, values, new or {})
     ids = NewIds(ChangeList(), random.Random(1))
     records = {name: ids.record() for name in new or {}}
     return new_record(kind, ids.record(), settings, records, ids)
@@ -74,7 +74,7 @@ def test_the_person_is_added_before_its_fields_are_set(editor):
 
 def test_an_existing_person_is_addressed_by_its_unique_id_twice(editor):
     with lookup() as database:
-        settings = RecordRules(editor, database).settings(PLAYER, {"finishing": 17})
+        settings = RecordFields(editor, database).settings(PLAYER, {"finishing": 17})
         changes = edit_record(PLAYER, 776, settings, {}, NewIds(ChangeList(), random.Random(1)))
 
     (change,) = changes
@@ -85,7 +85,7 @@ def test_an_existing_person_is_addressed_by_its_unique_id_twice(editor):
 
 def test_an_existing_person_needs_no_name_or_birth_date(editor):
     with lookup() as database:
-        (setting,) = RecordRules(editor, database).settings(PLAYER, {"ca": 99})
+        (setting,) = RecordFields(editor, database).settings(PLAYER, {"ca": 99})
 
     assert (setting.field.code, setting.value) == ("PCAB", 99)
 
@@ -163,7 +163,7 @@ def test_a_record_the_lookup_cannot_confirm_is_refused(tmp_path, points_to):
     editor = write_definitions(tmp_path, synthetic.definition_file("pers", field))
 
     with lookup() as database, pytest.raises(EditError, match=points_to):
-        RecordRules(editor, database).settings(PLAYER, {"Plng": 5})
+        RecordFields(editor, database).settings(PLAYER, {"Plng": 5})
 
 
 @pytest.mark.parametrize("pa", [-8, -95, 0, 150])
@@ -241,7 +241,7 @@ def test_a_club_can_play_in_a_competition_that_is_new_as_well(editor):
 
 def test_a_club_names_its_manager_and_captain_by_the_uid_of_a_person(editor):
     with lookup() as database:
-        settings = RecordRules(editor, database).settings(CLUB, {"Cmni": 100, "Tcap": 100})
+        settings = RecordFields(editor, database).settings(CLUB, {"Cmni": 100, "Tcap": 100})
 
     *_, manager = edit_record(CLUB, 9101, settings[:1], {}, NewIds(ChangeList(), random.Random(1)))
     assert tagged(manager)["nwvl"].value[1] == Property(
@@ -259,7 +259,7 @@ def test_a_club_can_be_managed_by_a_person_who_is_new_as_well(editor):
 
 def test_a_reference_to_a_new_record_keeps_its_name(editor):
     with lookup() as database:
-        (setting,) = RecordRules(editor, database).settings(
+        (setting,) = RecordFields(editor, database).settings(
             CLUB, {"division_uid": "@D1"}, {"D1": COMPETITION}
         )
 
@@ -291,7 +291,7 @@ def test_what_is_not_a_fact_of_the_club_itself_cannot_be_set(editor, code):
 
 def edited(editor, values, uid=776):
     with lookup() as database:
-        settings = RecordRules(editor, database).settings(PLAYER, values)
+        settings = RecordFields(editor, database).settings(PLAYER, values)
     return edit_record(PLAYER, uid, settings, {}, NewIds(ChangeList(), random.Random(1)))
 
 
@@ -307,7 +307,7 @@ def list_steps(changes):
 )
 def test_items_of_a_list_are_given_by_the_codes_of_their_parts(editor, items):
     with lookup() as database:
-        (setting,) = RecordRules(editor, database).settings(PLAYER, {"PNRs": items})
+        (setting,) = RecordFields(editor, database).settings(PLAYER, {"PNRs": items})
 
     assert setting.value == ListItems(({"nati": 9001, "ntin": 85},))
 

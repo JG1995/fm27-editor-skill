@@ -5,8 +5,8 @@ from collections.abc import Mapping
 from fm27_editor.change_reading import Change, existing_record
 from fm27_editor.list_changes import LIST, item_changes
 from fm27_editor.record_changes import FieldValue, NewIds, add_record, field_change
+from fm27_editor.record_fields import NewReference, Setting
 from fm27_editor.record_kinds import RecordKind
-from fm27_editor.record_rules import NewReference, Setting
 
 type NewRecords = Mapping[str, bytes]
 """The IDs of the records a request creates, by the names it gives them."""
