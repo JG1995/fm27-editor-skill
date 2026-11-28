@@ -60,7 +60,8 @@ class RecordKind:
     words: Mapping[str, Mapping[str, int]] = field(default_factory=dict)
     """The numbers of choices that the lookup holds as words, by code."""
     can_be_new: bool = True
-    """Whether a file was seen that adds a record of this kind."""
+    """Whether a request can make a new record of this kind: a file was seen that adds one, and a
+    request can give it what makes it a record of use."""
     lists: Mapping[str, ListShape] = field(default_factory=dict)
     """The lists that can be given items, by code, in the shape real files show."""
     held_lists: Mapping[str, HeldList] = field(default_factory=dict)
@@ -409,8 +410,8 @@ LOCAL_REGION = RecordKind(
     left_out=frozenset(COMPUTED_NAMES),
     can_be_new=False,
 )
-# A file that adds an agreement was seen, but a new one could not be given its nations, nor could
-# nations refer to it.
+# A file that adds an agreement was seen, but a request could not give a new one its nations, nor
+# could nations refer to it.
 AGREEMENT = RecordKind(
     name="agreement",
     group=AGREEMENTS,
