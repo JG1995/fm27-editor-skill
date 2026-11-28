@@ -330,12 +330,34 @@ def test_a_contract_without_an_end_gives_the_wage_alone():
 
 @pytest.mark.parametrize("kind", [1, 2])
 def test_days_at_clubs_and_in_nations_are_read_from_the_end_of_the_record(kind):
-    """The first and the fourth byte of an item hold flags that are not read."""
-    days = synthetic.days_at((9101, 365), (9001, 7000, 0x41, 0xCD))
+    """The fourth byte of an item is no part the Editor saves."""
+    days = synthetic.days_at((9101, 365), (9001, 7000, 0x01, 0xCD))
     record = synthetic.person_record(0, 100, kind=kind, days_at=days)
     (person,) = read_all([synthetic.basic_person(kind, 0, 100)], [record])
 
-    assert person.club_or_nation_days == ((9101, 365), (9001, 7000))
+    assert [item[:2] for item in person.club_or_nation_days] == [(9101, 365), (9001, 7000)]
+
+
+@pytest.mark.parametrize(
+    ("first", "boxes"),
+    [
+        (0x01, ()),
+        (0x05, ("between_0_and_21",)),
+        (0x03, ("between_15_and_21",)),
+        (0x11, ("between_18_and_23",)),
+        (0x41, ("between_0_and_19",)),
+        (0x23, ("between_15_and_21", "contracted_between_15_and_21")),
+        (0x09, ("contracted_between_0_and_21",)),
+    ],
+)
+def test_the_first_byte_of_days_at_a_club_holds_the_editors_boxes(first, boxes):
+    """As items that the Editor saved show them; no item of the database has 0x08."""
+    days = synthetic.days_at((9101, 365, first, 0x5D))
+    record = synthetic.person_record(0, 100, days_at=days)
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    (item,) = person.club_or_nation_days
+    assert [box for box, ticked in item._asdict().items() if ticked is True] == list(boxes)
 
 
 def test_a_person_can_have_no_days_at_clubs_or_in_nations():
@@ -354,6 +376,7 @@ def test_a_person_can_have_no_days_at_clubs_or_in_nations():
             synthetic.days_at((9101, 365), tail=bytes(9)), id="not ten bytes before the end"
         ),
         pytest.param(synthetic.days_at((9101, 365, 0x02, 0)), id="an item without its lowest bit"),
+        pytest.param(synthetic.days_at((9101, 365, 0x81, 0)), id="a bit that is no box"),
         pytest.param(
             synthetic.days_at((0x010001FF, 10), (9101, 20)), id="the last item fits on its own"
         ),

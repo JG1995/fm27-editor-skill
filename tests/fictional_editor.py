@@ -53,8 +53,8 @@ CLUBS = {
     9103: ("Fictional City", "Fic Women", {"nation": 0, "female": True}, {"division": 1}),
     9104: ("Gone Town", "Gone", {"extinct_nation": 1}, {}),
 }
-# Playing histories by person uid: Alfa Striker's three seasons, none of Bravo Keeper, and one of
-# someone who is not in the database.
+# Playing histories by person uid: Alfa Striker's three seasons, the last on loan with two extras,
+# none of Bravo Keeper, and one of someone who is not in the database.
 HISTORIES = {
     999: [synthetic.history_item(2020, 9101)],
     100: [
@@ -62,7 +62,9 @@ HISTORIES = {
         synthetic.history_item(
             2022, 9102, order=1, division=9203, apps=12, goals=4, fee=2_500_000, left=(31, 2023)
         ),
-        synthetic.history_item(2022, 9101, order=2, division=9201, apps=255, goals=255, fee=-2),
+        synthetic.history_item(
+            2022, 9101, order=2, division=9201, apps=255, goals=255, fee=-2, flags=0x4D
+        ),
     ],
 }
 # Days at clubs and in nations by person uid: Alfa Striker's at a club and in a nation, and none
@@ -124,8 +126,11 @@ DAYS_AT_CLUB = synthetic.list_items(
     synthetic.field_definition("Ttea", "Club Or Nation", *synthetic.reference("team")),
     synthetic.field_definition("days", "Days", "integer", synthetic.number_range(0, 30000)),
     *(
-        synthetic.field_definition(code, "Between Ages", "boolean")
-        for code in ("0t21", "d152", "bfat", "etto", "0t19", "d021")
+        synthetic.field_definition(code, f"Between Age Of {ages} Only", "boolean")
+        for code, ages in (
+            *(("0t21", "0 And 21"), ("d152", "15 And 21, Contracted"), ("bfat", "15 And 21")),
+            *(("etto", "18 And 23"), ("0t19", "0 And 19"), ("d021", "0 And 21, Contracted")),
+        )
     ),
 )
 FAVOURITE_PEOPLE = synthetic.list_items(
@@ -171,6 +176,14 @@ PLAYING_HISTORY = synthetic.list_items(
         "Other",
         "enum",
         '<list id="enum_values"><record enum="-2"><string id="name" value="Undisc." /></record>'
+        "</list>",
+    ),
+    synthetic.field_definition(
+        "hsfl",
+        "Extras",
+        "multiple_enum",
+        '<list id="enum_values"><record enum="4"><string id="name" value="Part Exchange" />'
+        '</record><record enum="8"><string id="name" value="Draft Allocations" /></record>'
         "</list>",
     ),
 )

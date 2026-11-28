@@ -132,10 +132,23 @@ PLAYING_HISTORY = {
     "other": "info",
     "date_joined": "join",
     "date_left": "leav",
+    "on_loan": "onln",
+    "youth_team": "ytht",
+    "tribunal_fee": "trib",
+    "extras": "hsfl",
 }
 
 # The parts of days at a club or in a nation (Pdcn) by the lookup's names.
-DAYS_AT_CLUB_OR_NATION = {"club_or_nation_uid": "Ttea", "days": "days"}
+DAYS_AT_CLUB_OR_NATION = {
+    "club_or_nation_uid": "Ttea",
+    "days": "days",
+    "between_0_and_21": "0t21",
+    "between_15_and_21": "bfat",
+    "between_18_and_23": "etto",
+    "between_0_and_19": "0t19",
+    "contracted_between_15_and_21": "d152",
+    "contracted_between_0_and_21": "d021",
+}
 
 # The parts a name is made of, in the order they are said.
 NAME_CODES = ("Pfna", "Psna")

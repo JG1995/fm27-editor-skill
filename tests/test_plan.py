@@ -731,6 +731,12 @@ def test_items_added_behind_those_of_the_starting_file_replace_nothing(plan_for,
     assert plan.replaced == 0
 
 
+# A season's boxes that are not ticked, as the old value holds them.
+NOT_TICKED = {"onln": 0, "ytht": 0, "trib": 0}
+# The boxes of days at a club, and the one ticked for Alfa Striker's days in Norwegia.
+DAYS_BOXES = dict.fromkeys(("0t21", "bfat", "etto", "0t19", "d152", "d021"), 0)
+
+
 def test_the_items_a_list_holds_now_are_its_old_value_where_the_lookup_has_them(plan_for):
     plan = plan_for(edits=[by_hand(100, Plhs={"replace": []}), by_hand(101, PNRs={"replace": []})])
 
@@ -744,6 +750,7 @@ def test_the_items_a_list_holds_now_are_its_old_value_where_the_lookup_has_them(
             "apps": 30,
             "gols": 12,
             "join": "2021-07-01",
+            **NOT_TICKED,
         },
         {
             "year": 2022,
@@ -754,8 +761,12 @@ def test_the_items_a_list_holds_now_are_its_old_value_where_the_lookup_has_them(
             "gols": 4,
             "cash": 2_500_000,
             "leav": "2023-01-31",
+            **NOT_TICKED,
         },
-        {"year": 2022, "yror": 2, "clid": 9101, "divi": 9201, "info": -2},
+        {
+            **{"year": 2022, "yror": 2, "clid": 9101, "divi": 9201, "info": -2},
+            **{"onln": 1, "ytht": 0, "trib": 0, "hsfl": 12},
+        },
     )
     assert nations.old is None
 
@@ -765,7 +776,10 @@ def test_the_days_at_clubs_a_person_has_are_their_old_value_unless_they_are_not_
     plan = plan_for(edits=[by_hand(uid, Pdcn={"replace": []}) for uid in (100, 101, 102)])
 
     assert [edit.old for edit in plan.edits] == [
-        ({"Ttea": 9101, "days": 400}, {"Ttea": 9002, "days": 6000}),
+        (
+            {"Ttea": 9101, "days": 400, **DAYS_BOXES},
+            {"Ttea": 9002, "days": 6000, **DAYS_BOXES, "0t19": 1},
+        ),
         (),
         None,
     ]
