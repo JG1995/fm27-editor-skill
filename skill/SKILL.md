@@ -51,7 +51,7 @@ Know these before you write a query:
 - **`nation`** of a person is the one main nationality. Others are not here. Of a club, it is the nation whose leagues it plays in; where it lies is `based_nation_uid`.
 - **Names** are spelled with their accents. `name` is the name the game shows: the common name, or the first and second name. `full_name` is the whole name, as the Editor's Full Name field holds it, and `NULL` when that field is empty. Search both with `LIKE`, show the candidates when there are several, and let the user choose.
 - **`weathers`** are climates that cities and regions use, named after a region or a city. **`injuries`** are the kinds of injury, such as a sprained ankle, not injured people.
-- **`derbies`** are rivalries between two clubs. Their names repeat, so tell them apart by their clubs. A derby between national teams has no clubs here. **`stage_names`** are what competitions call their rounds, such as a final. **`media_sources`** are newspapers, magazines, and websites.
+- **`derbies`** are rivalries between two clubs. Their names repeat, so tell them apart by their clubs. A derby between national teams has no clubs here. **`stage_names`** are what competitions call their rounds, such as a final. **`media_sources`** are newspapers, magazines, and websites. **`local_regions`** are the parts of a nation that cities and clubs belong to, such as London. **`agreements`** are agreements between nations, such as the European Union; which nations belong to one is not here.
 - A few people in the Editor are not in the lookup. Not finding someone does not mean that they do not exist.
 
 ## Make a file
@@ -82,7 +82,7 @@ A request has any of these parts. The uids here are made up:
 }
 ```
 
-- **`of`** is `people`, `clubs`, `competitions`, `awards`, `stadiums`, `nations`, `cities`, `continents`, `injuries`, `weathers`, `media_sources`, `derbies`, or `stage_names`. A club and a person can have the same uid. A club's ground is its `stadium_uid`; change the ground itself as one of `stadiums`.
+- **`of`** is `people`, `clubs`, `competitions`, `awards`, `stadiums`, `nations`, `cities`, `continents`, `injuries`, `weathers`, `media_sources`, `derbies`, `stage_names`, `local_regions`, or `agreements`. A club and a person can have the same uid. A club's ground is its `stadium_uid`; change the ground itself as one of `stadiums`.
 - **A field that names a person,** such as a club's manager (`Cmni`) or captain (`Tcap`), takes the uid of someone in `people`, or `@` and the name of a new person. Someone who is not in the lookup cannot be named. The skill does not check that the person works or plays there, so check it with `find` first.
 - **`query`** returns `uid` and one column for each field to set. The column's value is the new value.
 - **`as`** names a new record. Later ones and edits refer to it with `@` and that name.
@@ -95,7 +95,7 @@ A request has any of these parts. The uids here are made up:
 
 ## Fields
 
-`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `stadium`, `nation`, `city`, `continent`, `injury`, `weather`, `media_source`, `derby`, `stage_name`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
+`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `stadium`, `nation`, `city`, `continent`, `injury`, `weather`, `media_source`, `derby`, `stage_name`, `local_region`, `agreement`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
 
 Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, people's achievements, injuries, and bans, kits other than their colours, reserve teams, national teams, local regions, and new records other than people, clubs, and competitions. If a request needs one of these, say so before doing the rest.
 
