@@ -199,6 +199,28 @@ def test_replacing_an_empty_list_says_it_holds_nothing(lines_for):
     )
 
 
+def test_replacing_days_at_clubs_shows_those_it_takes_out_or_that_they_are_not_known(lines_for):
+    replaced = {"replace": [{"Ttea": 9101, "days": 30}]}
+
+    lines = lines_for(
+        edits=[{"of": "people", "uid": uid, "set": {"Pdcn": replaced}} for uid in (100, 102)]
+    )
+
+    assert (
+        "  Days At Club/In Nation (Pdcn): 2 people, 2 items taken out, 1 whose items are not known"
+        in lines
+    )
+    assert any(
+        line.endswith(
+            ": Days At Club/In Nation cleared of"
+            " - Club Or Nation Fictional City (9101), Days 400"
+            " - Club Or Nation Norwegia (9002), Days 6000"
+            ", then + Club Or Nation Fictional City (9101), Days 30"
+        )
+        for line in lines
+    )
+
+
 def test_adding_to_a_list_takes_nothing_out(lines_for):
     added = [{"year": 2025, "clid": 9101}]
 

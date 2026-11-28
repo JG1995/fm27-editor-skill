@@ -134,5 +134,8 @@ PLAYING_HISTORY = {
     "date_left": "leav",
 }
 
+# The parts of days at a club or in a nation (Pdcn) by the lookup's names.
+DAYS_AT_CLUB_OR_NATION = {"club_or_nation_uid": "Ttea", "days": "days"}
+
 # The parts a name is made of, in the order they are said.
 NAME_CODES = ("Pfna", "Psna")
