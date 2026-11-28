@@ -11,7 +11,17 @@ type Layout = tuple[str | int, ...]
 
 class NamedTable(Enum):
     """What a table names: the shape of its rows behind the ID, and whether a short name follows
-    the name. Two tables can have rows of one shape."""
+    the name. Two tables can have rows of one shape, and are still two members."""
+
+    layout: Layout
+    has_short_names: bool
+
+    def __new__(cls, layout: Layout, has_short_names: bool) -> NamedTable:
+        # Numbered in order, because members of equal values would be one member.
+        member = object.__new__(cls)
+        member._value_ = len(cls.__members__)
+        member.layout, member.has_short_names = layout, has_short_names
+        return member
 
     NATION = ((TEXT, 1, TEXT, 1, TEXT, TEXT, 1), True)
     CLUB = ((TEXT, 1, TEXT, 1, TEXT, TEXT, TEXT, 1, TEXT, 4, TEXT), True)
@@ -28,14 +38,6 @@ class NamedTable(Enum):
     DERBY = ((TEXT, TEXT, TEXT, TEXT, 5), True)
     # The name, a short name, and the name of more than one, such as "Finals"
     STAGE_NAME = ((TEXT, 1, TEXT, 1, TEXT, 2), True)
-
-    @property
-    def layout(self) -> Layout:
-        return self.value[0]
-
-    @property
-    def has_short_names(self) -> bool:
-        return self.value[1]
 
 
 def read_names(kind: NamedTable, table: bytes) -> dict[int, tuple[str, str | None]]:
