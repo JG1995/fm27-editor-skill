@@ -153,21 +153,38 @@ def test_a_person_named_by_a_club_is_shown_by_name(lines_for):
 
 
 def test_a_list_that_is_cleared_says_that_what_it_holds_is_not_known(lines_for):
-    lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PNRs": {"replace": []}}}])
+    """The lookup does not hold the languages people speak."""
+    lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PElg": {"replace": []}}}])
 
-    assert "  Second Nations (PNRs): 1 person, 1 whose items are not known" in lines
-    assert lines[-2].endswith(": Second Nations cleared of what it holds, which is not known")
+    assert "  Additional Languages (PElg): 1 person, 1 whose items are not known" in lines
+    assert lines[-2].endswith(": Additional Languages cleared of what it holds, which is not known")
 
 
 def test_a_list_that_is_replaced_says_it_is_cleared_first(lines_for):
-    replaced = {"replace": [{"nati": 9001}]}
+    replaced = {"replace": [{"lang": 8}]}
 
-    lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PNRs": replaced}}])
+    lines = lines_for(edits=[{"of": "people", "uid": 100, "set": {"PElg": replaced}}])
 
     assert lines[-2].endswith(
-        ": Second Nations cleared of what it holds, which is not known,"
-        " then + Nation Englandia (9001)"
+        ": Additional Languages cleared of what it holds, which is not known,"
+        " then + Language Englandish (8)"
     )
+
+
+def test_replacing_relations_shows_those_it_takes_out(lines_for):
+    edits = [
+        {"of": "people", "uid": 100, "set": {code: {"replace": []}}}
+        for code in ("PNRs", "Pfvc", "Pfvp")
+    ]
+
+    lines = lines_for(edits=edits, examples=3)
+
+    assert [line.split(": ", 1)[1] for line in lines if line.startswith("  Alfa")] == [
+        "Second Nations cleared of - Nation Norwegia (9002), Nationality Info Born In Nation (85)",
+        "Favourite Clubs cleared of - Club Example United (9102), Level 90, Reason Supporter (1)",
+        "Favourite People cleared of - Person Bravo Keeper (101), Level 80, Reason 5, Permanent"
+        " - Level 50, Reason 7",
+    ]
 
 
 def test_replacing_a_list_that_the_lookup_holds_shows_every_item_it_takes_out(lines_for):

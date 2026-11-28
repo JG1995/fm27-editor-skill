@@ -214,6 +214,16 @@ PERSON_HELD_LISTS = {
         person_codes.DAYS_AT_CLUB_OR_NATION,
         known_by="clubs_and_nations",
     ),
+    **{
+        code: HeldList(table, "person_uid", "item", person_codes.RELATIONS[code], "relations")
+        for code, table in (
+            ("PNRs", "second_nation"),
+            ("Phgn", "trained_in_nation"),
+            ("Phgc", "trained_at_club"),
+            ("Pfvp", "favourite_person"),
+            ("Pfvc", "favourite_club"),
+        )
+    },
 }
 PLAYER = RecordKind(
     name="player",

@@ -22,13 +22,17 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 
 | Table | Columns |
 | --- | --- |
-| `people` | `uid`, `kind`, `name`, `full_name`, `birth_date`, `nation`, `nation_uid`, `club`, `club_uid`, `club_gender`, `division`, `division_uid`, `ca`, `pa`, `wage`, `contract_expires`, `clubs_and_nations` (how many items `days_at_club_or_nation` has for them, `NULL` when not known), attributes, positions, personality, staff attributes |
+| `people` | `uid`, `kind`, `name`, `full_name`, `birth_date`, `nation`, `nation_uid`, `club`, `club_uid`, `club_gender`, `division`, `division_uid`, `ca`, `pa`, `wage`, `contract_expires`, `clubs_and_nations` (how many items `days_at_club_or_nation` has for them, `NULL` when not known), `relations` (how many relations of any kind the record holds, `NULL` when the five tables of relations do not know theirs), attributes, positions, personality, staff attributes |
 | `clubs` | `uid`, `name`, `short_name`, `gender`, `is_extinct`, `nation`, `nation_uid`, `based_nation_uid`, `city`, `city_uid`, `stadium`, `stadium_uid`, `reputation`, `division`, `division_uid`, `last_division_uid`, `last_position` |
 | `competitions` | `uid`, `name`, `short_name`, `gender`, `level`, `nation`, `nation_uid`, `parent`, `parent_uid`, `clubs` (how many have it as their division) |
 | `awards` | `uid`, `name`, `short_name`, `gender`, `nation`, `nation_uid`, `competition`, `competition_uid`, `previous_winner`, `years` (how many are in its history) |
 | `award_history` | `award_uid`, `award`, `year`, `place` (1 to 3), `person_uid`, `name`, `team`, `team_uid`, `points`, `age`, `nation`, `nation_uid`, `not_held`, `no_data` |
 | `playing_history` | `person_uid`, `name`, `item` (from 0, in the person's order), `year`, `order_in_year`, `club`, `club_uid`, `division`, `division_uid`, `apps`, `goals`, `transfer_fee`, `other`, `date_joined`, `date_left`, `on_loan`, `youth_team`, `tribunal_fee` (1 or 0), `extras` (the sum of the Editor's numbers: 4 a part exchange, 8 draft allocations, 16 international slots) |
 | `days_at_club_or_nation` | `person_uid`, `name`, `item` (from 0, in the person's order), `club_or_nation`, `club_or_nation_uid`, `days`, and the Editor's boxes that count only days between two ages, 1 or 0: `between_0_and_21`, `between_15_and_21`, `between_18_and_23`, `between_0_and_19`, `contracted_between_15_and_21`, `contracted_between_0_and_21` |
+| `second_nations` | `person_uid`, `name`, `item` (from 0, in the person's order), `nation`, `nation_uid`, `nationality_info` (the Editor's choice, such as 85 Born In Nation) |
+| `trained_at_clubs`, `trained_in_nations` | `person_uid`, `name`, `item`, `club` and `club_uid`, or `nation` and `nation_uid`, `type` (the Editor's choice, such as 1 3 Years Between 15 and 21; `fm27 fields player Phgc` lists them) |
+| `favourite_people` | `person_uid`, `name`, `item`, `favourite`, `favourite_uid` (`NULL` for someone the database does not hold), `level`, `reason` (the Editor's choice), `permanent` (1 or 0) |
+| `favourite_clubs` | `person_uid`, `name`, `item`, `club`, `club_uid`, `level`, `reason` (the Editor's choice) |
 | `nations` | `uid`, `name` |
 | `cities` | `uid`, `name`, `nation`, `nation_uid` |
 | `stadiums` | `uid`, `name`, `city`, `city_uid`, `nation`, `nation_uid` (of its city) |
@@ -103,8 +107,8 @@ Not possible yet: jobs that `fields` does not list, such as coaches and physios,
 
 A field that `fm27 fields player` describes as "items of" its parts, such as playing history or second nations, is given a list of items with their parts by code, such as `"PNRs": [{"nati": 12345, "ntin": 85}]`. A query gives the list as JSON text, such as `json_array(json_object('nati', 12345))`.
 
-- **Items are added to what the person has,** so tell the user that what is there stays. Of the lists, the lookup holds playing history, in `playing_history`, and days at clubs and in nations, in `days_at_club_or_nation`; find what a person has there before you add to it.
-- **To replace what a list holds,** give `{"replace": [...]}` with the items; `{"replace": []}` clears it. When the user wants a list to be exactly something, replace it. When it is unclear whether to add or replace, ask. The preview lists every item a replaced playing history or days at clubs and in nations loses: show those to the user. A box that is ticked, such as Between Age Of 15 And 21 Only, is named in the item. For other lists, and for days that the lookup could not read, it says that what they hold is not known; tell the user that it is lost unseen.
+- **Items are added to what the person has,** so tell the user that what is there stays. Of the lists, the lookup holds playing history, days at clubs and in nations, second nations, where people trained, and favourite people and clubs, in the tables above; find what a person has there before you add to it.
+- **To replace what a list holds,** give `{"replace": [...]}` with the items; `{"replace": []}` clears it. When the user wants a list to be exactly something, replace it. When it is unclear whether to add or replace, ask. The preview lists every item that a replaced list of these loses: show those to the user. A box that is ticked, such as Between Age Of 15 And 21 Only, is named in the item. For other lists, such as languages, and for people whose lists the lookup could not read, it says that what they hold is not known; tell the user that it is lost unseen.
 - **A part that is left out keeps what a new item has,** such as no club, or 1900 as the year in playing history. Give each item of a playing history (`Plhs`) its `year`, `clid`, and `divi`, and each language a person speaks (`PElg`) its `lang` from the `language` table.
 - **A team in a list can be a national team,** given by the uid of its nation.
 

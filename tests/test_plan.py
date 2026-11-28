@@ -768,7 +768,14 @@ def test_the_items_a_list_holds_now_are_its_old_value_where_the_lookup_has_them(
             **{"onln": 1, "ytht": 0, "trib": 0, "hsfl": 12},
         },
     )
-    assert nations.old is None
+    assert nations.old == ()
+
+
+def test_the_relations_a_person_has_are_their_old_value_unless_they_are_not_known(plan_for):
+    """Charlie Coach's relations cannot be read."""
+    plan = plan_for(edits=[by_hand(uid, PNRs={"replace": []}) for uid in (100, 101, 102)])
+
+    assert [edit.old for edit in plan.edits] == [({"nati": 9002, "ntin": 85},), (), None]
 
 
 def test_the_days_at_clubs_a_person_has_are_their_old_value_unless_they_are_not_known(plan_for):

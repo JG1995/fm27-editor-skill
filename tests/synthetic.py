@@ -562,6 +562,18 @@ def days_at(
     return before + bytes([len(items)]) + body + tail
 
 
+def relations(*items: tuple[int, ...], between: int = 0) -> bytes:
+    """A person's relations as they stand before the days at clubs: 01, the number of items, the
+    items, and a count of seven-byte items with that many of them. An item is (relation, kind of
+    record, uid, reason, level, value)."""
+    body = b"".join(
+        struct.pack("<IIHBBBBBB", 0, uid, reason, kind, relation, level, value, 0, 0xFF)
+        for relation, kind, uid, reason, level, value in items
+    )
+    block = struct.pack("<I", between) + bytes(7 * between)
+    return b"\x01" + bytes([len(items)]) + body + block
+
+
 def contract_block(
     index: int,
     club: tuple[int, int] = (9, 9101),

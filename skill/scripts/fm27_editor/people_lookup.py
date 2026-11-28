@@ -1,12 +1,20 @@
-"""The tables of the lookup for people, their days at clubs and in nations, and their playing
-histories."""
+"""The tables of the lookup for people, their days at clubs and in nations, their relations, and
+their playing histories."""
 
 import sqlite3
-from collections.abc import Iterable, Iterator, Sequence
+from collections.abc import Callable, Iterable, Iterator, Sequence
 from itertools import batched
 
 from fm27_editor.dat_tables import read_string_table
-from fm27_editor.people import DAYS_BOXES, BasicPerson, ClubOrNationDays, Person, iter_people
+from fm27_editor.people import (
+    DAYS_BOXES,
+    BasicPerson,
+    ClubOrNationDays,
+    Person,
+    Relation,
+    RelationKind,
+    iter_people,
+)
 from fm27_editor.person_fields import FIELD_NAMES
 from fm27_editor.person_names import Names
 from fm27_editor.place_lookup import Tables
@@ -20,7 +28,8 @@ _BOX_COLUMNS = ", ".join(f"{name} INTEGER" for name in DAYS_BOXES)
 SCHEMA = f"""
 CREATE TABLE person(uid INTEGER PRIMARY KEY, kind TEXT, name TEXT, full_name TEXT,
     birth_date TEXT, nation_uid INTEGER, club_uid INTEGER, ca INTEGER, pa INTEGER,
-    wage INTEGER, contract_expires TEXT, clubs_and_nations INTEGER, {_FIELD_COLUMNS});
+    wage INTEGER, contract_expires TEXT, clubs_and_nations INTEGER, relations INTEGER,
+    {_FIELD_COLUMNS});
 CREATE VIEW people AS SELECT person.*, nation.name AS nation, club.name AS club,
     club.gender AS club_gender, club.division_uid, competition.name AS division
     FROM person LEFT JOIN nation ON nation.uid = person.nation_uid
@@ -33,6 +42,32 @@ CREATE VIEW days_at_club_or_nation AS SELECT club_or_nation_days.*, person.name,
     FROM club_or_nation_days LEFT JOIN person ON person.uid = club_or_nation_days.person_uid
     LEFT JOIN club ON club.uid = club_or_nation_uid
     LEFT JOIN nation ON nation.uid = club_or_nation_uid;
+CREATE TABLE second_nation(person_uid INTEGER, item INTEGER, nation_uid INTEGER,
+    nationality_info INTEGER, PRIMARY KEY (person_uid, item)) WITHOUT ROWID;
+CREATE VIEW second_nations AS SELECT second_nation.*, person.name, nation.name AS nation
+    FROM second_nation LEFT JOIN person ON person.uid = second_nation.person_uid
+    LEFT JOIN nation ON nation.uid = second_nation.nation_uid;
+CREATE TABLE trained_in_nation(person_uid INTEGER, item INTEGER, nation_uid INTEGER, type INTEGER,
+    PRIMARY KEY (person_uid, item)) WITHOUT ROWID;
+CREATE VIEW trained_in_nations AS SELECT trained_in_nation.*, person.name, nation.name AS nation
+    FROM trained_in_nation LEFT JOIN person ON person.uid = trained_in_nation.person_uid
+    LEFT JOIN nation ON nation.uid = trained_in_nation.nation_uid;
+CREATE TABLE trained_at_club(person_uid INTEGER, item INTEGER, club_uid INTEGER, type INTEGER,
+    PRIMARY KEY (person_uid, item)) WITHOUT ROWID;
+CREATE VIEW trained_at_clubs AS SELECT trained_at_club.*, person.name, club.name AS club
+    FROM trained_at_club LEFT JOIN person ON person.uid = trained_at_club.person_uid
+    LEFT JOIN club ON club.uid = trained_at_club.club_uid;
+CREATE TABLE favourite_person(person_uid INTEGER, item INTEGER, favourite_uid INTEGER,
+    level INTEGER, reason INTEGER, permanent INTEGER, PRIMARY KEY (person_uid, item)) WITHOUT ROWID;
+CREATE VIEW favourite_people AS SELECT favourite_person.*, person.name,
+    favourite.name AS favourite
+    FROM favourite_person LEFT JOIN person ON person.uid = favourite_person.person_uid
+    LEFT JOIN person AS favourite ON favourite.uid = favourite_person.favourite_uid;
+CREATE TABLE favourite_club(person_uid INTEGER, item INTEGER, club_uid INTEGER, level INTEGER,
+    reason INTEGER, PRIMARY KEY (person_uid, item)) WITHOUT ROWID;
+CREATE VIEW favourite_clubs AS SELECT favourite_club.*, person.name, club.name AS club
+    FROM favourite_club LEFT JOIN person ON person.uid = favourite_club.person_uid
+    LEFT JOIN club ON club.uid = favourite_club.club_uid;
 CREATE TABLE history_season(person_uid INTEGER, item INTEGER, year INTEGER,
     order_in_year INTEGER, club_uid INTEGER, division_uid INTEGER, apps INTEGER, goals INTEGER,
     transfer_fee INTEGER, other INTEGER, date_joined TEXT, date_left TEXT, on_loan INTEGER,
@@ -52,6 +87,18 @@ CREATE INDEX person_birth ON person(birth_date);
 CREATE INDEX person_name ON person(name);
 """
 _DAYS_PLACEHOLDERS = ", ".join("?" * (2 + len(ClubOrNationDays._fields)))
+# The relations the lookup holds, by kind: their table, and the columns after the person and the
+# item, from what the relation holds. A favourite person is permanent when the value is not 0.
+RELATION_TABLES: dict[RelationKind, tuple[str, Callable[[Relation], tuple]]] = {
+    RelationKind.SECOND_NATION: ("second_nation", lambda r: (r.uid, r.value)),
+    RelationKind.TRAINED_IN_NATION: ("trained_in_nation", lambda r: (r.uid, r.level)),
+    RelationKind.TRAINED_AT_CLUB: ("trained_at_club", lambda r: (r.uid, r.level)),
+    RelationKind.FAVOURITE_PERSON: (
+        "favourite_person",
+        lambda r: (r.uid, r.level, r.reason, int(r.value != 0)),
+    ),
+    RelationKind.FAVOURITE_CLUB: ("favourite_club", lambda r: (r.uid, r.level, r.reason)),
+}
 # People are inserted in batches, each with their days at clubs and in nations: both come from one
 # reading of people_db, and the 3.5 million days held at once would take hundreds of megabytes.
 PEOPLE_PER_BATCH = 10_000
@@ -91,18 +138,33 @@ def insert_playing_histories(
 
 
 def _insert(cache: sqlite3.Connection, people: Iterable[Person]) -> None:
-    placeholders = ", ".join("?" * (12 + len(FIELD_NAMES)))
+    placeholders = ", ".join("?" * (13 + len(FIELD_NAMES)))
     for batch in batched(people, PEOPLE_PER_BATCH, strict=False):
         cache.executemany(f"INSERT INTO person VALUES ({placeholders})", map(_row, batch))
         cache.executemany(
             f"INSERT INTO club_or_nation_days VALUES ({_DAYS_PLACEHOLDERS})", _days(batch)
         )
+        for kind, (table, columns) in RELATION_TABLES.items():
+            rows = list(_relations(batch, kind, columns))
+            if rows:
+                marks = ", ".join("?" * len(rows[0]))
+                cache.executemany(f"INSERT INTO {table} VALUES ({marks})", rows)
 
 
 def _days(people: Sequence[Person]) -> Iterator[tuple[int, ...]]:
     for person in people:
         for item, days in enumerate(person.club_or_nation_days or ()):
             yield (person.uid, item, *days)
+
+
+def _relations(
+    people: Sequence[Person], kind: RelationKind, columns: Callable[[Relation], tuple]
+) -> Iterator[tuple]:
+    """The rows of one kind of relation, numbered from 0 for each person."""
+    for person in people:
+        of_kind = (relation for relation in person.relations or () if relation.relation == kind)
+        for item, relation in enumerate(of_kind):
+            yield (person.uid, item, *columns(relation))
 
 
 def _row(person: Person) -> tuple:
@@ -119,5 +181,6 @@ def _row(person: Person) -> tuple:
         person.wage,
         person.contract_expires and person.contract_expires.isoformat(),
         None if person.club_or_nation_days is None else len(person.club_or_nation_days),
+        None if person.relations is None else len(person.relations),
         *(person.fields.get(name) for name in FIELD_NAMES),
     )

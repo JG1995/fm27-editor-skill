@@ -3,7 +3,7 @@ import datetime
 import pytest
 
 import synthetic
-from fm27_editor.people import PeopleError, PersonKind, iter_people, parse_basic_people
+from fm27_editor.people import PeopleError, PersonKind, Relation, iter_people, parse_basic_people
 from fm27_editor.person_names import Names
 
 NAMES = Names({1: "Testy"}, {2: "McTestface"}, {5: "Testo"})
@@ -358,6 +358,55 @@ def test_the_first_byte_of_days_at_a_club_holds_the_editors_boxes(first, boxes):
 
     (item,) = person.club_or_nation_days
     assert [box for box, ticked in item._asdict().items() if ticked is True] == list(boxes)
+
+
+SECOND_NATION = (9, 8, 9002, 0, 100, 85)
+FAVOURITE = (1, 3, 101, 5, 80, 0x4F)
+
+
+@pytest.mark.parametrize("between", [0, 2])
+def test_relations_are_read_before_the_days_at_clubs(between):
+    nobody = (1, 3, synthetic.NO_INDEX, 7, 50, 0)
+    ends = synthetic.relations(SECOND_NATION, FAVOURITE, nobody, between=between)
+    record = synthetic.person_record(0, 100, days_at=ends + synthetic.days_at((9101, 365)))
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert person.relations == (
+        Relation(9, 9002, 0, 100, 85),
+        Relation(1, 101, 5, 80, 0x4F),
+        Relation(1, None, 7, 50, 0),
+    )
+
+
+def test_a_person_can_have_no_relations():
+    ends = synthetic.relations() + synthetic.days_at((9101, 365))
+    record = synthetic.person_record(0, 100, days_at=ends)
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert person.relations == ()
+
+
+@pytest.mark.parametrize(
+    "ends",
+    [
+        pytest.param(synthetic.days_at((9101, 365)), id="no relations before the days"),
+        pytest.param(
+            synthetic.relations(SECOND_NATION)[:-4] + (1).to_bytes(4, "little"), id="a wrong count"
+        ),
+        pytest.param(b"\x02" + synthetic.relations(SECOND_NATION)[1:], id="not after 01"),
+        pytest.param(
+            synthetic.relations(SECOND_NATION).replace(b"\x00\xff", b"\x00\x00"),
+            id="an item that does not end with ff",
+        ),
+        pytest.param(synthetic.relations((9, 1, 9101, 0, 100, 85)), id="a club as second nation"),
+    ],
+)
+def test_relations_that_cannot_be_read_one_way_only_are_not_known(ends):
+    days = ends if ends.startswith(b"\xff\x01") else ends + synthetic.days_at((9101, 365))
+    record = synthetic.person_record(0, 100, days_at=days)
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert person.relations is None
 
 
 def test_a_person_can_have_no_days_at_clubs_or_in_nations():

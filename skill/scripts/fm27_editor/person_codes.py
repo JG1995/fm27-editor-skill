@@ -150,5 +150,13 @@ DAYS_AT_CLUB_OR_NATION = {
     "contracted_between_0_and_21": "d021",
 }
 
+# The parts of the relations that the lookup holds, by the lookup's names, by the list's code.
+RELATIONS = {
+    "PNRs": {"nation_uid": "nati", "nationality_info": "ntin"},
+    "Phgn": {"nation_uid": "nati", "type": "hgty"},
+    "Phgc": {"club_uid": "club", "type": "hgty"},
+    "Pfvp": {"favourite_uid": "pers", "level": "leve", "reason": "rrea", "permanent": "perm"},
+    "Pfvc": {"club_uid": "club", "level": "leve", "reason": "rrea"},
+}
 # The parts a name is made of, in the order they are said.
 NAME_CODES = ("Pfna", "Psna")

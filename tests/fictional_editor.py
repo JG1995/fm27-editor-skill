@@ -70,6 +70,22 @@ HISTORIES = {
 # Days at clubs and in nations by person uid: Alfa Striker's at a club and in a nation, and none
 # of Bravo Keeper. Anyone else's cannot be read.
 DAYS_AT = {100: [(9101, 400), (9002, 6000, 0x41, 0xCD)], 101: []}
+# Relations by person uid, which stand before the days: Alfa Striker's second nation, club and
+# nation trained at, favourite people (one of them not in the database) and club, and a relation
+# of a kind the lookup does not hold; none of Bravo Keeper.
+CLUB_RECORD, PERSON_RECORD, NATION_RECORD = 1, 3, 8
+RELATIONS = {
+    100: [
+        (9, NATION_RECORD, 9002, 0, 100, 85),
+        (72, CLUB_RECORD, 9101, 0, 10, 0xFF),
+        (70, NATION_RECORD, 9001, 0, 1, 0xFF),
+        (1, PERSON_RECORD, 101, 5, 80, 0x4F),
+        (1, PERSON_RECORD, synthetic.NO_INDEX, 7, 50, 0),
+        (3, CLUB_RECORD, 9102, 1, 90, 0x4F),
+        (18, 7, 11, 0, 32, 40),
+    ],
+    101: [],
+}
 
 AWARDS = {
     9501: (
@@ -448,6 +464,11 @@ def write_definitions(folder: Path, person: bytes = PERSON) -> Path:
     return folder
 
 
+def _end_of_record(uid: int) -> bytes:
+    relations = synthetic.relations(*RELATIONS[uid], between=1) if uid in RELATIONS else b""
+    return relations + (synthetic.days_at(*DAYS_AT[uid]) if uid in DAYS_AT else b"")
+
+
 def write_database(folder: Path, people=None) -> Path:
     """People as (index, uid, name, birth year, ability, nation, club[, kind])."""
     database = folder / "shared/data/database/db/2700/2700_fm"
@@ -476,7 +497,7 @@ def write_database(folder: Path, people=None) -> Path:
                 nation=nation,
                 attributes={52: 15, 84: 13},
                 kind=kind,
-                days_at=synthetic.days_at(*DAYS_AT[uid]) if uid in DAYS_AT else b"",
+                days_at=_end_of_record(uid),
             )
         )
     (database / "basic_people_db.dat").write_bytes(

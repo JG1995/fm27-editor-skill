@@ -226,10 +226,48 @@ def test_the_installed_editor_database_reads_as_plausible_playing_histories(look
     too_many = lookup.execute(
         "SELECT count(*) FROM playing_history WHERE apps > 200 OR goals > 200"
     ).fetchone()[0]
+    loans, youth, tribunals = lookup.execute(
+        "SELECT sum(on_loan), sum(youth_team), sum(tribunal_fee) FROM playing_history"
+    ).fetchone()
 
     assert seasons > 4_000_000
     assert people > 400_000
     assert (unnamed_clubs, odd_years, too_many) == (0, 0, 0)
+    assert loans > 250_000
+    assert youth > 750_000
+    assert 0 < tribunals < 1_000
+
+
+@needs_editor
+def test_the_installed_editor_database_reads_as_plausible_relations(lookup):
+    """Each relation is with a record of the lookup, and second nations say one of the Editor's
+    choices of nationality info. A few favourite people are among those the lookup cannot read."""
+    known = lookup.execute(
+        "SELECT count(relations) FROM people WHERE kind IN ('player', 'staff', 'both')"
+    ).fetchone()[0]
+    outside = sum(
+        lookup.execute(
+            f"SELECT count(*) FROM {table} WHERE {column} NOT IN (SELECT uid FROM {of})"
+        ).fetchone()[0]
+        for table, column, of in (
+            ("second_nation", "nation_uid", "nation"),
+            ("trained_in_nation", "nation_uid", "nation"),
+            ("trained_at_club", "club_uid", "club"),
+            ("favourite_club", "club_uid", "club"),
+        )
+    )
+    unread_favourites = lookup.execute(
+        "SELECT count(*) FROM favourite_person WHERE favourite_uid NOT IN (SELECT uid FROM person)"
+    ).fetchone()[0]
+    second, odd_info = lookup.execute(
+        "SELECT count(*), count(*) FILTER (WHERE nationality_info NOT IN"
+        " (0, 80, 81, 82, 84, 85, 86, 87, 88, 89, 90)) FROM second_nation"
+    ).fetchone()
+
+    assert known > 685_000
+    assert second > 80_000
+    assert (outside, odd_info) == (0, 0)
+    assert unread_favourites < 20
 
 
 @needs_editor
