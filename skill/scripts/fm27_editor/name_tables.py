@@ -38,6 +38,9 @@ class NamedTable(Enum):
     DERBY = ((TEXT, TEXT, TEXT, TEXT, 5), True)
     # The name, a short name, and the name of more than one, such as "Finals"
     STAGE_NAME = ((TEXT, 1, TEXT, 1, TEXT, 2), True)
+    # An empty short name follows the name.
+    LOCAL_REGION = ((TEXT, 1, TEXT, 2), False)
+    AGREEMENT = ((TEXT, 1, TEXT, 2), True)
 
 
 def read_names(kind: NamedTable, table: bytes) -> dict[int, tuple[str, str | None]]:

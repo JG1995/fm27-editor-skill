@@ -1,8 +1,8 @@
 """The tables of the lookup for kinds of records that it knows only by name, and currencies.
 
 Languages, weather, and currencies hold their own names; continents, injuries, media sources,
-and the names of stages, such as a final, are named in lang_db.dat. Currencies also say how many
-of them make a pound.
+the names of stages, such as a final, and agreements between nations, such as the European Union,
+are named in lang_db.dat. Currencies also say how many of them make a pound.
 """
 
 import sqlite3
@@ -24,22 +24,27 @@ IN_NAME_TABLES = {
     "stage_name": ("table_23", NamedTable.STAGE_NAME, "8_23"),
 }
 CURRENCIES = "table_41"
+# Agreements have a short name as well; their records hold nothing else.
+AGREEMENTS, AGREEMENT_NAMES = "table_56", "8_56"
 CLIENT_TABLES = {
     CURRENCIES,
+    AGREEMENTS,
     *(table for table, *_ in [*IN_RECORDS.values(), *IN_NAME_TABLES.values()]),
 }
-NAME_TABLES = {english for _, _, english in IN_NAME_TABLES.values()}
+NAME_TABLES = {AGREEMENT_NAMES, *(english for _, _, english in IN_NAME_TABLES.values())}
 VIEWS = {
     "continent": "continents",
     "injury": "injuries",
     "weather": "weathers",
     "media_source": "media_sources",
     "stage_name": "stage_names",
+    "agreement": "agreements",
 }
 SCHEMA = "".join(
     [
         *(f"CREATE TABLE {kind}(uid INTEGER PRIMARY KEY, name TEXT);" for kind in IN_RECORDS),
         *(f"CREATE TABLE {kind}(uid INTEGER PRIMARY KEY, name TEXT);" for kind in IN_NAME_TABLES),
+        "CREATE TABLE agreement(uid INTEGER PRIMARY KEY, name TEXT, short_name TEXT);",
         *(f"CREATE VIEW {view} AS SELECT * FROM {kind};" for kind, view in VIEWS.items()),
         "CREATE TABLE currency(uid INTEGER PRIMARY KEY, name TEXT, short_name TEXT, symbol TEXT,"
         " per_pound REAL);",
@@ -67,6 +72,12 @@ def insert_names(cache: sqlite3.Connection, client: Tables, name_tables: Tables)
         for uid, currency in parse_currencies(client[CURRENCIES]).items()
     ]
     insert_rows(cache, "currency", rows)
+    names = read_names(NamedTable.AGREEMENT, name_tables[AGREEMENT_NAMES])
+    rows = [
+        (uid, *(name or None for name in names.get(uid, (None, None))))
+        for uid in _uids(client[AGREEMENTS])
+    ]
+    insert_rows(cache, "agreement", rows)
 
 
 def _uids(table: bytes) -> list[int]:

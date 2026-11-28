@@ -1,4 +1,5 @@
-"""The tables of the lookup for nations, cities, stadiums, competitions, clubs, and derbies."""
+"""The tables of the lookup for nations, cities, local regions, stadiums, competitions, clubs, and
+derbies."""
 
 import sqlite3
 from collections.abc import Mapping, Sequence
@@ -12,6 +13,7 @@ from fm27_editor.places import (
     parse_clubs,
     parse_competitions,
     parse_derbies,
+    parse_local_regions,
     parse_stadiums,
     parse_teams,
     team_clubs,
@@ -21,7 +23,8 @@ from fm27_editor.places import (
 # its uids, and records refer to a nation by its place there.
 NATIONS, CITIES, STADIUMS = "table_9", "table_2", "table_21"
 COMPETITIONS, CLUBS, TEAMS, DERBIES = "table_25", "table_3", "table_24", "table_18"
-CLIENT_TABLES = {NATIONS, CITIES, STADIUMS, COMPETITIONS, CLUBS, DERBIES}
+LOCAL_REGIONS = "table_47"
+CLIENT_TABLES = {NATIONS, CITIES, STADIUMS, COMPETITIONS, CLUBS, DERBIES, LOCAL_REGIONS}
 SERVER_TABLES = {COMPETITIONS, TEAMS}
 ENGLISH_NAMES = {
     NamedTable.NATION: "8_9",
@@ -30,11 +33,14 @@ ENGLISH_NAMES = {
     NamedTable.COMPETITION: "8_25",
     NamedTable.CLUB: "8_3",
     NamedTable.DERBY: "8_18",
+    NamedTable.LOCAL_REGION: "8_47",
 }
 NAME_TABLES = set(ENGLISH_NAMES.values())
 SCHEMA = """
 CREATE TABLE nation(uid INTEGER PRIMARY KEY, name TEXT);
 CREATE TABLE city(uid INTEGER PRIMARY KEY, name TEXT, nation_uid INTEGER);
+CREATE TABLE local_region(uid INTEGER PRIMARY KEY, name TEXT, nation_uid INTEGER,
+    population INTEGER);
 CREATE TABLE stadium(uid INTEGER PRIMARY KEY, name TEXT, city_uid INTEGER);
 CREATE TABLE competition(uid INTEGER PRIMARY KEY, name TEXT, short_name TEXT, gender TEXT,
     level INTEGER, nation_uid INTEGER, parent_uid INTEGER);
@@ -58,6 +64,8 @@ CREATE VIEW derbies AS SELECT derby.*, one.name AS club_1, two.name AS club_2
 CREATE VIEW nations AS SELECT * FROM nation;
 CREATE VIEW cities AS SELECT city.*, nation.name AS nation
     FROM city LEFT JOIN nation ON nation.uid = city.nation_uid;
+CREATE VIEW local_regions AS SELECT local_region.*, nation.name AS nation
+    FROM local_region LEFT JOIN nation ON nation.uid = local_region.nation_uid;
 CREATE VIEW stadiums AS SELECT stadium.*, city.name AS city, city.nation_uid,
     nation.name AS nation
     FROM stadium LEFT JOIN city ON city.uid = stadium.city_uid
@@ -89,6 +97,19 @@ def insert_places(
         [
             (uid, _name(names[NamedTable.CITY], uid), uid_at(nations, nation, "nation"))
             for uid, nation in city_nations.items()
+        ],
+    )
+    insert_rows(
+        cache,
+        "local_region",
+        [
+            (
+                region.uid,
+                _name(names[NamedTable.LOCAL_REGION], region.uid),
+                uid_at(nations, region.nation, "nation"),
+                region.population,
+            )
+            for region in parse_local_regions(client[LOCAL_REGIONS])
         ],
     )
     insert_rows(

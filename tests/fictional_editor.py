@@ -32,6 +32,10 @@ CURRENCIES = {
     13: ("Old Testmark", "Mark", "M", 0.0),
 }
 STADIUMS = {9401: ("Test Park", 0)}
+# Name, nation as an index, and population
+LOCAL_REGIONS = {9601: ("Testshire", 0, 2_500_000), 9602: ("Empty Moor", 1, 0)}
+# Name and short name
+AGREEMENTS = {1: ("Example Union", "EU"), 4: ("Territories Act", "")}
 COMPETITIONS = {
     9201: ("Example League", "League", {"nation": 0, "level": 1}, False),
     9202: ("Example Women's League", "Women", {"nation": 0, "level": 1}, True),
@@ -489,6 +493,11 @@ def client_tables() -> list[tuple[str, bytes]]:
         ],
         "table_2": [(uid, synthetic.city_record(nation)) for uid, (_, nation) in CITIES.items()],
         "table_21": [(uid, synthetic.stadium_record(city)) for uid, (_, city) in STADIUMS.items()],
+        "table_47": [
+            (uid, synthetic.local_region_record(nation, population, languages=((8, 100),)))
+            for uid, (_, nation, population) in LOCAL_REGIONS.items()
+        ],
+        "table_56": [(uid, b"\x00") for uid in AGREEMENTS],
         "table_25": [
             (uid, synthetic.competition_record(**facts))
             for uid, (_, _, facts, _) in COMPETITIONS.items()
@@ -531,4 +540,6 @@ def name_tables() -> list[tuple[str, bytes]]:
         ("8_7", synthetic.media_source_names(MEDIA_SOURCES)),
         ("8_23", synthetic.stage_names(STAGE_NAMES)),
         ("8_18", synthetic.derby_names({uid: derby[:2] for uid, derby in DERBIES.items()})),
+        ("8_47", synthetic.local_region_names({uid: r[0] for uid, r in LOCAL_REGIONS.items()})),
+        ("8_56", synthetic.award_names(AGREEMENTS)),
     ]
