@@ -111,7 +111,7 @@ def test_people_say_how_many_relations_they_have_if_that_is_known(tmp_path):
     with open_database(editor, tmp_path / "cache.sqlite") as db:
         rows = db.execute("SELECT uid, relations FROM people ORDER BY uid").fetchall()
 
-    assert rows == [(100, 7), (101, 0), (102, None)]
+    assert rows == [(100, 6), (101, 0), (102, None)]
 
 
 def test_playing_history_is_found_with_the_names_of_people_clubs_and_divisions(editor, tmp_path):
