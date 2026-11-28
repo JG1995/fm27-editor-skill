@@ -33,6 +33,8 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 | `cities` | `uid`, `name`, `nation`, `nation_uid` |
 | `stadiums` | `uid`, `name`, `city`, `city_uid`, `nation`, `nation_uid` (of its city) |
 | `derbies` | `uid`, `name`, `short_name`, `club_1`, `club_1_uid`, `club_2`, `club_2_uid` |
+| `local_regions` | `uid`, `name`, `nation`, `nation_uid`, `population` |
+| `agreements` | `uid`, `name`, `short_name` (between nations, such as the European Union) |
 | `continents`, `injuries`, `weathers`, `media_sources`, `stage_names`, `language` | `uid`, `name` |
 | `currency` | `uid`, `name`, `short_name`, `symbol`, `per_pound` (how many of it make a pound) |
 

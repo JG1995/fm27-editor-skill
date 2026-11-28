@@ -338,6 +338,25 @@ def test_kinds_known_only_by_name_can_be_found(editor, tmp_path, view, found):
     assert rows == found
 
 
+def test_local_regions_say_where_they_are_and_how_many_live_there(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            "SELECT uid, name, nation_uid, nation, population FROM local_regions ORDER BY uid"
+        ).fetchall()
+
+    assert rows == [
+        (9601, "Testshire", 9001, "Englandia", 2_500_000),
+        (9602, "Empty Moor", 9002, "Norwegia", None),
+    ]
+
+
+def test_agreements_between_nations_can_be_found_by_name(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute("SELECT uid, name, short_name FROM agreements ORDER BY uid").fetchall()
+
+    assert rows == [(1, "Example Union", "EU"), (4, "Territories Act", None)]
+
+
 def test_currencies_say_how_many_of_them_make_a_pound(editor, tmp_path):
     with open_database(editor, tmp_path / "cache.sqlite") as db:
         rows = db.execute(
