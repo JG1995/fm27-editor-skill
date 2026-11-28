@@ -700,6 +700,28 @@ def test_the_days_at_clubs_a_person_has_are_their_old_value_unless_they_are_not_
     ]
 
 
+def test_a_value_the_starting_file_changes_is_set_back_though_the_lookup_has_it(plan_for, tmp_path):
+    """Alfa Striker's finishing is 15 in the database."""
+    plan = plan_for(edits=[by_hand(100, finishing=3)])
+    path = tmp_path / "Changed.fmf"
+    save_editor_file(build_file(plan, approval_code(plan), TODAY), path)
+
+    plan = plan_for(start_from=str(path), edits=[by_hand(100, finishing=15)])
+
+    assert [(edit.old, edit.setting.value) for edit in plan.edits] == [(None, 15)]
+    assert plan.already_so == 0
+
+
+def test_the_items_of_a_list_the_starting_file_changes_are_not_known(plan_for, tmp_path):
+    plan = plan_for(edits=[by_hand(100, Pdcn=[{"Ttea": 9102, "days": 30}])])
+    path = tmp_path / "Lists.fmf"
+    save_editor_file(build_file(plan, approval_code(plan), TODAY), path)
+
+    plan = plan_for(start_from=str(path), edits=[by_hand(100, Pdcn={"replace": []})])
+
+    assert [edit.old for edit in plan.edits] == [None]
+
+
 def test_a_list_that_replaces_one_the_starting_file_adds_to_is_counted(plan_for, tmp_path):
     plan = plan_for(edits=[by_hand(100, PNRs=[{"nati": 9001}])])
     path = tmp_path / "Lists.fmf"

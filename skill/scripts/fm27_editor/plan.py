@@ -74,7 +74,7 @@ def make_plan(request: Any, editor_dir: Path, lookup: sqlite3.Connection) -> Pla
     start = _starting_file(request.get("start_from"))
     additions = _additions(wanted_records(request), rules)
     new = {addition.name: addition.kind for addition in additions if addition.name is not None}
-    planned = list(_planned(wanted_edits(request, lookup), new, rules, lookup))
+    planned = list(_planned(wanted_edits(request, lookup), new, rules, lookup, start))
     edits = [edit for edit in planned if edit.old != edit.setting.as_the_lookup_says]
     found = []
     if HISTORY_KEY in request:
@@ -185,7 +185,11 @@ def _planned(
     new: Mapping[str, RecordKind],
     rules: RecordRules,
     lookup: sqlite3.Connection,
+    start: StartingFile | None,
 ) -> Iterator[Edit]:
+    """What each wanted value changes. A field that the starting file changes has no old value the
+    lookup knows."""
+    changed = set() if start is None else start.changed
     seen = set()
     for edit in wanted:
         record = known_record(edit.group, edit.uid, lookup)
@@ -195,7 +199,9 @@ def _planned(
             if (record.address, field.code) in seen:
                 raise RequestError(f"{field.name} of {record.name} ({record.uid}) is set twice")
             seen.add((record.address, field.code))
-            yield Edit(record, setting, known_value(record, field.code, lookup))
+            known = (record.address, field.code) not in changed
+            old = known_value(record, field.code, lookup) if known else None
+            yield Edit(record, setting, old)
 
 
 def _check_values(record: KnownRecord, values: Mapping[str, Any]) -> None:
