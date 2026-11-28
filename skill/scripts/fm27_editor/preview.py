@@ -56,7 +56,7 @@ def _group_lines(group: RecordGroup, edits: list[Edit]) -> list[str]:
         return []
     records = len({edit.record.uid for edit in edits})
     changes = counted(len(edits), "change", "changes")
-    heading = f"Edits: {changes} to {counted(records, group.one, group.view)}"
+    heading = f"Edits: {changes} to {counted(records, group.one, group.many)}"
     return [heading, *(_field_line(group, alike) for alike in _by_field(edits))]
 
 
@@ -69,7 +69,7 @@ def _by_field(edits: Iterable[Edit]) -> list[list[Edit]]:
 
 def _field_line(group: RecordGroup, edits: list[Edit]) -> str:
     field = edits[0].setting.field
-    parts = [counted(len(edits), group.one, group.view)]
+    parts = [counted(len(edits), group.one, group.many)]
     if field.type in ("integer", "attribute", MONEY, REAL):
         parts += _direction(edits)
         numbers = [edit.setting.value for edit in edits if not _has_range(edit)]
@@ -169,7 +169,7 @@ def _addition_lines(plan: Plan, lookup: sqlite3.Connection, examples: int) -> li
         additions = [new for new in plan.additions if new.kind.group is group]
         if not additions:
             continue
-        lines.append(f"New {group.view}: {len(additions):,}")
+        lines.append(f"New {group.many}: {len(additions):,}")
         lines += [_addition_line(addition, lookup) for addition in additions[:examples]]
         if len(additions) > examples:
             lines.append(f"  and {len(additions) - examples:,} more")
