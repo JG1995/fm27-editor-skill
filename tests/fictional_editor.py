@@ -61,6 +61,9 @@ HISTORIES = {
         synthetic.history_item(2022, 9101, order=2, division=9201, apps=255, goals=255, fee=-2),
     ],
 }
+# Days at clubs and in nations by person uid: Alfa Striker's at a club and in a nation, and none
+# of Bravo Keeper. Anyone else's cannot be read.
+DAYS_AT = {100: [(9101, 400), (9002, 6000, 0x41, 0xCD)], 101: []}
 
 AWARDS = {
     9501: (
@@ -438,6 +441,7 @@ def write_database(folder: Path, people=None) -> Path:
                 nation=nation,
                 attributes={52: 15, 84: 13},
                 kind=kind,
+                days_at=synthetic.days_at(*DAYS_AT[uid]) if uid in DAYS_AT else b"",
             )
         )
     (database / "basic_people_db.dat").write_bytes(
