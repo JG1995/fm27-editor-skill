@@ -153,9 +153,9 @@ def named(lookup: sqlite3.Connection, table: str | None, uid: int) -> str:
 
 
 def named_team(lookup: sqlite3.Connection, uid: int) -> str:
-    """A club, or a national team, which has the uid of its nation."""
+    """A club, or a national team by the name of its nation."""
     is_club = record_name(lookup, "club", uid) is not None
-    return named(lookup, "club" if is_club else "nation", uid)
+    return named(lookup, "club" if is_club else "national_team", uid)
 
 
 def named_reference(

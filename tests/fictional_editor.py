@@ -12,6 +12,9 @@ PEOPLE = [
 PLAYER_KIND, STAFF_KIND = 2, 1
 
 NATIONS = {9001: "Englandia", 9002: "Norwegia"}
+# Table 9 holds the nations, which are their men's national teams too, then a women's national team
+# for each, in the same order and without a name.
+WOMENS_TEAMS = {9001: 9901, 9002: 9902}
 LANGUAGES = {8: "Englandish", 22: "Norwegish"}
 CITIES = {9301: ("Testby", 0), 9302: ("Testham", 1)}
 CONTINENTS = {1: "Testica", 3: "Europia"}
@@ -403,6 +406,14 @@ STAGE_NAME = synthetic.definition_file(
     synthetic.field_definition("SNna", "Name", "string"),
     synthetic.field_definition("SNpn", "Plural Name", "string"),
 )
+NATIONAL_TEAM = synthetic.definition_file(
+    "ntc",
+    synthetic.field_definition("Nnam", "Name", "string"),
+    synthetic.field_definition("NTCn", "Nation", *synthetic.reference("nation")),
+    synthetic.field_definition("Nrep", "Reputation", "integer", synthetic.number_range(0, 10000)),
+    synthetic.field_definition("Nmni", "Manager", *synthetic.reference("person")),
+    synthetic.field_definition("Nfpa", "FA Patience", "integer", synthetic.number_range(1, 20)),
+)
 LOCAL_REGION = synthetic.definition_file(
     "lreg",
     synthetic.field_definition("Lnam", "Name", "string"),
@@ -458,6 +469,7 @@ def write_definitions(folder: Path, person: bytes = PERSON) -> Path:
         "derby": DERBY,
         "stage name": STAGE_NAME,
         "local region": LOCAL_REGION,
+        "national team container": NATIONAL_TEAM,
         "agreement": AGREEMENT,
     }
     path.write_bytes(synthetic.definitions_container(files, SHARED_CHOICES))
@@ -528,7 +540,7 @@ def write_database(folder: Path, people=None) -> Path:
 
 def client_tables() -> list[tuple[str, bytes]]:
     records = {
-        "table_9": [(uid, b"nation") for uid in NATIONS],
+        "table_9": [(uid, b"nation") for uid in [*NATIONS, *WOMENS_TEAMS.values()]],
         # The base database has a table beside the nations with almost the same uids, in an order
         # that differs at one place. Records refer to nations by their place in table 9.
         "table_10": [(uid, b"other") for uid in reversed(NATIONS)],

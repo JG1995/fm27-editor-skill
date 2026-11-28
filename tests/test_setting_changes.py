@@ -37,6 +37,7 @@ def lookup():
         "stadium": 9401,
         "language": 8,
         "person": 100,
+        "national_team": 9001,
     }
     for table, uid in names.items():
         connection.execute(f"CREATE TABLE {table}(uid INTEGER PRIMARY KEY, name TEXT)")

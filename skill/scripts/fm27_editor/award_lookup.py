@@ -35,7 +35,7 @@ CREATE VIEW award_history AS SELECT award_year.award_uid, award.name AS award, a
     FROM award_year JOIN award ON award.uid = award_year.award_uid
     LEFT JOIN award_place ON award_place.year_uid = award_year.uid
     LEFT JOIN club ON club.uid = award_place.team_uid
-    LEFT JOIN nation AS home ON home.uid = award_place.team_uid
+    LEFT JOIN national_team AS home ON home.uid = award_place.team_uid
     LEFT JOIN nation ON nation.uid = award_place.nation_uid;
 """
 

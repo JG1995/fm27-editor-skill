@@ -39,7 +39,16 @@ from fm27_editor.list_changes import (
     REMOVE,
 )
 from fm27_editor.record_changes import ID_TAG, REFERENCE_TAGS
-from fm27_editor.record_kinds import COMPETITION, GROUPS, PLAYER, STAFF
+from fm27_editor.record_kinds import (
+    COMPETITION,
+    GROUPS,
+    NATION,
+    NATIONAL_TEAM,
+    NATIONAL_TEAMS,
+    NATIONS,
+    PLAYER,
+    STAFF,
+)
 from fm27_editor.record_rules import LOOKUP_TABLES
 from fm27_editor.rule_changes import read_rules
 from fm27_editor.words import counted, named, named_team
@@ -47,18 +56,23 @@ from fm27_editor.words import counted, named, named_team
 KINDS_OF_RECORD = "dbts"
 FIELDS_SHOWN = 12
 KEPT_HALF = slice(4, ID_SIZE)
+# Where the Editor's list of tables does not say all that a table holds: it calls the nations'
+# table National Team, and it holds the nations as well (see place_lookup).
+NATIONS_AND_TEAMS = "Nation or national team"
+KIND_OF_TABLE = {Table.NATION: NATIONS_AND_TEAMS}
 # Where the definition files are not called what the Editor calls the kind of record.
 DEFINED_IN = {
     "Person": [*STAFF.defined_in, *PLAYER.defined_in],
     "Derby Name": ["derby"],
     "Competition": COMPETITION.defined_in,
+    NATIONS_AND_TEAMS: [*NATION.defined_in, *NATIONAL_TEAM.defined_in],
 }
-# Where the Editor's list of tables does not say what a table holds: it calls the nations' table
-# National Team, but real changes to nations are stored there (see place_lookup).
-KIND_OF_TABLE = {Table.NATION: "Nation"}
 # Where the lookup names a record: the view of its kind, by the table a change is about, and the
-# lookup's table, by the tag of a reference.
-VIEW_OF_TABLE = {group.table: group.view for group in GROUPS.values()}
+# lookup's table, by the tag of a reference. The national teams name every record of table 9, a
+# women's team by its nation.
+VIEW_OF_TABLE = {group.table: group.view for group in GROUPS.values() if group is not NATIONS} | {
+    Table.NATION: NATIONAL_TEAMS.view
+}
 TABLE_OF_TAG = {tag: LOOKUP_TABLES.get(kind) for kind, tag in LIST_REFERENCE_TAGS.items()}
 LIST_STEPS = {
     ADD: "an item is added",

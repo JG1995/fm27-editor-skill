@@ -34,6 +34,7 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 | `favourite_people` | `person_uid`, `name`, `item`, `favourite`, `favourite_uid` (`NULL` for someone the database does not hold), `level`, `reason` (the Editor's choice), `permanent` (1 or 0) |
 | `favourite_clubs` | `person_uid`, `name`, `item`, `club`, `club_uid`, `level`, `reason` (the Editor's choice) |
 | `nations` | `uid`, `name` |
+| `national_teams` | `uid`, `name` (of its nation), `nation`, `nation_uid`, `gender`; a men's team has the uid of its nation |
 | `cities` | `uid`, `name`, `nation`, `nation_uid` |
 | `stadiums` | `uid`, `name`, `city`, `city_uid`, `nation`, `nation_uid` (of its city) |
 | `derbies` | `uid`, `name`, `short_name`, `club_1`, `club_1_uid`, `club_2`, `club_2_uid` |
@@ -86,7 +87,7 @@ A request has any of these parts. The uids here are made up:
 }
 ```
 
-- **`of`** is `people`, `clubs`, `competitions`, `awards`, `stadiums`, `nations`, `cities`, `continents`, `injuries`, `weathers`, `media_sources`, `derbies`, `stage_names`, `local_regions`, or `agreements`. A club and a person can have the same uid. A club's ground is its `stadium_uid`; change the ground itself as one of `stadiums`.
+- **`of`** is `people`, `clubs`, `competitions`, `awards`, `stadiums`, `nations`, `national_teams`, `cities`, `continents`, `injuries`, `weathers`, `media_sources`, `derbies`, `stage_names`, `local_regions`, or `agreements`. A club and a person can have the same uid. A club's ground is its `stadium_uid`; change the ground itself as one of `stadiums`.
 - **A field that names a person,** such as a club's manager (`Cmni`) or captain (`Tcap`), takes the uid of someone in `people`, or `@` and the name of a new person. Someone who is not in the lookup cannot be named. The skill does not check that the person works or plays there, so check it with `find` first.
 - **`query`** returns `uid` and one column for each field to set. The column's value is the new value.
 - **`as`** names a new record. Later ones and edits refer to it with `@` and that name.
@@ -99,9 +100,9 @@ A request has any of these parts. The uids here are made up:
 
 ## Fields
 
-`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `stadium`, `nation`, `city`, `continent`, `injury`, `weather`, `media_source`, `derby`, `stage_name`, `local_region`, `agreement`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
+`fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `stadium`, `nation`, `national_team`, `city`, `continent`, `injury`, `weather`, `media_source`, `derby`, `stage_name`, `local_region`, `agreement`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
 
-Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, people's achievements, injuries, and bans, kits other than their colours, reserve teams, national teams, a local region's weather and lists, the nations of an agreement, and new records other than people, clubs, competitions, stadiums, and cities. If a request needs one of these, say so before doing the rest.
+Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, people's achievements, injuries, and bans, kits other than their colours, reserve teams, a national team's manager, a local region's weather and lists, the nations of an agreement, and new records other than people, clubs, competitions, stadiums, and cities. If a request needs one of these, say so before doing the rest.
 
 ## Lists on people
 
@@ -110,7 +111,7 @@ A field that `fm27 fields player` describes as "items of" its parts, such as pla
 - **Items are added to what the person has,** so tell the user that what is there stays. Of the lists, the lookup holds playing history, days at clubs and in nations, second nations, where people trained, and favourite people and clubs, in the tables above; find what a person has there before you add to it.
 - **To replace what a list holds,** give `{"replace": [...]}` with the items; `{"replace": []}` clears it. When the user wants a list to be exactly something, replace it. When it is unclear whether to add or replace, ask. The preview lists every item that a replaced list of these loses: show those to the user. A box that is ticked, such as Between Age Of 15 And 21 Only, is named in the item. For other lists, such as languages, and for people whose lists the lookup could not read, it says that what they hold is not known; tell the user that it is lost unseen.
 - **A part that is left out keeps what a new item has,** such as no club, or 1900 as the year in playing history. Give each item of a playing history (`Plhs`) its `year`, `clid`, and `divi`, and each language a person speaks (`PElg`) its `lang` from the `language` table.
-- **A team in a list can be a national team,** given by the uid of its nation.
+- **A team in a list can be a national team,** given by its uid in `national_teams`: a men's team by the uid of its nation.
 
 ## Create people
 

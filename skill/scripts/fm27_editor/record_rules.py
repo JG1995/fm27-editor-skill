@@ -38,6 +38,8 @@ LOOKUP_TABLES = {
     "person": "person",
     "language": "language",
 }
+# A team is a club or a national team; a men's national team has the uid of its nation.
+TEAM_TABLES = ("club", "national_team")
 NEW_MARK = "@"
 
 
@@ -195,7 +197,7 @@ class RecordRules:
     ) -> FieldValue | NewReference:
         """A checked value of a field, or of a part of an item.
 
-        A team in a list can be a national team, which has the uid of its nation.
+        A team in a list can be a national team.
         """
         reason = refusal(field, LIST_REFERENCE_TAGS if in_list else REFERENCE_TAGS)
         if reason is not None:
@@ -203,7 +205,7 @@ class RecordRules:
         if given is None:
             raise EditError(f"{_called(field)} needs a value")
         if in_list and field.points_to == "team" and not is_new_reference(given):
-            check_exists(self._lookup, _called(field), given, "club", "nation")
+            check_exists(self._lookup, _called(field), given, *TEAM_TABLES)
             return given
         if field.points_to is not None:
             return self.refer(field.points_to, _called(field), given, new)
@@ -263,7 +265,8 @@ def _called(field: Field) -> str:
 def check_exists(lookup: sqlite3.Connection, called: str, uid: object, *tables: str) -> None:
     """Something called `called` points to a record of one of these tables of the lookup."""
     if not is_uid(uid) or all(record_name(lookup, table, uid) is None for table in tables):
-        raise EditError(f"{called}: there is no {' or '.join(tables)} {uid!r}")
+        kinds = " or ".join(table.replace("_", " ") for table in tables)
+        raise EditError(f"{called}: there is no {kinds} {uid!r}")
 
 
 def is_new_reference(given: object) -> bool:
