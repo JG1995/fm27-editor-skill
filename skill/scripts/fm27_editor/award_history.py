@@ -17,6 +17,7 @@ from fm27_editor.base_database import record_name
 from fm27_editor.change_reading import Change, EditError, Table, existing_record
 from fm27_editor.definition_files import FieldDefinitionError
 from fm27_editor.field_definitions import Field
+from fm27_editor.json_text import check_names
 from fm27_editor.list_changes import LIST_REFERENCE_TAGS, Item, ListShape, list_change
 from fm27_editor.record_changes import (
     REFERENCE,
@@ -162,7 +163,7 @@ class _Checker:
 
     def entry(self, given: Any) -> tuple[int, int]:
         """The award and the year that are meant."""
-        _check_keys("award_history", given, ENTRY_KEYS)
+        check_names(given, ENTRY_KEYS, "award_history", EditError)
         missing = [name for name in (AWARD_UID, YEAR) if name not in given]
         if missing:
             raise EditError(f"a year of award_history needs {', '.join(missing)}")
@@ -205,7 +206,7 @@ class _Checker:
         )
 
     def _place(self, where: str, number: int, given: Any, old: Year | None) -> Place:
-        _check_keys(where, given, {KEEP, *OFFERED})
+        check_names(given, {KEEP, *OFFERED}, where, EditError)
         for name, value in given.items():
             if value is None:
                 raise EditError(f"{where}: {name} has no value")
@@ -242,14 +243,6 @@ class _Checker:
             (uid,),
         ).fetchone()
         return record_name(self._lookup, "person", uid) if row is None else row[0]
-
-
-def _check_keys(where: str, given: Any, known: set[str]) -> None:
-    if not isinstance(given, Mapping):
-        raise EditError(f"{where} must have named parts: {', '.join(sorted(known))}")
-    unknown = given.keys() - known
-    if unknown:
-        raise EditError(f"{where} has no part named {', '.join(sorted(unknown))}")
 
 
 def _only(award: int, number: int, years: list[Year]) -> Year | None:

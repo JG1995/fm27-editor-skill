@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Any
 
 from fm27_editor.binary import FormatError
-from fm27_editor.json_text import RepeatedNameError, read_json
+from fm27_editor.json_text import RepeatedNameError, check_names, read_json
 from fm27_editor.record_kinds import GROUPS, RecordGroup, RecordKind, kind_named
 
 RULES_KEY = "nation_rules"
@@ -74,7 +74,7 @@ def run_query(lookup: sqlite3.Connection, query: str, limit: int | None = None) 
 
 
 def check_request(request: Any) -> None:
-    _check_keys(request, REQUEST_KEYS, "a request")
+    check_names(request, REQUEST_KEYS, "a request", RequestError)
     for name in ("edits", "new"):
         if not isinstance(request.get(name, []), list):
             raise RequestError(f"{name} must be a list")
@@ -109,14 +109,6 @@ def wanted_records(request: Any) -> Iterator[WantedRecord]:
             raise RequestError(f"two new records are called {name}")
         names |= {name} - {None}
         yield WantedRecord(kind_named(str(entry["kind"])), name, _values(entry))
-
-
-def _check_keys(entry: Any, known: set[str], what: str) -> None:
-    if not isinstance(entry, Mapping):
-        raise RequestError(f"{what} must have named parts: {', '.join(sorted(known))}")
-    unknown = entry.keys() - known
-    if unknown:
-        raise RequestError(f"{what} has no part named {', '.join(sorted(unknown))}")
 
 
 def _group(name: Any) -> RecordGroup:
