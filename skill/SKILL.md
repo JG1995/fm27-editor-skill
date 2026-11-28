@@ -7,7 +7,7 @@ description: Read, search, and change Football Manager 27 Pre-game Editor data w
 
 Change Football Manager 27 editor data by writing new `.fmf` files with the bundled commands. The user opens the file in the Editor to check it, and uses it when starting a new game.
 
-Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Below it is called `fm27`. The first command takes about 20 seconds, because it builds a lookup from the installed Editor.
+Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Below it is called `fm27`. The first command takes about a minute, because it builds a lookup from the installed Editor.
 
 ## Rules
 
