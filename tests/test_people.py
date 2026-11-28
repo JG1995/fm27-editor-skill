@@ -328,6 +328,44 @@ def test_a_contract_without_an_end_gives_the_wage_alone():
     assert (person.wage, person.contract_expires) == (25_000, None)
 
 
+@pytest.mark.parametrize("kind", [1, 2])
+def test_days_at_clubs_and_in_nations_are_read_from_the_end_of_the_record(kind):
+    """The first and the fourth byte of an item hold flags that are not read."""
+    days = synthetic.days_at((9101, 365), (9001, 7000, 0x41, 0xCD))
+    record = synthetic.person_record(0, 100, kind=kind, days_at=days)
+    (person,) = read_all([synthetic.basic_person(kind, 0, 100)], [record])
+
+    assert person.club_or_nation_days == ((9101, 365), (9001, 7000))
+
+
+def test_a_person_can_have_no_days_at_clubs_or_in_nations():
+    record = synthetic.person_record(0, 100, days_at=synthetic.days_at())
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert person.club_or_nation_days == ()
+
+
+@pytest.mark.parametrize(
+    "days",
+    [
+        pytest.param(b"", id="none at the end"),
+        pytest.param(synthetic.days_at((9101, 365), before=b"\x00\x01\xff"), id="not after ff 01"),
+        pytest.param(
+            synthetic.days_at((9101, 365), tail=bytes(9)), id="not ten bytes before the end"
+        ),
+        pytest.param(synthetic.days_at((9101, 365, 0x02, 0)), id="an item without its lowest bit"),
+        pytest.param(
+            synthetic.days_at((0x010001FF, 10), (9101, 20)), id="the last item fits on its own"
+        ),
+    ],
+)
+def test_days_at_clubs_that_cannot_be_read_one_way_only_are_not_known(days):
+    record = synthetic.person_record(0, 100, days_at=days)
+    (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
+
+    assert person.club_or_nation_days is None
+
+
 def test_a_person_without_a_club_has_no_contract():
     basic = synthetic.basic_person(2, 0, 100, club=(0xFFFFFFFF, 0xFFFFFFFF))
     record = synthetic.person_record(0, 100, contract=synthetic.contract_block(0))

@@ -495,8 +495,10 @@ def person_record(
     staff_items: int = 0,
     staff_attributes: dict[int, int] | None = None,
     contract: bytes = b"",
+    days_at: bytes = b"",
 ) -> bytes:
-    """A person: fixed fields from the start, then name, birth date, nation, personality, ids.
+    """A person: fixed fields from the start, then name, birth date, nation, personality, the days
+    at clubs and in nations in `days_at`, and the ids.
 
     A staff record has a list of seven-byte items after its kind, and staff attributes count from
     the end of that list.
@@ -519,8 +521,20 @@ def person_record(
     name_block += text(full_name)
     record += b"\x06\x10\x00" + name_block + struct.pack("<HH", day, year)
     record += b"\xff\x00\x07\x01" + struct.pack("<I", 2) + b"\x03\x01"
-    record += struct.pack("<II", *nation) + personality + b"\x01\x00"
+    record += struct.pack("<II", *nation) + personality + b"\x01\x00" + days_at
     return bytes(record) + struct.pack("<III", index, uid, uid)
+
+
+def days_at(
+    *items: tuple[int, ...], before: bytes = b"\xff\x01\xff", tail: bytes = bytes(10)
+) -> bytes:
+    """Days at clubs and in nations as a record ends with them: the bytes in `before`, the number of
+    items, the items, and ten bytes. An item is (uid, days) and maybe its first and fourth byte."""
+    body = b""
+    for uid, days, *flags in items:
+        first, fourth = flags or (0x01, 0x00)
+        body += struct.pack("<BHBI", first, days, fourth, uid)
+    return before + bytes([len(items)]) + body + tail
 
 
 def contract_block(
