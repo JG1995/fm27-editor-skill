@@ -97,7 +97,7 @@ A request has any of these parts. The uids here are made up:
 
 `fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `stadium`, `nation`, `city`, `continent`, `injury`, `weather`, `media_source`, `derby`, `stage_name`, `local_region`, `agreement`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
 
-Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, people's achievements, injuries, and bans, kits other than their colours, reserve teams, national teams, a local region's weather and lists, the nations of an agreement, and new records other than people, clubs, and competitions. If a request needs one of these, say so before doing the rest.
+Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, people's achievements, injuries, and bans, kits other than their colours, reserve teams, national teams, a local region's weather and lists, the nations of an agreement, and new records other than people, clubs, competitions, stadiums, and cities. If a request needs one of these, say so before doing the rest.
 
 ## Lists on people
 
@@ -125,6 +125,12 @@ A new club needs `name`, `short_name`, and `nation_uid`. Also set `based_nation_
 A new competition needs `name`, `short_name`, `nation_uid`, and its type (`dbty`). Also set `crep` and, for a division, `level`, where 1 is the top. A regional part of a division has that division as `parent_uid`.
 
 A competition without rules exists, but is not played. For it to be played, the file needs `nation_rules`.
+
+## Create stadiums and cities
+
+A new stadium needs `name` and `city_uid`. Also set its capacity (`Scpy`), seating capacity (`Sscy`), used capacity (`Sucy`), and pitch type (`Spty`). A club plays there when its `stadium_uid` names it, such as `"@S"` for a new stadium made `as` S.
+
+A new city needs `name` and `nation_uid`. Also set its inhabitants (`Cinh`), latitude (`Clat`), longitude (`Clon`), and attraction (`Catt`). A new stadium or club is in it when its `city_uid` names it.
 
 ## Rules for competitions
 

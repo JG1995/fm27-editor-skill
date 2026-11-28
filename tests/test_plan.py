@@ -354,13 +354,59 @@ def test_a_record_is_changed_in_its_own_table(plan_for, of, uid, code, value, ta
 @pytest.mark.parametrize(
     "kind",
     [
-        *("stadium", "nation", "city", "continent", "injury", "weather"),
+        *("nation", "continent", "injury", "weather"),
         *("media_source", "derby", "stage_name", "local_region", "agreement"),
     ],
 )
 def test_a_kind_that_no_file_adds_cannot_be_made(plan_for, kind):
     with pytest.raises(FormatError, match=f"a new {kind} cannot be made"):
         plan_for(new=[{"kind": kind, "set": {"name": "Example"}}])
+
+
+CITY = {"kind": "city", "as": "C", "set": {"name": "Testville", "nation_uid": 9001}}
+STADIUM = {"kind": "stadium", "as": "S", "set": {"name": "Test Ground", "city_uid": "@C"}}
+
+
+def added_tables(file):
+    """The table of each record that the file adds, in order."""
+    return [
+        next(i for i in change if i.tag == "nwvl").value[1].value[0]
+        for change in file.changes.changes
+        if any(i.value == "ADDR" for i in change)
+    ]
+
+
+def new_id(file, index):
+    return next(i.value for i in file.changes.changes[index] if i.tag == "nwvl")[-1].value
+
+
+def test_a_new_stadium_can_be_in_a_new_city_and_a_new_club_can_play_there(plan_for):
+    rovers = ROVERS | {"set": ROVERS["set"] | {"stadium_uid": "@S"}}
+
+    plan = plan_for(new=[LEAGUE, CITY, STADIUM, rovers])
+    file = build_file(plan, approval_code(plan), TODAY)
+
+    assert added_tables(file) == [25, 2, 21, 3]
+    adds = [index for index, code in enumerate(codes(file)) if code == "ADDR"]
+    _, city, stadium, _ = (new_id(file, index) for index in adds)
+    references = {
+        code: next(i for i in change if i.tag == "nwvl").value[1].value
+        for change in file.changes.changes
+        if (code := next(i.value for i in change if i.tag == "prty")) in ("Scti", "Csti")
+    }
+    assert references == {"Scti": city, "Csti": stadium}
+
+
+@pytest.mark.parametrize(
+    ("new", "missing"),
+    [
+        ({"kind": "stadium", "set": {"name": "Test Ground"}}, "City (Scti)"),
+        ({"kind": "city", "set": {"name": "Testville"}}, "Nation (Cnti)"),
+    ],
+)
+def test_a_new_stadium_needs_a_city_and_a_new_city_a_nation(plan_for, new, missing):
+    with pytest.raises(FormatError, match=re.escape(missing)):
+        plan_for(new=[new])
 
 
 def test_an_award_cannot_be_made(plan_for):
