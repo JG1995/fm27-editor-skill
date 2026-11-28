@@ -40,16 +40,7 @@ from fm27_editor.list_changes import (
 )
 from fm27_editor.record_changes import ID_TAG, REFERENCE_TAGS
 from fm27_editor.record_fields import LOOKUP_TABLES
-from fm27_editor.record_kinds import (
-    COMPETITION,
-    GROUPS,
-    NATION,
-    NATIONAL_TEAM,
-    NATIONAL_TEAMS,
-    NATIONS,
-    PLAYER,
-    STAFF,
-)
+from fm27_editor.record_kinds import GROUPS, KINDS, NATIONAL_TEAMS, NATIONS
 from fm27_editor.rule_changes import read_rules
 from fm27_editor.words import counted, named, named_team
 
@@ -60,12 +51,15 @@ KEPT_HALF = slice(4, ID_SIZE)
 # table National Team, and it holds the nations as well (see place_lookup).
 NATIONS_AND_TEAMS = "Nation or national team"
 KIND_OF_TABLE = {Table.NATION: NATIONS_AND_TEAMS}
-# Where the definition files are not called what the Editor calls the kind of record.
+# The definition files of each table, from the kinds of record in it. A file read later names a
+# code over one read before it, as the definitions of all people do over those of players.
 DEFINED_IN = {
-    "Person": [*STAFF.defined_in, *PLAYER.defined_in],
-    "Derby Name": ["derby"],
-    "Competition": COMPETITION.defined_in,
-    NATIONS_AND_TEAMS: [*NATION.defined_in, *NATIONAL_TEAM.defined_in],
+    table: list(
+        dict.fromkeys(
+            name for kind in KINDS.values() if kind.group.table == table for name in kind.defined_in
+        )
+    )
+    for table in {kind.group.table for kind in KINDS.values()}
 }
 # Where the lookup names a record: the view of its kind, by the table a change is about, and the
 # lookup's table, by the tag of a reference. The national teams name every record of table 9, a
@@ -107,23 +101,23 @@ class _Words:
         self._lookup = lookup
         self._editor_dir = editor_dir
         self._kinds = read_shared_choices(editor_dir, KINDS_OF_RECORD)
-        self._fields: dict[str, dict[str, str]] = {}
-        self._items: dict[str, dict[str, dict[str, str]]] = {}
+        self._fields: dict[int, dict[str, str]] = {}
+        self._items: dict[int, dict[str, dict[str, str]]] = {}
         self._new_names = _names_of_new_records(changes)
 
     def kind(self, table: int) -> str:
         return KIND_OF_TABLE.get(table) or self._kinds.get(table, f"Table {table}")
 
-    def field(self, kind: str, code: str) -> str:
-        if kind not in self._fields:
-            self._fields[kind] = self._read_fields(kind)
-        return self._fields[kind].get(code, code)
+    def field(self, table: int, code: str) -> str:
+        if table not in self._fields:
+            self._fields[table] = self._read(table, read_field_names)
+        return self._fields[table].get(code, code)
 
-    def part(self, kind: str, code: str, part: str) -> str:
+    def part(self, table: int, code: str, part: str) -> str:
         """A part of an item of a list."""
-        if kind not in self._items:
-            self._items[kind] = self._read_items(kind)
-        return self._items[kind].get(code, {}).get(part, part)
+        if table not in self._items:
+            self._items[table] = self._read(table, read_item_names)
+        return self._items[table].get(code, {}).get(part, part)
 
     def record(self, table: str | None, record: bytes) -> str:
         """A record of one of the lookup's tables, or a new one, by name if that is known."""
@@ -139,17 +133,11 @@ class _Words:
             return named_team(self._lookup, uid_of(record))
         return self.record(TABLE_OF_TAG.get(tag), record)
 
-    def _read_fields(self, kind: str) -> dict[str, str]:
-        return self._read(kind, read_field_names)
-
-    def _read_items(self, kind: str) -> dict[str, dict[str, str]]:
-        return self._read(kind, read_item_names)
-
-    def _read[T](self, kind: str, read: Callable[[Path, str], dict[str, T]]) -> dict[str, T]:
+    def _read[T](self, table: int, read: Callable[[Path, str], dict[str, T]]) -> dict[str, T]:
         names: dict[str, T] = {}
-        for definitions in DEFINED_IN.get(kind, [kind.lower()]):
+        for definitions in DEFINED_IN.get(table, [self.kind(table).lower()]):
             try:
-                names = read(self._editor_dir, definitions) | names
+                names |= read(self._editor_dir, definitions)
             except NoDefinitionsError:
                 continue
         return names
@@ -214,14 +202,14 @@ def _table_lines(items: list[ReadChange], words: _Words) -> list[str]:
         records = counted(len({item.record for item in of_kind}), "record", "records")
         lines.append(f"{kind}: {counted(count, 'change', 'changes')} to {records}")
         fields = Counter(item.code for item in of_kind).most_common()
-        lines += [f"  {_field(kind, code, words)}: {n:,}" for code, n in fields[:FIELDS_SHOWN]]
+        lines += [f"  {_field(table, code, words)}: {n:,}" for code, n in fields[:FIELDS_SHOWN]]
         if len(fields) > FIELDS_SHOWN:
             lines.append(f"  and {len(fields) - FIELDS_SHOWN} more fields")
     return lines
 
 
-def _field(kind: str, code: str, words: _Words) -> str:
-    name = words.field(kind, code)
+def _field(table: int, code: str, words: _Words) -> str:
+    name = words.field(table, code)
     return code if name == code else f"{name} ({code})"
 
 
@@ -253,7 +241,7 @@ def _list_step(item: ReadChange, words: _Words) -> str | None:
         return None
     operation = read_number(parts[OPERATION])
     if operation == CHANGE_PART and ID_TAG in parts:
-        part = words.part(words.kind(item.table), item.code, str(parts[ID_TAG].value))
+        part = words.part(item.table, item.code, str(parts[ID_TAG].value))
         return f"its {part} = {_value(parts.get(PART_VALUE), words)}"
     return LIST_STEPS.get(operation, f"list step {operation}")
 
@@ -269,9 +257,8 @@ def _searched_lines(item: ReadChange, words: _Words) -> Iterator[str]:
 
 
 def _changed_field(item: ReadChange, words: _Words) -> str:
-    kind = words.kind(item.table)
     record = words.record(VIEW_OF_TABLE.get(item.table), item.record)
-    return f"  {record}: {words.field(kind, item.code)}"
+    return f"  {record}: {words.field(item.table, item.code)}"
 
 
 # --- values --------------------------------------------------------------------------------
@@ -281,9 +268,8 @@ def _list_item(item: ReadChange, entry: ListItem, words: _Words) -> str:
     """What an item has, without the parts that say nothing."""
     if entry.kind is not Kind.NESTED:
         return _value(entry, words)
-    kind = words.kind(item.table)
     return ", ".join(
-        f"{words.part(kind, item.code, part.tag)} {_value(part, words)}"
+        f"{words.part(item.table, item.code, part.tag)} {_value(part, words)}"
         for part in entry.value
         if not says_nothing(part)
     )
