@@ -34,6 +34,9 @@ CLIENT_TABLES = (
 )
 SERVER_TABLES = place_lookup.SERVER_TABLES | award_lookup.SERVER_TABLES
 NAME_TABLES = place_lookup.NAME_TABLES | award_lookup.NAME_TABLES | name_lookup.NAME_TABLES
+SCHEMA = "CREATE TABLE meta(fingerprint TEXT);" + "".join(
+    module.SCHEMA for module in (place_lookup, award_lookup, name_lookup, people_lookup)
+)
 
 
 class DatabaseError(FormatError):
@@ -131,9 +134,4 @@ def _fill(path: Path, source: Path, fingerprint: str) -> None:
 
 
 def _create_tables(cache: sqlite3.Connection) -> None:
-    cache.executescript(
-        "CREATE TABLE meta(fingerprint TEXT);"
-        + "".join(
-            module.SCHEMA for module in (place_lookup, award_lookup, name_lookup, people_lookup)
-        )
-    )
+    cache.executescript(SCHEMA)
