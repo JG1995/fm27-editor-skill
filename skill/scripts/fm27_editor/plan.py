@@ -44,7 +44,6 @@ from fm27_editor.request import (
     wanted_records,
 )
 from fm27_editor.rule_changes import add_rules
-from fm27_editor.rule_definitions import RuleDefinitions
 from fm27_editor.rule_plan import plan_rules, rule_warnings
 from fm27_editor.setting_changes import edit_record, new_record
 from fm27_editor.words import counted
@@ -82,9 +81,8 @@ def make_plan(request: Any, editor_dir: Path, lookup: sqlite3.Connection) -> Pla
     histories = [edit for edit in found if edit.history.changed]
     nation_rules = None
     if RULES_KEY in request:
-        definitions = RuleDefinitions(editor_dir)
         refer = partial(record_fields.refer, new=new)
-        nation_rules = plan_rules(request[RULES_KEY], definitions, refer, additions, lookup, start)
+        nation_rules = plan_rules(request[RULES_KEY], editor_dir, refer, additions, lookup, start)
     if not edits and not additions and not histories and nation_rules is None:
         raise RequestError("the request changes nothing")
     return Plan(
