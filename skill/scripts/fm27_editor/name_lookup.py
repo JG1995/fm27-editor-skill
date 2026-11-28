@@ -8,9 +8,9 @@ are named in lang_db.dat. Currencies also say how many of them make a pound.
 import sqlite3
 
 from fm27_editor.dat_tables import read_records
+from fm27_editor.lookup_rows import Tables, insert_rows
 from fm27_editor.name_tables import NamedTable, read_names
 from fm27_editor.named_records import parse_currencies, parse_named_records
-from fm27_editor.place_lookup import Tables, insert_rows
 
 # The table of each kind whose records hold their own name, and how many bytes follow the name:
 # for a language its family, group, difficulty, and more; for a weather its chances of rain, wind,

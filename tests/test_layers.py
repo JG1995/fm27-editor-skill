@@ -40,7 +40,7 @@ MODULES = {
     "base database": [
         *("base_database", "people", "person_fields", "person_names", "playing_history"),
         *("people_lookup", "places", "place_lookup", "awards", "award_lookup"),
-        *("name_tables", "named_records", "name_lookup"),
+        *("name_tables", "named_records", "name_lookup", "lookup_rows"),
     ],
     "database tables": ["dat_tables"],
     "editor file": ["editor_file", "details"],
