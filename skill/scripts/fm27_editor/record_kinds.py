@@ -320,9 +320,10 @@ STADIUM = RecordKind(
     group=STADIUMS,
     defined_in=("stadium",),
     codes={"name": "Snam", "city_uid": "Scti"},
-    needed={},
+    # The Editor saves a new stadium with a name alone; one without a city is nowhere.
+    needed={"Snam": "Name", "Scti": "City"},
     left_out=frozenset(COMPUTED_NAMES),
-    can_be_new=False,
+    pointed_to_as=("stadium",),
 )
 NATION = RecordKind(
     name="nation",
@@ -338,9 +339,10 @@ CITY = RecordKind(
     group=CITIES,
     defined_in=("city",),
     codes={"name": "Cnam", "nation_uid": "Cnti"},
-    needed={},
+    # The Editor saves a new city with a name alone, as it does a club without a nation.
+    needed={"Cnam": "Name", "Cnti": "Nation"},
     left_out=frozenset(COMPUTED_NAMES),
-    can_be_new=False,
+    pointed_to_as=("city",),
 )
 CONTINENT = RecordKind(
     name="continent",
