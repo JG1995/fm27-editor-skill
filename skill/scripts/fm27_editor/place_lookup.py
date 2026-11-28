@@ -91,8 +91,8 @@ def insert_places(
     cache: sqlite3.Connection, client: Tables, server: Tables, name_tables: Tables
 ) -> None:
     names = {kind: read_names(kind, name_tables[table]) for kind, table in ENGLISH_NAMES.items()}
-    nations = [record.uid for record in read_records(client[NATIONS])]
-    national_teams = _national_teams(nations, sum(1 for _ in read_records(client[NATION_COUNT])))
+    national_teams = _national_teams(client)
+    nations = [uid for uid, _, gender in national_teams if gender is Gender.MALE]
     city_nations, stadium_cities = parse_cities(client[CITIES]), parse_stadiums(client[STADIUMS])
     cities, stadiums = list(city_nations), list(stadium_cities)
     competitions = parse_competitions(client[COMPETITIONS], server[COMPETITIONS])
@@ -187,8 +187,15 @@ def insert_places(
     )
 
 
-def _national_teams(table: Sequence[int], nations: int) -> list[tuple[int, int, str]]:
-    """Each national team with the uid of its nation and its gender."""
+def nation_uids(client: Tables) -> list[int]:
+    """The nations in the order of table 9, by which records refer to them."""
+    return [uid for uid, _, gender in _national_teams(client) if gender is Gender.MALE]
+
+
+def _national_teams(client: Tables) -> list[tuple[int, int, str]]:
+    """Each national team with the uid of its nation and its gender, men's teams first."""
+    table = [record.uid for record in read_records(client[NATIONS])]
+    nations = sum(1 for _ in read_records(client[NATION_COUNT]))
     if len(table) != 2 * nations:
         raise PlacesError(f"{len(table)} national teams are not two for each of {nations} nations")
     men = [(uid, uid, Gender.MALE) for uid in table[:nations]]

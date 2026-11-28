@@ -564,6 +564,18 @@ def test_a_reference_outside_its_table_is_an_error(editor, tmp_path, monkeypatch
         open_database(editor, tmp_path / "cache.sqlite")
 
 
+def test_a_reference_to_a_womens_national_team_as_a_nation_is_an_error(
+    editor, tmp_path, monkeypatch
+):
+    """Place 2 of table 9 is the first women's team, after the two nations."""
+    broken = {9101: ("Fictional City", "Fic City", {"nation": 2}, {})}
+    monkeypatch.setattr(fictional_editor, "CLUBS", broken)
+    write_database(editor)
+
+    with pytest.raises(PlacesError, match="nation"):
+        open_database(editor, tmp_path / "cache.sqlite")
+
+
 def test_a_club_without_a_team_is_an_error(editor, tmp_path, monkeypatch):
     teams = [(uid, synthetic.team_record()) for uid in list(fictional_editor.CLUBS)[1:]]
     others = fictional_editor.server_tables()[1:]
