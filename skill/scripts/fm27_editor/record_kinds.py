@@ -166,11 +166,26 @@ STAGE_NAMES = RecordGroup(
     details={},
     name_codes=("SNna",),
 )
+LOCAL_REGIONS = RecordGroup(
+    one="local region",
+    view="local_regions",
+    table=Table.LOCAL_REGION,
+    details={"nation": "{}"},
+    name_codes=("Lnam",),
+)
+AGREEMENTS = RecordGroup(
+    one="agreement",
+    view="agreements",
+    table=Table.AGREEMENT,
+    details={},
+    name_codes=("AGna",),
+)
 GROUPS = {
     group.view: group
     for group in (
         *(PEOPLE, CLUBS, COMPETITIONS, AWARDS, STADIUMS, NATIONS, CITIES),
         *(CONTINENTS, INJURIES, WEATHERS, MEDIA_SOURCES, DERBIES, STAGE_NAMES),
+        *(LOCAL_REGIONS, AGREEMENTS),
     )
 }
 PERSON_NEEDS = {
@@ -385,11 +400,32 @@ STAGE_NAME = RecordKind(
     left_out=frozenset(COMPUTED_NAMES),
     can_be_new=False,
 )
+LOCAL_REGION = RecordKind(
+    name="local_region",
+    group=LOCAL_REGIONS,
+    defined_in=("local region",),
+    codes={"name": "Lnam", "nation_uid": "Lnat", "population": "Lpop"},
+    needed={},
+    left_out=frozenset(COMPUTED_NAMES),
+    can_be_new=False,
+)
+# A file that adds an agreement was seen, but a new one could not be given its nations, nor could
+# nations refer to it.
+AGREEMENT = RecordKind(
+    name="agreement",
+    group=AGREEMENTS,
+    defined_in=("agreement",),
+    codes={"name": "AGna", "short_name": "AGsn"},
+    needed={},
+    left_out=frozenset(COMPUTED_NAMES),
+    can_be_new=False,
+)
 KINDS = {
     kind.name: kind
     for kind in (
         *(PLAYER, STAFF, CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY),
-        *(CONTINENT, INJURY, WEATHER, MEDIA_SOURCE, DERBY, STAGE_NAME),
+        *(CONTINENT, INJURY, WEATHER, MEDIA_SOURCE, DERBY, STAGE_NAME, LOCAL_REGION),
+        AGREEMENT,
     )
 }
 

@@ -41,7 +41,9 @@ class Table(IntEnum):
     STAGE_NAME = 23
     COMPETITION = 25
     WEATHER = 27
+    LOCAL_REGION = 47
     DATABASE = 55  # the table of tables; records are added to it
+    AGREEMENT = 56
 
 
 @dataclass(frozen=True)

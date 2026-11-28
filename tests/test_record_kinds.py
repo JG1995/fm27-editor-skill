@@ -12,6 +12,7 @@ from fm27_editor.person_fields import (
     STAFF_ATTRIBUTES,
 )
 from fm27_editor.record_kinds import (
+    AGREEMENT,
     AWARD,
     CITY,
     CLUB,
@@ -19,6 +20,7 @@ from fm27_editor.record_kinds import (
     CONTINENT,
     DERBY,
     INJURY,
+    LOCAL_REGION,
     MEDIA_SOURCE,
     NATION,
     PLAYER,
@@ -63,6 +65,8 @@ def test_every_fact_the_lookup_has_for_people_has_a_code_or_a_reason_not_to(kind
         (MEDIA_SOURCE, "media_source", {"uid"}),
         (DERBY, "derby", {"uid"}),
         (STAGE_NAME, "stage_name", {"uid"}),
+        (LOCAL_REGION, "local_region", {"uid"}),
+        (AGREEMENT, "agreement", {"uid"}),
     ],
     ids=lambda value: value if isinstance(value, str) else "",
 )
@@ -78,7 +82,7 @@ def test_every_fact_the_lookup_has_for_other_records_has_a_code(kind, table, wit
     "kind",
     [
         *(PLAYER, CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY, CONTINENT, INJURY, WEATHER),
-        *(MEDIA_SOURCE, DERBY, STAGE_NAME),
+        *(MEDIA_SOURCE, DERBY, STAGE_NAME, LOCAL_REGION, AGREEMENT),
     ],
     ids=lambda kind: kind.name,
 )

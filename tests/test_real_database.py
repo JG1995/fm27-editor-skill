@@ -9,6 +9,7 @@ import pytest
 
 from fm27_editor.base_database import open_database
 from fm27_editor.record_kinds import (
+    AGREEMENT,
     AWARD,
     CITY,
     CLUB,
@@ -17,6 +18,7 @@ from fm27_editor.record_kinds import (
     DERBY,
     INJURY,
     KINDS,
+    LOCAL_REGION,
     MEDIA_SOURCE,
     NATION,
     PLAYER,
@@ -147,7 +149,7 @@ def test_every_code_of_a_place_or_award_names_a_field_that_can_be_written():
 
     for kind in (
         *(CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY, CONTINENT, INJURY, WEATHER),
-        *(MEDIA_SOURCE, DERBY, STAGE_NAME),
+        *(MEDIA_SOURCE, DERBY, STAGE_NAME, LOCAL_REGION, AGREEMENT),
     ):
         writable = {field.code for field in rules.writable_fields(kind)}
         assert {*kind.codes.values(), *kind.needed, *kind.group.name_codes} <= writable
@@ -311,6 +313,22 @@ def test_the_installed_editor_database_reads_as_plausible_names(lookup, table, a
     assert records >= at_least
     assert records == named == printable
     assert different > records * 0.95
+
+
+@needs_editor
+def test_the_installed_editor_database_reads_as_plausible_local_regions_and_agreements(lookup):
+    regions, named, in_a_nation, populated, crowded = lookup.execute(
+        "SELECT count(*), count(name), count(nation), count(population),"
+        " count(*) FILTER (WHERE population > 100000000) FROM local_regions"
+    ).fetchone()
+    agreements, short_names = lookup.execute(
+        "SELECT count(name), count(short_name) FROM agreements"
+    ).fetchone()
+
+    assert regions > 2_000
+    assert regions == named == in_a_nation
+    assert (populated > 1_000, crowded) == (True, 0)
+    assert agreements >= 6 and short_names >= 5
 
 
 @needs_editor

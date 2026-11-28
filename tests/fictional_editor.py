@@ -374,11 +374,27 @@ STAGE_NAME = synthetic.definition_file(
     synthetic.field_definition("SNna", "Name", "string"),
     synthetic.field_definition("SNpn", "Plural Name", "string"),
 )
+LOCAL_REGION = synthetic.definition_file(
+    "lreg",
+    synthetic.field_definition("Lnam", "Name", "string"),
+    synthetic.field_definition("Lnat", "Nation", *synthetic.reference("nation")),
+    synthetic.field_definition(
+        "Lpop", "Population", "integer", synthetic.number_range(0, 1_000_000_000)
+    ),
+    synthetic.field_definition("Lwea", "Weather", *synthetic.reference("weather")),
+)
+AGREEMENT = synthetic.definition_file(
+    "agre",
+    synthetic.field_definition("AGna", "Name", "string"),
+    synthetic.field_definition("AGsn", "Short Name", "string"),
+    synthetic.field_definition("Anti", "Nations", "database_record_list"),
+)
 SHARED_CHOICES = synthetic.enum_file(
     dbts={
         **{0: "Award", 1: "Person", 2: "City", 3: "Club", 9: "National Team", 10: "Nation"},
         **{5: "Continent", 6: "Injury", 21: "Stadium", 25: "Competition", 27: "Weather"},
-        **{7: "Media Source", 18: "Derby Name", 23: "Stage Name"},
+        **{7: "Media Source", 18: "Derby Name", 23: "Stage Name", 47: "Local Region"},
+        56: "Agreement",
         99: "Moon",
     },
     mood={0: "Calm", 2: "Cross"},
@@ -412,6 +428,8 @@ def write_definitions(folder: Path, person: bytes = PERSON) -> Path:
         "media source": MEDIA_SOURCE,
         "derby": DERBY,
         "stage name": STAGE_NAME,
+        "local region": LOCAL_REGION,
+        "agreement": AGREEMENT,
     }
     path.write_bytes(synthetic.definitions_container(files, SHARED_CHOICES))
     return folder

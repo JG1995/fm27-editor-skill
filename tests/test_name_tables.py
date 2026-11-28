@@ -55,6 +55,16 @@ from fm27_editor.name_tables import NamedTable, read_names
             {3: ("Final", "Fina")},
         ),
         (
+            NamedTable.LOCAL_REGION,
+            synthetic.local_region_names({9601: "Testshire"}),
+            {9601: ("Testshire", None)},
+        ),
+        (
+            NamedTable.AGREEMENT,
+            synthetic.award_names({1: ("Example Union", "EU")}),
+            {1: ("Example Union", "EU")},
+        ),
+        (
             NamedTable.STADIUM,
             synthetic.stadium_names({9401: "Test Park"}),
             {9401: ("Test Park", None)},

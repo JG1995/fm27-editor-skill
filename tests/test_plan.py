@@ -286,6 +286,29 @@ def test_media_sources_derbies_and_stage_names_are_edited_by_name_and_code(plan_
     ]
 
 
+def test_local_regions_and_agreements_are_edited_by_name(plan_for):
+    plan = plan_for(
+        edits=[
+            by_hand(9601, of="local_regions", name="Test County", nation_uid=9002),
+            by_hand(9602, of="local_regions", population=12_000),
+            by_hand(4, of="agreements", short_name="TA"),
+        ]
+    )
+
+    assert edited(plan) == [
+        (9601, "Lnam", "Testshire", "Test County"),
+        (9601, "Lnat", 9001, 9002),
+        (9602, "Lpop", None, 12_000),
+        (4, "AGsn", None, "TA"),
+    ]
+
+
+def test_the_weather_of_a_local_region_cannot_be_set(plan_for):
+    """No file shows a field that refers to a weather."""
+    with pytest.raises(FormatError, match="Lwea"):
+        plan_for(edits=[by_hand(9601, of="local_regions", Lwea=1)])
+
+
 def test_how_often_an_injury_happens_is_stored_as_a_real_file_stores_it(plan_for):
     plan = plan_for(edits=[by_hand(1, of="injuries", Iocr=1.5)])
 
@@ -312,6 +335,8 @@ def test_how_often_an_injury_happens_is_stored_as_a_real_file_stores_it(plan_for
         ("media_sources", 19, "Mnam", "The Example Post", 7),
         ("derbies", 50, "D1tw", 12, 18),
         ("stage_names", 1, "SNpn", "Replays", 23),
+        ("local_regions", 9601, "Lpop", 10, 47),
+        ("agreements", 1, "AGna", "Union of Examples", 56),
     ],
 )
 def test_a_record_is_changed_in_its_own_table(plan_for, of, uid, code, value, table):
@@ -330,7 +355,7 @@ def test_a_record_is_changed_in_its_own_table(plan_for, of, uid, code, value, ta
     "kind",
     [
         *("stadium", "nation", "city", "continent", "injury", "weather"),
-        *("media_source", "derby", "stage_name"),
+        *("media_source", "derby", "stage_name", "local_region", "agreement"),
     ],
 )
 def test_a_kind_that_no_file_adds_cannot_be_made(plan_for, kind):
