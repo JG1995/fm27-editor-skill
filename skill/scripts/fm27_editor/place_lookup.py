@@ -5,6 +5,7 @@ import sqlite3
 from collections.abc import Mapping, Sequence
 
 from fm27_editor.dat_tables import read_records
+from fm27_editor.lookup_rows import Tables, insert_rows, uid_at
 from fm27_editor.name_tables import NamedTable, read_names
 from fm27_editor.places import (
     Gender,
@@ -83,8 +84,6 @@ CREATE VIEW competitions AS SELECT competition.*, nation.name AS nation, parent.
     FROM competition LEFT JOIN nation ON nation.uid = competition.nation_uid
     LEFT JOIN competition AS parent ON parent.uid = competition.parent_uid;
 """
-
-type Tables = Mapping[str, bytes]
 
 
 def insert_places(
@@ -221,19 +220,5 @@ def _standing(
     )
 
 
-def insert_rows(cache: sqlite3.Connection, table: str, rows: Sequence[tuple]) -> None:
-    if rows:
-        placeholders = ", ".join("?" * len(rows[0]))
-        cache.executemany(f"INSERT INTO {table} VALUES ({placeholders})", rows)
-
-
 def _name(names: Mapping[int, tuple[str, str | None]], uid: int) -> str | None:
     return names[uid][0] if uid in names else None
-
-
-def uid_at(uids: Sequence[int | None], index: int | None, kind: str) -> int | None:
-    if index is None:
-        return None
-    if index >= len(uids):
-        raise PlacesError(f"there is no {kind} at index {index}")
-    return uids[index]

@@ -6,6 +6,7 @@ from collections.abc import Iterable, Iterator, Sequence
 from itertools import batched
 
 from fm27_editor.dat_tables import read_string_table
+from fm27_editor.lookup_rows import Tables, insert_rows
 from fm27_editor.people import (
     DAYS_BOXES,
     BasicPerson,
@@ -21,7 +22,6 @@ from fm27_editor.people import (
 )
 from fm27_editor.person_fields import FIELD_NAMES
 from fm27_editor.person_names import Names
-from fm27_editor.place_lookup import Tables
 from fm27_editor.playing_history import Season, parse_playing_histories
 
 # First names, second names, and common names, by number.
@@ -146,10 +146,7 @@ def _insert(cache: sqlite3.Connection, people: Iterable[Person]) -> None:
             f"INSERT INTO club_or_nation_days VALUES ({_DAYS_PLACEHOLDERS})", _days(batch)
         )
         for kind, table in RELATION_TABLES.items():
-            rows = list(_relations(batch, kind))
-            if rows:
-                marks = ", ".join("?" * len(rows[0]))
-                cache.executemany(f"INSERT INTO {table} VALUES ({marks})", rows)
+            insert_rows(cache, table, list(_relations(batch, kind)))
 
 
 def _days(people: Sequence[Person]) -> Iterator[tuple[int, ...]]:

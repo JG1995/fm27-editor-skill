@@ -5,16 +5,9 @@ from collections.abc import Iterator, Sequence
 
 from fm27_editor.awards import AwardPlace, AwardYear, parse_award_years, parse_awards
 from fm27_editor.dat_tables import read_records
+from fm27_editor.lookup_rows import Tables, insert_rows, uid_at
 from fm27_editor.name_tables import NamedTable, read_names
-from fm27_editor.place_lookup import (
-    COMPETITIONS,
-    NATION_COUNT,
-    NATIONS,
-    Tables,
-    insert_rows,
-    nation_uids,
-    uid_at,
-)
+from fm27_editor.place_lookup import COMPETITIONS, NATION_COUNT, NATIONS, nation_uids
 
 AWARDS, HISTORY = "table_0", "table_12"
 AWARD_NAMES = "8_0"
