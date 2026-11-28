@@ -10,7 +10,7 @@ import pytest
 
 from fictional_editor import write_editor
 from fictional_rules import write_rules
-from fm27_editor import award_lookup, name_lookup, people_lookup, place_lookup
+from fm27_editor import award_lookup, base_database, place_lookup
 from fm27_editor.award_history import check_award_history
 from fm27_editor.nation_rules import check_nation_rules
 from fm27_editor.record_fields import NewReference, RecordFields
@@ -21,7 +21,6 @@ from fm27_editor.rule_plan import fit_warnings
 from fm27_editor.rule_words import RULES_OF
 
 INSTRUCTIONS = Path(__file__).parents[1] / "skill" / "SKILL.md"
-LOOKUP_MODULES = (place_lookup, award_lookup, name_lookup, people_lookup)
 REQUEST, RULES, HISTORY = (
     json.loads(block)
     for block in re.findall("```json\n(.*?)```", INSTRUCTIONS.read_text(encoding="utf-8"), re.S)
@@ -95,7 +94,7 @@ def _find_table() -> list[tuple[list[str], list[str]]]:
 @pytest.fixture
 def lookup():
     with closing(sqlite3.connect(":memory:")) as lookup:
-        lookup.executescript("".join(module.SCHEMA for module in LOOKUP_MODULES))
+        lookup.executescript(base_database.SCHEMA)
         yield lookup
 
 
