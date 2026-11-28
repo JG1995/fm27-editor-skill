@@ -62,6 +62,12 @@ DAYS_BOXES = {
     "contracted_between_0_and_21": 0x08,
 }
 DAYS_FLAGS = 0x01 | sum(DAYS_BOXES.values())
+# A person's relations stand before the days: 01, the number of items, and the items, then a count
+# and that many seven-byte items, which are not read. A relation is the index and uid of a record, a
+# reason, the kind of that record, the kind of relation, a level, a value, a zero byte, and ff.
+# Placed so, 690,045 of the 692,329 people with days have relations that can be read one way only.
+RELATIONS_MARK, RELATION_END, BETWEEN_ITEM_SIZE = 0x01, 0xFF, 7
+RELATION_ITEM = struct.Struct("<IIHBBBBBB")
 # A contract without an end follows these bytes instead. Only staff have one, and in the save they
 # have no expiry date; its wage is the save's for 807 of the 808 staff whose wage both set.
 OPEN_ENDED = b"\xff\xff\xff\xff\x05\x05"
@@ -102,6 +108,39 @@ class BasicPerson:
     pa: int | None = None
 
 
+class RelationKind(IntEnum):
+    """The relations whose list two files the Editor saved on 2026-11-28 showed, 33 items in all.
+    Other kinds, such as disliked people, stand among them too."""
+
+    FAVOURITE_PERSON = 1
+    FAVOURITE_CLUB = 3
+    SECOND_NATION = 9
+    TRAINED_IN_NATION = 70
+    TRAINED_AT_CLUB = 72
+
+
+CLUB_RECORD, PERSON_RECORD, NATION_RECORD = 1, 3, 8
+RELATED_RECORDS = {
+    RelationKind.FAVOURITE_PERSON: PERSON_RECORD,
+    RelationKind.FAVOURITE_CLUB: CLUB_RECORD,
+    RelationKind.SECOND_NATION: NATION_RECORD,
+    RelationKind.TRAINED_IN_NATION: NATION_RECORD,
+    RelationKind.TRAINED_AT_CLUB: CLUB_RECORD,
+}
+
+
+class Relation(NamedTuple):
+    """A person's relation to a club, a person, or a nation; what its level and value mean depends
+    on its kind."""
+
+    relation: int
+    uid: int | None
+    """None for a person who is not in the database."""
+    reason: int
+    level: int
+    value: int
+
+
 class ClubOrNationDays(NamedTuple):
     """How many days a person has spent at a club or in a nation, as the Editor counts them, and
     the ages that the Editor's boxes limit them to."""
@@ -131,6 +170,8 @@ class Person:
     wage: int | None = None
     contract_expires: datetime.date | None = None
     club_or_nation_days: tuple[ClubOrNationDays, ...] | None = None
+    """None when the record does not hold them in the known layout."""
+    relations: tuple[Relation, ...] | None = None
     """None when the record does not hold them in the known layout."""
 
 
@@ -231,7 +272,7 @@ def _read_person(record: bytes, basic: BasicPerson, names: Names) -> Person | No
                 _read_fields(record, basic, at),
                 wage,
                 expires,
-                _read_club_or_nation_days(record),
+                *_read_end(record),
             )
         at = record.find(marker, at + 1)
     return None
@@ -276,8 +317,19 @@ def _follows_dates(record: bytes, at: int) -> bool:
     )
 
 
-def _read_club_or_nation_days(record: bytes) -> tuple[ClubOrNationDays, ...] | None:
-    """The days at clubs and in nations that end the record, if they can be read one way only.
+def _read_end(
+    record: bytes,
+) -> tuple[tuple[ClubOrNationDays, ...] | None, tuple[Relation, ...] | None]:
+    """The days at clubs and in nations that end the record, and the relations before them."""
+    start = _days_start(record)
+    if start is None:
+        return None, None
+    before = start - len(DAYS_BEFORE) - 2
+    return _read_club_or_nation_days(record, start), _read_relations(record, before)
+
+
+def _days_start(record: bytes) -> int | None:
+    """Where the days at clubs and in nations start, if they can be read one way only.
 
     Going back from the end, each item that starts with a set lowest bit could be the first, if the
     number before it counts the items from there.
@@ -292,15 +344,57 @@ def _read_club_or_nation_days(record: bytes) -> tuple[ClubOrNationDays, ...] | N
             starts.append(start)
         if start < DAYS_ITEM.size or not record[start - DAYS_ITEM.size] & 1:
             break
-    if len(starts) != 1:
-        return None
-    items = list(DAYS_ITEM.iter_unpack(record[starts[0] : end]))
+    return starts[0] if len(starts) == 1 else None
+
+
+def _read_club_or_nation_days(record: bytes, start: int) -> tuple[ClubOrNationDays, ...] | None:
+    items = list(DAYS_ITEM.iter_unpack(record[start : len(record) - DAYS_TAIL_SIZE]))
     if any(flags & ~DAYS_FLAGS for flags, *_ in items):
         return None
     return tuple(
         ClubOrNationDays(uid, days, *(bool(flags & bit) for bit in DAYS_BOXES.values()))
         for flags, days, _, uid in items
     )
+
+
+def _read_relations(record: bytes, end: int) -> tuple[Relation, ...] | None:
+    """The relations that stand before `end`, if they can be read one way only, each with the
+    kind of record its kind of relation is with."""
+    found = [
+        (start, stop)
+        for stop in _relations_stops(record, end)
+        for start in _relations_starts(record, stop)
+    ]
+    if len(found) != 1:
+        return None
+    (start, stop), relations = found[0], []
+    for _, uid, reason, kind, relation, level, value, _, _ in RELATION_ITEM.iter_unpack(
+        record[start:stop]
+    ):
+        if RELATED_RECORDS.get(relation, kind) != kind:
+            return None
+        relations.append(Relation(relation, None if uid == NO_ID else uid, reason, level, value))
+    return tuple(relations)
+
+
+def _relations_stops(record: bytes, end: int) -> Iterator[int]:
+    """Where the relations could stop: before a count of the seven-byte items up to `end`."""
+    for between in range(256):
+        stop = end - 4 - BETWEEN_ITEM_SIZE * between
+        if stop < 2:
+            return
+        if struct.unpack_from("<I", record, stop)[0] == between:
+            yield stop
+
+
+def _relations_starts(record: bytes, stop: int) -> Iterator[int]:
+    """Where relations that stop at `stop` could start: after 01 and the number of them."""
+    for count in range(256):
+        start = stop - count * RELATION_ITEM.size
+        if start < 2 or (count and record[start + RELATION_ITEM.size - 1] != RELATION_END):
+            return
+        if record[start - 1] == count and record[start - 2] == RELATIONS_MARK:
+            yield start
 
 
 def _found(record: bytes, part: bytes) -> Iterator[int]:

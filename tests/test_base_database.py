@@ -83,6 +83,37 @@ def test_people_say_how_many_clubs_and_nations_they_have_days_at_if_that_is_know
     assert rows == [(100, 2), (101, 0), (102, None)]
 
 
+@pytest.mark.parametrize(
+    ("view", "columns", "rows"),
+    [
+        ("second_nations", "nation, nation_uid, nationality_info", [("Norwegia", 9002, 85)]),
+        ("trained_in_nations", "nation, nation_uid, type", [("Englandia", 9001, 1)]),
+        ("trained_at_clubs", "club, club_uid, type", [("Fictional City", 9101, 10)]),
+        (
+            "favourite_people",
+            "favourite, favourite_uid, level, reason, permanent",
+            [("Bravo Keeper", 101, 80, 5, 1), (None, None, 50, 7, 0)],
+        ),
+        ("favourite_clubs", "club, club_uid, level, reason", [("Example United", 9102, 90, 1)]),
+    ],
+)
+def test_relations_are_found_with_their_names(editor, tmp_path, view, columns, rows):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        found = db.execute(f"SELECT name, item, {columns} FROM {view} ORDER BY item").fetchall()
+
+    assert found == [("Alfa Striker", item, *row) for item, row in enumerate(rows)]
+
+
+def test_people_say_how_many_relations_they_have_if_that_is_known(tmp_path):
+    someone = (2, 102, "Charlie Unread", 2000, 50, (41, 9001), (0, 9102))
+    editor = fictional_editor.write_editor(tmp_path / "editor", [*fictional_editor.PEOPLE, someone])
+
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute("SELECT uid, relations FROM people ORDER BY uid").fetchall()
+
+    assert rows == [(100, 7), (101, 0), (102, None)]
+
+
 def test_playing_history_is_found_with_the_names_of_people_clubs_and_divisions(editor, tmp_path):
     with open_database(editor, tmp_path / "cache.sqlite") as db:
         rows = db.execute(
