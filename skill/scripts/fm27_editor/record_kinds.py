@@ -24,6 +24,11 @@ class RecordGroup:
     name_codes: tuple[str, ...]
     """The fields a name is made of, in the order they are said."""
 
+    @property
+    def many(self) -> str:
+        """More than one of them, in words."""
+        return self.view.replace("_", " ")
+
 
 @dataclass(frozen=True)
 class HeldList:

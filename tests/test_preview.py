@@ -302,6 +302,15 @@ def test_more_new_people_than_examples_are_counted(lines_for):
     assert "  and 3 more" in lines
 
 
+def test_records_whose_kind_is_two_words_are_counted_in_words(lines_for):
+    query = "SELECT uid, 5 AS population FROM local_regions"
+
+    lines = lines_for(edits=[{"of": "local_regions", "query": query}])
+
+    assert "Edits: 2 changes to 2 local regions" in lines
+    assert any(line.startswith("  Population (Lpop): 2 local regions, ") for line in lines)
+
+
 def test_clubs_and_competitions_are_counted_apart_from_people(lines_for):
     lines = lines_for(
         edits=[
