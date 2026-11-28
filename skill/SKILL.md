@@ -97,7 +97,7 @@ A request has any of these parts. The uids here are made up:
 
 `fm27 fields KIND`, with part of a name or code to search, lists every field that can be set and what it accepts. `KIND` is `player`, `staff`, `club`, `competition`, `award`, `stadium`, `nation`, `city`, `continent`, `injury`, `weather`, `media_source`, `derby`, `stage_name`, `local_region`, `agreement`, `award_history`, or for rules `nation_rules`, `division`, `cup`, or `super_cup`. A field with a lookup name, such as `finishing (PDfn)`, is given by that name. Other fields are given by their four-letter code, such as `Phes`.
 
-Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, people's achievements, injuries, and bans, kits other than their colours, reserve teams, national teams, local regions, and new records other than people, clubs, and competitions. If a request needs one of these, say so before doing the rest.
+Not possible yet: jobs that `fields` does not list, such as coaches and physios, formations, people's achievements, injuries, and bans, kits other than their colours, reserve teams, national teams, a local region's weather and lists, the nations of an agreement, and new records other than people, clubs, and competitions. If a request needs one of these, say so before doing the rest.
 
 ## Lists on people
 
