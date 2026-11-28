@@ -45,7 +45,8 @@ CREATE VIEW days_at_club_or_nation AS SELECT club_or_nation_days.*, person.name,
     coalesce(club.name, nation.name) AS club_or_nation
     FROM club_or_nation_days LEFT JOIN person ON person.uid = club_or_nation_days.person_uid
     LEFT JOIN club ON club.uid = club_or_nation_uid
-    LEFT JOIN nation ON nation.uid = club_or_nation_uid;
+    LEFT JOIN national_team ON national_team.uid = club_or_nation_uid
+    LEFT JOIN nation ON nation.uid = national_team.nation_uid;
 CREATE TABLE second_nation(person_uid INTEGER, item INTEGER, nation_uid INTEGER,
     nationality_info INTEGER, PRIMARY KEY (person_uid, item)) WITHOUT ROWID;
 CREATE VIEW second_nations AS SELECT second_nation.*, person.name, nation.name AS nation

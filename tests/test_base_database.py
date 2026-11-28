@@ -366,6 +366,42 @@ def test_a_derby_of_a_team_outside_its_table_is_an_error(editor, tmp_path, monke
         open_database(editor, tmp_path / "cache.sqlite")
 
 
+def test_national_teams_are_the_nations_and_a_womens_team_of_each(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        teams = db.execute(
+            "SELECT uid, name, nation_uid, gender FROM national_teams ORDER BY uid"
+        ).fetchall()
+        nations = db.execute("SELECT uid FROM nations ORDER BY uid").fetchall()
+
+    assert teams == [
+        (9001, "Englandia", 9001, "male"),
+        (9002, "Norwegia", 9002, "male"),
+        (9901, "Englandia", 9001, "female"),
+        (9902, "Norwegia", 9002, "female"),
+    ]
+    assert nations == [(9001,), (9002,)]
+
+
+def test_days_in_a_womens_national_team_are_named_by_its_nation(editor, tmp_path, monkeypatch):
+    monkeypatch.setattr(fictional_editor, "DAYS_AT", {100: [(9902, 30)]})
+    write_database(editor)
+
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute("SELECT club_or_nation FROM days_at_club_or_nation").fetchall()
+
+    assert rows == [("Norwegia",)]
+
+
+def test_national_teams_that_are_not_two_for_each_nation_are_an_error(
+    editor, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(fictional_editor, "WOMENS_TEAMS", {9001: 9901})
+    write_database(editor)
+
+    with pytest.raises(PlacesError, match="national team"):
+        open_database(editor, tmp_path / "cache.sqlite")
+
+
 def test_languages_can_be_found(editor, tmp_path):
     with open_database(editor, tmp_path / "cache.sqlite") as db:
         languages = db.execute("SELECT uid, name FROM language ORDER BY uid").fetchall()

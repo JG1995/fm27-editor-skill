@@ -67,9 +67,16 @@ def test_changes_are_counted_by_table_and_field(lines_for):
 def test_changes_to_nations_name_the_nation_and_its_fields(lines_for):
     lines = lines_for(synthetic.record_change(NATION, 9002, "Necf", number(15)))
 
-    assert "Nation: 1 change to 1 record" in lines
+    assert "Nation or national team: 1 change to 1 record" in lines
     assert "  Economic Factor (Necf): 1" in lines
     assert "  Norwegia (9002): Economic Factor = 15" in lines
+
+
+def test_changes_to_a_womens_national_team_name_its_nation_and_the_teams_fields(lines_for):
+    lines = lines_for(synthetic.record_change(NATION, 9902, "Nrep", number(42)))
+
+    assert "  Reputation (Nrep): 1" in lines
+    assert "  Norwegia (9902): Reputation = 42" in lines
 
 
 def test_changes_to_injuries_name_the_injury_and_how_often_it_happens(lines_for):

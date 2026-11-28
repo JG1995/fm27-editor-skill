@@ -118,6 +118,14 @@ NATIONS = RecordGroup(
     details={},
     name_codes=("Nnam",),
 )
+# Table 9 holds the national teams too: the nations are their men's teams.
+NATIONAL_TEAMS = RecordGroup(
+    one="national team",
+    view="national_teams",
+    table=Table.NATION,
+    details={"gender": "{}"},
+    name_codes=("Nnam",),
+)
 CITIES = RecordGroup(
     one="city",
     view="cities",
@@ -184,7 +192,7 @@ AGREEMENTS = RecordGroup(
 GROUPS = {
     group.view: group
     for group in (
-        *(PEOPLE, CLUBS, COMPETITIONS, AWARDS, STADIUMS, NATIONS, CITIES),
+        *(PEOPLE, CLUBS, COMPETITIONS, AWARDS, STADIUMS, NATIONS, NATIONAL_TEAMS, CITIES),
         *(CONTINENTS, INJURIES, WEATHERS, MEDIA_SOURCES, DERBIES, STAGE_NAMES),
         *(LOCAL_REGIONS, AGREEMENTS),
     )
@@ -344,6 +352,26 @@ NATION = RecordKind(
     left_out=frozenset({*COMPUTED_NAMES, "DBvw"}),
     can_be_new=False,
 )
+# A men's team is its nation's record, so the nation's name and the team's nation and gender are
+# left to the nation. A file the Editor saved gave a team its manager as a job on the person, not by
+# the team's Manager. The stadium's facts are the national stadium's, the record books and the
+# dates the Editor shows are no facts of the team, and eleven numbers have no names.
+NATIONAL_TEAM = RecordKind(
+    name="national_team",
+    group=NATIONAL_TEAMS,
+    defined_in=("national team container",),
+    codes={},
+    needed={},
+    left_out=frozenset(
+        {
+            *COMPUTED_NAMES,
+            *("DBvw", "Nnam", "NTCn", GENDER_CODE, "Nmni"),
+            *("Snam", "Scpy", "Sscy", "Scas", "Secy", "Sucy", "SsfT", "Scov", "Sush"),
+        }
+    ),
+    left_out_families=(*CLUB_RECORDS, "NG", "NA", "NME", "NHP", "NHR", "RP", "ED", "Neu", "Ne1"),
+    can_be_new=False,
+)
 CITY = RecordKind(
     name="city",
     group=CITIES,
@@ -436,7 +464,7 @@ AGREEMENT = RecordKind(
 KINDS = {
     kind.name: kind
     for kind in (
-        *(PLAYER, STAFF, CLUB, COMPETITION, AWARD, STADIUM, NATION, CITY),
+        *(PLAYER, STAFF, CLUB, COMPETITION, AWARD, STADIUM, NATION, NATIONAL_TEAM, CITY),
         *(CONTINENT, INJURY, WEATHER, MEDIA_SOURCE, DERBY, STAGE_NAME, LOCAL_REGION),
         AGREEMENT,
     )

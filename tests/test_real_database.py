@@ -21,6 +21,7 @@ from fm27_editor.record_kinds import (
     LOCAL_REGION,
     MEDIA_SOURCE,
     NATION,
+    NATIONAL_TEAM,
     PLAYER,
     STADIUM,
     STAFF,
@@ -156,6 +157,28 @@ def test_every_code_of_a_place_or_award_names_a_field_that_can_be_written():
 
 
 @needs_editor
+def test_a_national_team_offers_its_own_fields_but_not_its_nations():
+    rules = RecordRules(Path(EDITOR), sqlite3.connect(":memory:"))
+
+    writable = {field.code for field in rules.writable_fields(NATIONAL_TEAM)}
+
+    assert {"Nrep", "Nfpa", "NYRt", "Natt", "Tcap"} <= writable
+    assert not {"Nnam", "NTCn", "PLgn", "Nmni", "Snam", "RP00", "NGpe", "EDsd", "Neu1"} & writable
+
+
+@needs_editor
+def test_the_installed_editor_database_reads_as_plausible_national_teams(lookup):
+    teams = lookup.execute(
+        "SELECT gender, count(*), count(name), count(*) FILTER (WHERE nation_uid NOT IN"
+        " (SELECT uid FROM nation)) FROM national_teams GROUP BY gender ORDER BY gender"
+    ).fetchall()
+    nations = lookup.execute("SELECT count(*), count(name) FROM nations").fetchone()
+
+    assert teams == [("female", 251, 251, 0), ("male", 251, 251, 0)]
+    assert nations == (251, 251)
+
+
+@needs_editor
 def test_the_installed_editor_database_reads_as_plausible_people(lookup):
     people, with_nation, with_club = lookup.execute(
         "SELECT count(*), count(nation), count(club) FROM people WHERE kind = 'player'"
@@ -193,15 +216,14 @@ def test_the_installed_editor_database_reads_everyone_with_a_name(lookup):
 
 @needs_editor
 def test_the_installed_editor_database_reads_as_plausible_days_at_clubs_and_in_nations(lookup):
-    """The Editor allows up to 30,000 days. Many are in the second half of the nations, which has
-    no names and which women's football uses."""
+    """The Editor allows up to 30,000 days. Many are in women's national teams."""
     known, unknown = lookup.execute(
         "SELECT count(clubs_and_nations), count(*) - count(clubs_and_nations) FROM people"
         " WHERE kind IN ('player', 'staff', 'both')"
     ).fetchone()
     items, unknown_places, too_many = lookup.execute(
         "SELECT count(*), count(*) FILTER (WHERE club_or_nation_uid NOT IN (SELECT uid FROM club)"
-        " AND club_or_nation_uid NOT IN (SELECT uid FROM nation)),"
+        " AND club_or_nation_uid NOT IN (SELECT uid FROM national_team)),"
         " count(*) FILTER (WHERE days > 30000) FROM days_at_club_or_nation"
     ).fetchone()
     counted = lookup.execute("SELECT sum(clubs_and_nations) FROM people").fetchone()[0]

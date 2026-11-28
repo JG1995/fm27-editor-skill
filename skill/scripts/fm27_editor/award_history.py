@@ -26,7 +26,7 @@ from fm27_editor.record_changes import (
     refusal,
     stored_value,
 )
-from fm27_editor.record_rules import LOOKUP_TABLES, check_exists
+from fm27_editor.record_rules import LOOKUP_TABLES, TEAM_TABLES, check_exists
 
 HISTORY_CODE = "AWsh"
 YEAR_CODE, NO_DATA_CODE, NOT_HELD_CODE = "AHye", "AHnd", "Ahnt"
@@ -225,7 +225,7 @@ class _Checker:
             if not is_uid(value) or self._person_name(value) is None:
                 raise EditError(f"{where}: there is no person {value!r}")
         elif name == "team_uid":
-            check_exists(self._lookup, where, value, "club", "nation")
+            check_exists(self._lookup, where, value, *TEAM_TABLES)
         elif part.type == REFERENCE:
             check_exists(self._lookup, where, value, LOOKUP_TABLES[part.points_to])
         else:

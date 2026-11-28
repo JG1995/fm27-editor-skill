@@ -1,5 +1,5 @@
-"""The tables of the lookup for nations, cities, local regions, stadiums, competitions, clubs, and
-derbies."""
+"""The tables of the lookup for nations, national teams, cities, local regions, stadiums,
+competitions, clubs, and derbies."""
 
 import sqlite3
 from collections.abc import Mapping, Sequence
@@ -7,6 +7,7 @@ from collections.abc import Mapping, Sequence
 from fm27_editor.dat_tables import read_records
 from fm27_editor.name_tables import NamedTable, read_names
 from fm27_editor.places import (
+    Gender,
     PlacesError,
     Team,
     parse_cities,
@@ -20,11 +21,15 @@ from fm27_editor.places import (
 )
 
 # Nations are table 9, not table 10: the names of lang_db, people, and real changes to nations go by
-# its uids, and records refer to a nation by its place there.
-NATIONS, CITIES, STADIUMS = "table_9", "table_2", "table_21"
+# its uids, and records refer to a nation by its place there. Table 9 holds the national teams: as
+# many nations as table 10 has, each its own men's team, then a women's team of each, in the same
+# order. A file the Editor saved changed both kinds of team there, a women's team by its own uid.
+NATIONS, NATION_COUNT, CITIES, STADIUMS = "table_9", "table_10", "table_2", "table_21"
 COMPETITIONS, CLUBS, TEAMS, DERBIES = "table_25", "table_3", "table_24", "table_18"
 LOCAL_REGIONS = "table_47"
-CLIENT_TABLES = {NATIONS, CITIES, STADIUMS, COMPETITIONS, CLUBS, DERBIES, LOCAL_REGIONS}
+CLIENT_TABLES = {
+    *(NATIONS, NATION_COUNT, CITIES, STADIUMS, COMPETITIONS, CLUBS, DERBIES, LOCAL_REGIONS),
+}
 SERVER_TABLES = {COMPETITIONS, TEAMS}
 ENGLISH_NAMES = {
     NamedTable.NATION: "8_9",
@@ -38,6 +43,7 @@ ENGLISH_NAMES = {
 NAME_TABLES = set(ENGLISH_NAMES.values())
 SCHEMA = """
 CREATE TABLE nation(uid INTEGER PRIMARY KEY, name TEXT);
+CREATE TABLE national_team(uid INTEGER PRIMARY KEY, name TEXT, nation_uid INTEGER, gender TEXT);
 CREATE TABLE city(uid INTEGER PRIMARY KEY, name TEXT, nation_uid INTEGER);
 CREATE TABLE local_region(uid INTEGER PRIMARY KEY, name TEXT, nation_uid INTEGER,
     population INTEGER);
@@ -62,6 +68,8 @@ CREATE VIEW derbies AS SELECT derby.*, one.name AS club_1, two.name AS club_2
     FROM derby LEFT JOIN club AS one ON one.uid = derby.club_1_uid
     LEFT JOIN club AS two ON two.uid = derby.club_2_uid;
 CREATE VIEW nations AS SELECT * FROM nation;
+CREATE VIEW national_teams AS SELECT national_team.*, nation.name AS nation
+    FROM national_team LEFT JOIN nation ON nation.uid = national_team.nation_uid;
 CREATE VIEW cities AS SELECT city.*, nation.name AS nation
     FROM city LEFT JOIN nation ON nation.uid = city.nation_uid;
 CREATE VIEW local_regions AS SELECT local_region.*, nation.name AS nation
@@ -84,13 +92,24 @@ def insert_places(
 ) -> None:
     names = {kind: read_names(kind, name_tables[table]) for kind, table in ENGLISH_NAMES.items()}
     nations = [record.uid for record in read_records(client[NATIONS])]
+    national_teams = _national_teams(nations, sum(1 for _ in read_records(client[NATION_COUNT])))
     city_nations, stadium_cities = parse_cities(client[CITIES]), parse_stadiums(client[STADIUMS])
     cities, stadiums = list(city_nations), list(stadium_cities)
     competitions = parse_competitions(client[COMPETITIONS], server[COMPETITIONS])
     divisions = [competition.uid for competition in competitions]
     teams = {team.uid: team for team in parse_teams(server[TEAMS])}
 
-    insert_rows(cache, "nation", [(uid, _name(names[NamedTable.NATION], uid)) for uid in nations])
+    nation_names = {uid: _name(names[NamedTable.NATION], uid) for uid, *_ in national_teams}
+    insert_rows(
+        cache,
+        "nation",
+        [(uid, nation_names[uid]) for uid, _, gender in national_teams if gender is Gender.MALE],
+    )
+    insert_rows(
+        cache,
+        "national_team",
+        [(uid, nation_names[nation], nation, gender) for uid, nation, gender in national_teams],
+    )
     insert_rows(
         cache,
         "city",
@@ -166,6 +185,15 @@ def insert_places(
             for uid, teams in parse_derbies(client[DERBIES]).items()
         ],
     )
+
+
+def _national_teams(table: Sequence[int], nations: int) -> list[tuple[int, int, str]]:
+    """Each national team with the uid of its nation and its gender."""
+    if len(table) != 2 * nations:
+        raise PlacesError(f"{len(table)} national teams are not two for each of {nations} nations")
+    men = [(uid, uid, Gender.MALE) for uid in table[:nations]]
+    women = zip(table[nations:], table[:nations], strict=True)
+    return men + [(uid, nation, Gender.FEMALE) for uid, nation in women]
 
 
 def _team(teams: Mapping[int, Team], uid: int) -> Team:

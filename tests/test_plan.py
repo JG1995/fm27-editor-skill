@@ -337,6 +337,8 @@ def test_how_often_an_injury_happens_is_stored_as_a_real_file_stores_it(plan_for
         ("stage_names", 1, "SNpn", "Replays", 23),
         ("local_regions", 9601, "Lpop", 10, 47),
         ("agreements", 1, "AGna", "Union of Examples", 56),
+        ("national_teams", 9001, "Nrep", 4242, 9),
+        ("national_teams", 9902, "Nfpa", 12, 9),
     ],
 )
 def test_a_record_is_changed_in_its_own_table(plan_for, of, uid, code, value, table):
@@ -356,6 +358,7 @@ def test_a_record_is_changed_in_its_own_table(plan_for, of, uid, code, value, ta
     [
         *("nation", "continent", "injury", "weather"),
         *("media_source", "derby", "stage_name", "local_region", "agreement"),
+        "national_team",
     ],
 )
 def test_a_kind_that_no_file_adds_cannot_be_made(plan_for, kind):
@@ -407,6 +410,12 @@ def test_a_new_stadium_can_be_in_a_new_city_and_a_new_club_can_play_there(plan_f
 def test_a_new_stadium_needs_a_city_and_a_new_city_a_nation(plan_for, new, missing):
     with pytest.raises(FormatError, match=re.escape(missing)):
         plan_for(new=[new])
+
+
+@pytest.mark.parametrize("code", ["Nnam", "NTCn", "Nmni"])
+def test_a_national_team_leaves_its_name_nation_and_manager_to_others(plan_for, code):
+    with pytest.raises(FormatError, match=code):
+        plan_for(edits=[by_hand(9001, of="national_teams", **{code: 1})])
 
 
 def test_an_award_cannot_be_made(plan_for):
