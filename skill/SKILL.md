@@ -22,12 +22,13 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 
 | Table | Columns |
 | --- | --- |
-| `people` | `uid`, `kind`, `name`, `full_name`, `birth_date`, `nation`, `nation_uid`, `club`, `club_uid`, `club_gender`, `division`, `division_uid`, `ca`, `pa`, `wage`, `contract_expires`, attributes, positions, personality, staff attributes |
+| `people` | `uid`, `kind`, `name`, `full_name`, `birth_date`, `nation`, `nation_uid`, `club`, `club_uid`, `club_gender`, `division`, `division_uid`, `ca`, `pa`, `wage`, `contract_expires`, `clubs_and_nations` (how many items `days_at_club_or_nation` has for them, `NULL` when not known), attributes, positions, personality, staff attributes |
 | `clubs` | `uid`, `name`, `short_name`, `gender`, `is_extinct`, `nation`, `nation_uid`, `based_nation_uid`, `city`, `city_uid`, `stadium`, `stadium_uid`, `reputation`, `division`, `division_uid`, `last_division_uid`, `last_position` |
 | `competitions` | `uid`, `name`, `short_name`, `gender`, `level`, `nation`, `nation_uid`, `parent`, `parent_uid`, `clubs` (how many have it as their division) |
 | `awards` | `uid`, `name`, `short_name`, `gender`, `nation`, `nation_uid`, `competition`, `competition_uid`, `previous_winner`, `years` (how many are in its history) |
 | `award_history` | `award_uid`, `award`, `year`, `place` (1 to 3), `person_uid`, `name`, `team`, `team_uid`, `points`, `age`, `nation`, `nation_uid`, `not_held`, `no_data` |
 | `playing_history` | `person_uid`, `name`, `item` (from 0, in the person's order), `year`, `order_in_year`, `club`, `club_uid`, `division`, `division_uid`, `apps`, `goals`, `transfer_fee`, `other`, `date_joined`, `date_left` |
+| `days_at_club_or_nation` | `person_uid`, `name`, `item` (from 0, in the person's order), `club_or_nation`, `club_or_nation_uid`, `days` |
 | `nations` | `uid`, `name` |
 | `cities` | `uid`, `name`, `nation`, `nation_uid` |
 | `stadiums` | `uid`, `name`, `city`, `city_uid`, `nation`, `nation_uid` (of its city) |
@@ -100,7 +101,7 @@ Not possible yet: jobs that `fields` does not list, such as coaches and physios,
 
 A field that `fm27 fields player` describes as "items of" its parts, such as playing history or second nations, is given a list of items with their parts by code, such as `"PNRs": [{"nati": 12345, "ntin": 85}]`. A query gives the list as JSON text, such as `json_array(json_object('nati', 12345))`.
 
-- **Items are added to what the person has,** so tell the user that what is there stays. Of the lists, the lookup holds only playing history, in `playing_history`; find what a person has there before you add to it.
+- **Items are added to what the person has,** so tell the user that what is there stays. Of the lists, the lookup holds playing history, in `playing_history`, and days at clubs and in nations, in `days_at_club_or_nation`; find what a person has there before you add to it.
 - **To replace what a list holds,** give `{"replace": [...]}` with the items; `{"replace": []}` clears it. When the user wants a list to be exactly something, replace it. When it is unclear whether to add or replace, ask. The preview lists every item a replaced playing history loses: show those to the user. For other lists it says that what they hold is not known; tell the user that it is lost unseen.
 - **A part that is left out keeps what a new item has,** such as no club, or 1900 as the year in playing history. Give each item of a playing history (`Plhs`) its `year`, `clid`, and `divi`, and each language a person speaks (`PElg`) its `lang` from the `language` table.
 - **A team in a list can be a national team,** given by the uid of its nation.

@@ -59,6 +59,29 @@ def test_the_database_is_opened_read_only(editor, tmp_path):
         db.execute("DELETE FROM person")
 
 
+def test_days_at_clubs_and_in_nations_are_found_with_their_names(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            "SELECT name, item, club_or_nation, club_or_nation_uid, days"
+            " FROM days_at_club_or_nation ORDER BY person_uid, item"
+        ).fetchall()
+
+    assert rows == [
+        ("Alfa Striker", 0, "Fictional City", 9101, 400),
+        ("Alfa Striker", 1, "Norwegia", 9002, 6000),
+    ]
+
+
+def test_people_say_how_many_clubs_and_nations_they_have_days_at_if_that_is_known(tmp_path):
+    someone = (2, 102, "Charlie Unread", 2000, 50, (41, 9001), (0, 9102))
+    editor = fictional_editor.write_editor(tmp_path / "editor", [*fictional_editor.PEOPLE, someone])
+
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute("SELECT uid, clubs_and_nations FROM people ORDER BY uid").fetchall()
+
+    assert rows == [(100, 2), (101, 0), (102, None)]
+
+
 def test_playing_history_is_found_with_the_names_of_people_clubs_and_divisions(editor, tmp_path):
     with open_database(editor, tmp_path / "cache.sqlite") as db:
         rows = db.execute(

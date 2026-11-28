@@ -1,7 +1,9 @@
-"""The tables of the lookup for people and their playing histories."""
+"""The tables of the lookup for people, their days at clubs and in nations, and their playing
+histories."""
 
 import sqlite3
-from collections.abc import Iterable
+from collections.abc import Iterable, Iterator, Sequence
+from itertools import batched
 
 from fm27_editor.dat_tables import read_string_table
 from fm27_editor.people import BasicPerson, Person, iter_people
@@ -17,12 +19,19 @@ _FIELD_COLUMNS = ", ".join(f"{name} INTEGER" for name in FIELD_NAMES)
 SCHEMA = f"""
 CREATE TABLE person(uid INTEGER PRIMARY KEY, kind TEXT, name TEXT, full_name TEXT,
     birth_date TEXT, nation_uid INTEGER, club_uid INTEGER, ca INTEGER, pa INTEGER,
-    wage INTEGER, contract_expires TEXT, {_FIELD_COLUMNS});
+    wage INTEGER, contract_expires TEXT, clubs_and_nations INTEGER, {_FIELD_COLUMNS});
 CREATE VIEW people AS SELECT person.*, nation.name AS nation, club.name AS club,
     club.gender AS club_gender, club.division_uid, competition.name AS division
     FROM person LEFT JOIN nation ON nation.uid = person.nation_uid
     LEFT JOIN club ON club.uid = person.club_uid
     LEFT JOIN competition ON competition.uid = club.division_uid;
+CREATE TABLE club_or_nation_days(person_uid INTEGER, item INTEGER, club_or_nation_uid INTEGER,
+    days INTEGER, PRIMARY KEY (person_uid, item)) WITHOUT ROWID;
+CREATE VIEW days_at_club_or_nation AS SELECT club_or_nation_days.*, person.name,
+    coalesce(club.name, nation.name) AS club_or_nation
+    FROM club_or_nation_days LEFT JOIN person ON person.uid = club_or_nation_days.person_uid
+    LEFT JOIN club ON club.uid = club_or_nation_uid
+    LEFT JOIN nation ON nation.uid = club_or_nation_uid;
 CREATE TABLE history_season(person_uid INTEGER, item INTEGER, year INTEGER,
     order_in_year INTEGER, club_uid INTEGER, division_uid INTEGER, apps INTEGER, goals INTEGER,
     transfer_fee INTEGER, other INTEGER, date_joined TEXT, date_left TEXT,
@@ -40,6 +49,9 @@ CREATE INDEX person_club ON person(club_uid);
 CREATE INDEX person_birth ON person(birth_date);
 CREATE INDEX person_name ON person(name);
 """
+# People are inserted in batches, each with their days at clubs and in nations: both come from one
+# reading of people_db, and the 3.5 million days held at once would take hundreds of megabytes.
+PEOPLE_PER_BATCH = 10_000
 
 
 def insert_people(
@@ -76,8 +88,16 @@ def insert_playing_histories(
 
 
 def _insert(cache: sqlite3.Connection, people: Iterable[Person]) -> None:
-    placeholders = ", ".join("?" * (11 + len(FIELD_NAMES)))
-    cache.executemany(f"INSERT INTO person VALUES ({placeholders})", map(_row, people))
+    placeholders = ", ".join("?" * (12 + len(FIELD_NAMES)))
+    for batch in batched(people, PEOPLE_PER_BATCH, strict=False):
+        cache.executemany(f"INSERT INTO person VALUES ({placeholders})", map(_row, batch))
+        cache.executemany("INSERT INTO club_or_nation_days VALUES (?, ?, ?, ?)", _days(batch))
+
+
+def _days(people: Sequence[Person]) -> Iterator[tuple[int, ...]]:
+    for person in people:
+        for item, days in enumerate(person.club_or_nation_days or ()):
+            yield (person.uid, item, *days)
 
 
 def _row(person: Person) -> tuple:
@@ -93,5 +113,6 @@ def _row(person: Person) -> tuple:
         person.pa,
         person.wage,
         person.contract_expires and person.contract_expires.isoformat(),
+        None if person.club_or_nation_days is None else len(person.club_or_nation_days),
         *(person.fields.get(name) for name in FIELD_NAMES),
     )
