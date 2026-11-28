@@ -40,7 +40,7 @@ needs_editor = pytest.mark.skipif(
 
 @pytest.fixture(scope="module")
 def lookup(tmp_path_factory):
-    """One lookup for every test: building it takes about 40 seconds and 450 MB."""
+    """One lookup for every test: building it takes about 70 seconds and 580 MB."""
     with open_database(Path(EDITOR), tmp_path_factory.mktemp("lookup") / "cache.sqlite") as db:
         yield db
 
