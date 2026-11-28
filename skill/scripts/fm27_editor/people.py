@@ -42,6 +42,9 @@ RETIRED_GAP, RETIRED_TAIL = bytes(4), bytes(8)
 # Matched against an FM27 save: the expiry date of 88,983 of 99,700 people, and most of the others
 # expire later there, renewed; the wage of 34,854 of the 38,127 people whose wage the database sets.
 CONTRACT_DATE_BEFORE, CONTRACT_EXPIRES_BEFORE, CONTRACT_CLUB_AT, CONTRACT_WAGE_AT = 5, 43, 8, 12
+# A contract without an end follows these bytes instead. Only staff have one, and in the save they
+# have no expiry date; its wage is the save's for 807 of the 808 staff whose wage both set.
+OPEN_ENDED = b"\xff\xff\xff\xff\x05\x05"
 
 
 class PeopleError(FormatError):
@@ -198,31 +201,38 @@ def _read_person(record: bytes, basic: BasicPerson, names: Names) -> Person | No
 
 
 def _read_contract(record: bytes, basic: BasicPerson) -> tuple[int | None, datetime.date | None]:
-    """The wage and the date the contract with the person's club expires, if one contract has both.
-
-    Staff have another block that starts with their index and club, which follows no date.
-    """
+    """The wage and the date the contract with the person's club expires, if the person has one
+    contract with it. A contract without an end has a wage alone."""
     if basic.club_uid is None:
         return None, None
     starts = [
         at
         for at in _found(record, struct.pack("<I", basic.index))
-        if _is_contract(record, at, basic.club_uid)
+        if _is_with(record, at, basic.club_uid)
     ]
-    if len(starts) != 1:
+    ending = [at for at in starts if _follows_dates(record, at)]
+    open_ended = [at for at in starts if record[max(0, at - len(OPEN_ENDED)) : at] == OPEN_ENDED]
+    if len(ending) + len(open_ended) != 1:
         return None, None
-    (at,) = starts
-    wage = struct.unpack_from("<I", record, at + CONTRACT_WAGE_AT)[0]
+    (at,) = ending or open_ended
+    wage = struct.unpack_from("<I", record, at + CONTRACT_WAGE_AT)[0] or None
+    if open_ended:
+        return wage, None
     expires = read_date(record, at - CONTRACT_EXPIRES_BEFORE)
-    return wage or None, None if expires == NO_DATE else expires
+    return wage, None if expires == NO_DATE else expires
 
 
-def _is_contract(record: bytes, at: int, club_uid: int) -> bool:
-    if at < CONTRACT_EXPIRES_BEFORE or at + CONTRACT_WAGE_AT + 4 > len(record):
+def _is_with(record: bytes, at: int, club_uid: int) -> bool:
+    """Whether a contract with the club could start here."""
+    if at + CONTRACT_WAGE_AT + 4 > len(record):
         return False
-    club = struct.unpack_from("<I", record, at + CONTRACT_CLUB_AT)[0]
+    return struct.unpack_from("<I", record, at + CONTRACT_CLUB_AT)[0] == club_uid
+
+
+def _follows_dates(record: bytes, at: int) -> bool:
+    """Whether a contract that ends follows: a date and a zero byte, and the date it expires."""
     return (
-        club == club_uid
+        at >= CONTRACT_EXPIRES_BEFORE
         and record[at - 1] == 0
         and read_date(record, at - CONTRACT_DATE_BEFORE) is not None
         and read_date(record, at - CONTRACT_EXPIRES_BEFORE) is not None
