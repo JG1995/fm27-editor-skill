@@ -354,7 +354,7 @@ def test_agreements_between_nations_can_be_found_by_name(editor, tmp_path):
     with open_database(editor, tmp_path / "cache.sqlite") as db:
         rows = db.execute("SELECT uid, name, short_name FROM agreements ORDER BY uid").fetchall()
 
-    assert rows == [(1, "Example Union", "EU"), (4, "Territories Act", None)]
+    assert rows == [(1, "Example Union", "EU"), (4, "Territories Act", "")]
 
 
 def test_currencies_say_how_many_of_them_make_a_pound(editor, tmp_path):
