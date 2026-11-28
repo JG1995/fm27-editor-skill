@@ -7,6 +7,7 @@ from fm27_editor.people import PeopleError, PersonKind, iter_people, parse_basic
 from fm27_editor.person_names import Names
 
 NAMES = Names({1: "Testy"}, {2: "McTestface"}, {5: "Testo"})
+OPEN_ENDED = b"\xff\xff\xff\xff\x05\x05"
 STAFF_SAMPLE = [
     "working_with_youngsters",
     "determination",
@@ -301,19 +302,30 @@ def test_a_wage_of_0_and_the_first_day_of_1900_are_missing():
     [
         pytest.param(synthetic.contract_block(0, (8, 9102)), id="another club"),
         pytest.param(synthetic.contract_block(1), id="another person"),
-        pytest.param(
-            synthetic.contract_block(0, before=b"\xff\xff\xff\xff\x05\x05"), id="not after a date"
-        ),
+        pytest.param(synthetic.contract_block(0, before=bytes(5)), id="not after a date"),
         pytest.param(synthetic.contract_block(0, expires=(0, 0)), id="no date where it expires"),
         pytest.param(synthetic.contract_block(0) * 2, id="twice"),
+        pytest.param(
+            synthetic.contract_block(0) + synthetic.contract_block(0, before=OPEN_ENDED),
+            id="once with an end and once without",
+        ),
     ],
 )
-def test_only_one_contract_with_the_persons_club_after_a_date_is_read(contract):
-    """Staff have another block with the index and the club, which follows no date."""
+def test_only_one_contract_with_the_persons_club_is_read(contract):
     record = synthetic.person_record(0, 100, contract=contract)
     (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
 
     assert (person.wage, person.contract_expires) == (None, None)
+
+
+def test_a_contract_without_an_end_gives_the_wage_alone():
+    """Staff have such contracts; a date 43 bytes before one is no date it expires."""
+    record = synthetic.person_record(
+        0, 100, kind=1, contract=synthetic.contract_block(0, before=OPEN_ENDED)
+    )
+    (person,) = read_all([synthetic.basic_person(1, 0, 100)], [record])
+
+    assert (person.wage, person.contract_expires) == (25_000, None)
 
 
 def test_a_person_without_a_club_has_no_contract():
