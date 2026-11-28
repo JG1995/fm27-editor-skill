@@ -87,7 +87,7 @@ def _find_table() -> list[tuple[list[str], list[str]]]:
     table = text.split("| Table | Columns |\n| --- | --- |\n", 1)[1].split("\n\n", 1)[0]
     rows = []
     for line in table.splitlines():
-        names, columns = line.strip().strip("|").split("|")
+        names, columns = line.strip().strip("|").split("|", 1)
         rows.append((re.findall(r"`([^`]+)`", names), re.findall(r"`([^` ]+)`", columns)))
     return rows
 

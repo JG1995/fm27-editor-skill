@@ -3,6 +3,7 @@
 import sqlite3
 from collections.abc import Callable, Iterator, Sequence
 from itertools import pairwise
+from pathlib import Path
 from typing import Any
 
 from fm27_editor.change_reading import EditError
@@ -25,7 +26,7 @@ type Called = Callable[[Competition], str]
 
 def plan_rules(
     given: Any,
-    definitions: RuleDefinitions,
+    editor_dir: Path,
     refer: Refer,
     additions: Sequence[Addition],
     lookup: sqlite3.Connection,
@@ -33,7 +34,7 @@ def plan_rules(
 ) -> NationRules:
     if start is not None:
         check_has_no_rules(start.file.changes)
-    rules = check_nation_rules(given, definitions, refer)
+    rules = check_nation_rules(given, RuleDefinitions(editor_dir), refer)
     if any(_is_for_women(competition, additions, lookup) for competition in rules.competitions):
         raise EditError("rules for women's competitions cannot be written yet")
     return rules
