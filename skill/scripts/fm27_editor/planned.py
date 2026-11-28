@@ -72,6 +72,8 @@ def known_value(record: KnownRecord, code: str, lookup: sqlite3.Connection) -> o
     held = record.kind.held_lists.get(code)
     if held is None:
         return record.facts.get(record.kind.names.get(code, ""))
+    if held.known_by is not None and record.facts.get(held.known_by) is None:
+        return None
     columns = ", ".join(held.parts)
     rows = lookup.execute(
         f"SELECT {columns} FROM {held.table} WHERE {held.owner} = ? ORDER BY {held.order}",

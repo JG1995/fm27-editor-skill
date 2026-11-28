@@ -689,6 +689,17 @@ def test_the_items_a_list_holds_now_are_its_old_value_where_the_lookup_has_them(
     assert nations.old is None
 
 
+def test_the_days_at_clubs_a_person_has_are_their_old_value_unless_they_are_not_known(plan_for):
+    """Charlie Coach's days at clubs cannot be read."""
+    plan = plan_for(edits=[by_hand(uid, Pdcn={"replace": []}) for uid in (100, 101, 102)])
+
+    assert [edit.old for edit in plan.edits] == [
+        ({"Ttea": 9101, "days": 400}, {"Ttea": 9002, "days": 6000}),
+        (),
+        None,
+    ]
+
+
 def test_a_list_that_replaces_one_the_starting_file_adds_to_is_counted(plan_for, tmp_path):
     plan = plan_for(edits=[by_hand(100, PNRs=[{"nati": 9001}])])
     path = tmp_path / "Lists.fmf"

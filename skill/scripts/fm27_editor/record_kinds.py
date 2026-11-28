@@ -35,6 +35,9 @@ class HeldList:
     order: str
     parts: Mapping[str, str]
     """The Editor's codes of the parts by the lookup's names."""
+    known_by: str | None = None
+    """A fact of the record that is missing when the lookup could not read its list; without one,
+    the lookup knows every record's list."""
 
 
 @dataclass(frozen=True, eq=False)
@@ -187,7 +190,14 @@ PERSON_LEFT_OUT = frozenset(
     }
 )
 PERSON_HELD_LISTS = {
-    "Plhs": HeldList("history_season", "person_uid", "item", person_codes.PLAYING_HISTORY)
+    "Plhs": HeldList("history_season", "person_uid", "item", person_codes.PLAYING_HISTORY),
+    "Pdcn": HeldList(
+        "club_or_nation_days",
+        "person_uid",
+        "item",
+        person_codes.DAYS_AT_CLUB_OR_NATION,
+        known_by="clubs_and_nations",
+    ),
 }
 PLAYER = RecordKind(
     name="player",
