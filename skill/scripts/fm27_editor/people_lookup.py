@@ -6,7 +6,7 @@ from collections.abc import Iterable, Iterator, Sequence
 from itertools import batched
 
 from fm27_editor.dat_tables import read_string_table
-from fm27_editor.people import BasicPerson, Person, iter_people
+from fm27_editor.people import DAYS_BOXES, BasicPerson, ClubOrNationDays, Person, iter_people
 from fm27_editor.person_fields import FIELD_NAMES
 from fm27_editor.person_names import Names
 from fm27_editor.place_lookup import Tables
@@ -16,6 +16,7 @@ from fm27_editor.playing_history import Season, parse_playing_histories
 NAME_TABLES = [f"name_table_extra_{number}" for number in range(3)]
 CLIENT_TABLES = set(NAME_TABLES)
 _FIELD_COLUMNS = ", ".join(f"{name} INTEGER" for name in FIELD_NAMES)
+_BOX_COLUMNS = ", ".join(f"{name} INTEGER" for name in DAYS_BOXES)
 SCHEMA = f"""
 CREATE TABLE person(uid INTEGER PRIMARY KEY, kind TEXT, name TEXT, full_name TEXT,
     birth_date TEXT, nation_uid INTEGER, club_uid INTEGER, ca INTEGER, pa INTEGER,
@@ -26,7 +27,7 @@ CREATE VIEW people AS SELECT person.*, nation.name AS nation, club.name AS club,
     LEFT JOIN club ON club.uid = person.club_uid
     LEFT JOIN competition ON competition.uid = club.division_uid;
 CREATE TABLE club_or_nation_days(person_uid INTEGER, item INTEGER, club_or_nation_uid INTEGER,
-    days INTEGER, PRIMARY KEY (person_uid, item)) WITHOUT ROWID;
+    days INTEGER, {_BOX_COLUMNS}, PRIMARY KEY (person_uid, item)) WITHOUT ROWID;
 CREATE VIEW days_at_club_or_nation AS SELECT club_or_nation_days.*, person.name,
     coalesce(club.name, nation.name) AS club_or_nation
     FROM club_or_nation_days LEFT JOIN person ON person.uid = club_or_nation_days.person_uid
@@ -34,7 +35,8 @@ CREATE VIEW days_at_club_or_nation AS SELECT club_or_nation_days.*, person.name,
     LEFT JOIN nation ON nation.uid = club_or_nation_uid;
 CREATE TABLE history_season(person_uid INTEGER, item INTEGER, year INTEGER,
     order_in_year INTEGER, club_uid INTEGER, division_uid INTEGER, apps INTEGER, goals INTEGER,
-    transfer_fee INTEGER, other INTEGER, date_joined TEXT, date_left TEXT,
+    transfer_fee INTEGER, other INTEGER, date_joined TEXT, date_left TEXT, on_loan INTEGER,
+    youth_team INTEGER, tribunal_fee INTEGER, extras INTEGER,
     PRIMARY KEY (person_uid, item)) WITHOUT ROWID;
 CREATE VIEW playing_history AS SELECT history_season.*, person.name, club.name AS club,
     competition.name AS division
@@ -49,6 +51,7 @@ CREATE INDEX person_club ON person(club_uid);
 CREATE INDEX person_birth ON person(birth_date);
 CREATE INDEX person_name ON person(name);
 """
+_DAYS_PLACEHOLDERS = ", ".join("?" * (2 + len(ClubOrNationDays._fields)))
 # People are inserted in batches, each with their days at clubs and in nations: both come from one
 # reading of people_db, and the 3.5 million days held at once would take hundreds of megabytes.
 PEOPLE_PER_BATCH = 10_000
@@ -91,7 +94,9 @@ def _insert(cache: sqlite3.Connection, people: Iterable[Person]) -> None:
     placeholders = ", ".join("?" * (12 + len(FIELD_NAMES)))
     for batch in batched(people, PEOPLE_PER_BATCH, strict=False):
         cache.executemany(f"INSERT INTO person VALUES ({placeholders})", map(_row, batch))
-        cache.executemany("INSERT INTO club_or_nation_days VALUES (?, ?, ?, ?)", _days(batch))
+        cache.executemany(
+            f"INSERT INTO club_or_nation_days VALUES ({_DAYS_PLACEHOLDERS})", _days(batch)
+        )
 
 
 def _days(people: Sequence[Person]) -> Iterator[tuple[int, ...]]:

@@ -3,6 +3,9 @@ import pytest
 import synthetic
 from fm27_editor.playing_history import PlayingHistoryError, Season, parse_playing_histories
 
+# Not on loan, nor in a youth team, nor for a tribunal fee, and no extras.
+NONE = (0, 0, 0, None)
+
 
 def parse(histories):
     return list(parse_playing_histories(*synthetic.playing_histories(histories)))
@@ -30,10 +33,31 @@ def test_each_season_is_read_with_its_person_and_place_in_the_history():
     )
 
     assert seasons == [
-        Season(100, 0, 2016, 2, 1295, 4501, 16, 0, 87_621, None, "2016-01-01", "2017-02-01"),
-        Season(100, 1, 2017, 0, 1353, None, 14, 2, None, None, "2017-02-01", None),
-        Season(101, 0, 2020, 0, 9101, None, 0, 0, None, None, None, None),
+        Season(100, 0, 2016, 2, 1295, 4501, 16, 0, 87_621, None, "2016-01-01", "2017-02-01", *NONE),
+        Season(100, 1, 2017, 0, 1353, None, 14, 2, None, None, "2017-02-01", None, *NONE),
+        Season(101, 0, 2020, 0, 9101, None, 0, 0, None, None, None, None, *NONE),
     ]
+
+
+@pytest.mark.parametrize(
+    ("flags", "boxes"),
+    [
+        (0x40, (0, 0, 0, None)),
+        (0x00, (0, 0, 0, None)),
+        (0x41, (1, 0, 0, None)),
+        (0x42, (0, 1, 0, None)),
+        (0x62, (0, 1, 1, None)),
+        (0x44, (0, 0, 0, 4)),
+        (0x4C, (0, 0, 0, 12)),
+        (0x50, (0, 0, 0, 16)),
+    ],
+    ids=["none", "none without 0x40", "loan", "youth", "tribunal", "part exchange", "two", "slots"],
+)
+def test_the_flags_of_a_season_are_the_editors_boxes_and_extras(flags, boxes):
+    """As seasons that the Editor saved show them; 0x40 is no part the Editor saves."""
+    (season,) = parse({100: [synthetic.history_item(2020, 9101, flags=flags)]})
+
+    assert (season.on_loan, season.youth_team, season.tribunal_fee, season.extras) == boxes
 
 
 @pytest.mark.parametrize(
@@ -45,6 +69,11 @@ def test_a_fee_below_minus_one_is_the_editors_other_choice(fee, transfer_fee, ot
     (season,) = parse({100: [synthetic.history_item(2020, 9101, fee=fee)]})
 
     assert (season.transfer_fee, season.other) == (transfer_fee, other)
+
+
+def test_a_season_with_a_flag_that_is_no_known_part_is_refused():
+    with pytest.raises(PlayingHistoryError, match="flag"):
+        parse({100: [synthetic.history_item(2020, 9101, flags=0xC0)]})
 
 
 def test_apps_and_goals_of_255_are_not_known():

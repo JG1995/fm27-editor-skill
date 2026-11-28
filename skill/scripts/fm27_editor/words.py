@@ -95,6 +95,9 @@ def shown(field: Field, value: object, lookup: sqlite3.Connection) -> str:
         return named_reference(lookup, LOOKUP_TABLES[field.points_to], value)
     if field.choices and value in field.choices:
         return f"{field.choices[value]} ({value})"
+    if field.type == "multiple_enum" and field.choices and isinstance(value, int):
+        chosen = [f"{name} ({number})" for number, name in field.choices.items() if number & value]
+        return " and ".join(chosen)
     return amount(field, value)
 
 
@@ -128,10 +131,19 @@ def _items(
     return " ".join(
         f"{mark} "
         + ", ".join(
-            f"{parts[code].name} {shown(parts[code], part, lookup)}" for code, part in item.items()
+            _part(parts[code], value, lookup)
+            for code, value in item.items()
+            if value or parts[code].type != "boolean"
         )
         for item in items
     )
+
+
+def _part(part: Field, value: object, lookup: sqlite3.Connection) -> str:
+    """A part of an item; a box is named only when it is ticked, and left out when it is not."""
+    if part.type == "boolean":
+        return part.name
+    return f"{part.name} {shown(part, value, lookup)}"
 
 
 def named(lookup: sqlite3.Connection, table: str | None, uid: int) -> str:

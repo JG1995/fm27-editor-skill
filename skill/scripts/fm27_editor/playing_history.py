@@ -4,9 +4,10 @@ pl_hist_index lists the uid of each person who has a history, with the number of
 pl_hist_id gives each entry the offsets of its first and last season in pl_hist_dt. A season is 44
 bytes and ends with the offset of the next season of the same history, or none after the last.
 Checked on 2026-11-27 against the career of a well-known player: the years, clubs, appearances,
-goals, fees, and the dates he joined and left each club hold. Four parts are not read: a flags
-byte (whose bits may mean on loan, youth team, and a tribunal fee, which nothing confirmed), a
-second year, and a date that only the last season holds.
+goals, fees, and the dates he joined and left each club hold. The bits of a flags byte are the
+Editor's boxes and extras, as eight seasons that the Editor saved showed them on 2026-11-28; one
+bit is no part the Editor saves. Two parts are not read: a second year, and a date that only the
+last season holds.
 """
 
 import struct
@@ -42,6 +43,11 @@ SEASON = np.dtype(
 NO_ID = 0xFFFFFFFF
 NOT_KNOWN = 255
 NO_FEE = -1
+ON_LOAN, YOUTH_TEAM, TRIBUNAL_FEE = 0x01, 0x02, 0x20
+# The Editor's extras, such as a part exchange, are bits of the flags with the same numbers. One
+# more bit is set in most seasons, but is no part the Editor saves.
+EXTRAS, UNSAVED = 0x1C, 0x40
+FLAGS = ON_LOAN | YOUTH_TEAM | TRIBUNAL_FEE | EXTRAS | UNSAVED
 # One season was joined in 1887, so dates before the first day of 1900 are real too.
 EARLIEST_YEAR, LATEST_YEAR = 1800, 2100
 BATCH = 100_000
@@ -68,6 +74,11 @@ class Season(NamedTuple):
     """A choice the Editor offers instead of a fee, such as -2 for undisclosed."""
     date_joined: str | None
     date_left: str | None
+    on_loan: int
+    youth_team: int
+    tribunal_fee: int
+    extras: int | None
+    """The sum of the numbers of the Editor's extras, such as 4 for a part exchange."""
 
 
 def parse_playing_histories(index: bytes, offsets: bytes, items: bytes) -> Iterator[Season]:
@@ -75,6 +86,7 @@ def parse_playing_histories(index: bytes, offsets: bytes, items: bytes) -> Itera
     people, firsts, lasts = _entries(index, offsets, len(items))
     seasons = np.frombuffer(items, dtype=SEASON)
     _check_links(seasons, lasts)
+    _check_flags(seasons)
     counts = (lasts - firsts) // SEASON.itemsize + 1
     person = np.repeat(people, counts)
     place = np.arange(len(seasons)) - np.repeat(firsts // SEASON.itemsize, counts)
@@ -97,6 +109,8 @@ def parse_playing_histories(index: bytes, offsets: bytes, items: bytes) -> Itera
             [fee if fee < NO_FEE else None for fee in fees],
             joined[part].tolist(),
             left[part].tolist(),
+            *(_is_set(some["flags"], bit) for bit in (ON_LOAN, YOUTH_TEAM, TRIBUNAL_FEE)),
+            _missing(some["flags"] & EXTRAS, 0),
             strict=True,
         )
         yield from map(Season._make, columns)
@@ -134,6 +148,12 @@ def _check_links(seasons: np.ndarray, lasts: np.ndarray) -> None:
         raise PlayingHistoryError(f"season {wrong[0]} does not point to the next one")
 
 
+def _check_flags(seasons: np.ndarray) -> None:
+    wrong = np.flatnonzero(seasons["flags"] & (0xFF & ~FLAGS))
+    if wrong.size:
+        raise PlayingHistoryError(f"season {wrong[0]} has a flag that is no known part")
+
+
 def _dates(days: np.ndarray, years: np.ndarray) -> np.ndarray:
     """Dates as text, None for the first day of 1900, which stands for no date."""
     leap = (years % 4 == 0) & ((years % 100 != 0) | (years % 400 == 0))
@@ -145,6 +165,10 @@ def _dates(days: np.ndarray, years: np.ndarray) -> np.ndarray:
     text = np.datetime_as_string(first_days + (days.astype(np.int64) - 1), unit="D").astype(object)
     text[(days == NO_DATE.timetuple().tm_yday) & (years == NO_DATE.year)] = None
     return text
+
+
+def _is_set(flags: np.ndarray, bit: int) -> list[int]:
+    return ((flags & bit) != 0).astype(int).tolist()
 
 
 def _missing(values: np.ndarray, missing: int) -> list[int | None]:

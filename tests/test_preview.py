@@ -183,7 +183,7 @@ def test_replacing_a_list_that_the_lookup_holds_shows_every_item_it_takes_out(li
         " - Year 2022, Order 1, Club Example United (9102), Division Example League North (9203),"
         " Apps 12, Goals 4, Transfer Fee £2,500,000, Date Left 2023-01-31"
         " - Year 2022, Order 2, Club Fictional City (9101), Division Example League (9201),"
-        " Other Undisc. (-2)"
+        " Other Undisc. (-2), On Loan, Extras Part Exchange (4) and Draft Allocations (8)"
         ", then + Year 2025, Club Fictional City (9101)"
     )
 
@@ -214,7 +214,7 @@ def test_replacing_days_at_clubs_shows_those_it_takes_out_or_that_they_are_not_k
         line.endswith(
             ": Days At Club/In Nation cleared of"
             " - Club Or Nation Fictional City (9101), Days 400"
-            " - Club Or Nation Norwegia (9002), Days 6000"
+            " - Club Or Nation Norwegia (9002), Days 6000, Between Age Of 0 And 19 Only"
             ", then + Club Or Nation Fictional City (9101), Days 30"
         )
         for line in lines

@@ -597,10 +597,11 @@ def history_item(
     fee: int = -1,
     joined: tuple[int, int] = NO_DATE,
     left: tuple[int, int] = NO_DATE,
+    flags: int = 0x40,
 ) -> bytes:
     """A season of a person at a club, without the offset of the next one that ends it."""
     item = struct.pack(
-        "<HHBBBiIIIIB", year, year, 0x40, apps, goals, fee, club, club, division, division, order
+        "<HHBBBiIIIIB", year, year, flags, apps, goals, fee, club, club, division, division, order
     )
     return item + struct.pack("<HHHH", *joined, *left) + struct.pack("<HH", *NO_DATE)
 

@@ -50,6 +50,18 @@ CONTRACT_DATE_BEFORE, CONTRACT_EXPIRES_BEFORE, CONTRACT_CLUB_AT, CONTRACT_WAGE_A
 # go back to the day the playing history says the person joined it.
 DAYS_BEFORE, DAYS_TAIL_SIZE = b"\xff\x01", 10
 DAYS_ITEM = struct.Struct("<BHBI")
+# The other bits of the flags are the Editor's boxes of an item, as 21 items that the Editor saved
+# showed them on 2026-11-28. Days contracted between 0 and 21 is the one bit left over, which no
+# item of the database has. The byte that is not read is no part the Editor saves.
+DAYS_BOXES = {
+    "between_0_and_21": 0x04,
+    "between_15_and_21": 0x02,
+    "between_18_and_23": 0x10,
+    "between_0_and_19": 0x40,
+    "contracted_between_15_and_21": 0x20,
+    "contracted_between_0_and_21": 0x08,
+}
+DAYS_FLAGS = 0x01 | sum(DAYS_BOXES.values())
 # A contract without an end follows these bytes instead. Only staff have one, and in the save they
 # have no expiry date; its wage is the save's for 807 of the 808 staff whose wage both set.
 OPEN_ENDED = b"\xff\xff\xff\xff\x05\x05"
@@ -91,10 +103,17 @@ class BasicPerson:
 
 
 class ClubOrNationDays(NamedTuple):
-    """How many days a person has spent at a club or in a nation, as the Editor counts them."""
+    """How many days a person has spent at a club or in a nation, as the Editor counts them, and
+    the ages that the Editor's boxes limit them to."""
 
     club_or_nation_uid: int
     days: int
+    between_0_and_21: bool
+    between_15_and_21: bool
+    between_18_and_23: bool
+    between_0_and_19: bool
+    contracted_between_15_and_21: bool
+    contracted_between_0_and_21: bool
 
 
 @dataclass(slots=True)
@@ -275,9 +294,12 @@ def _read_club_or_nation_days(record: bytes) -> tuple[ClubOrNationDays, ...] | N
             break
     if len(starts) != 1:
         return None
+    items = list(DAYS_ITEM.iter_unpack(record[starts[0] : end]))
+    if any(flags & ~DAYS_FLAGS for flags, *_ in items):
+        return None
     return tuple(
-        ClubOrNationDays(uid, days)
-        for _, days, _, uid in DAYS_ITEM.iter_unpack(record[starts[0] : end])
+        ClubOrNationDays(uid, days, *(bool(flags & bit) for bit in DAYS_BOXES.values()))
+        for flags, days, _, uid in items
     )
 
 

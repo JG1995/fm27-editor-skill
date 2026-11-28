@@ -9,6 +9,7 @@ from fictional_editor import write_database
 from fm27_editor import base_database
 from fm27_editor.base_database import DatabaseError, open_database
 from fm27_editor.named_records import NamedRecordError
+from fm27_editor.people import DAYS_BOXES
 from fm27_editor.places import PlacesError
 
 
@@ -133,6 +134,26 @@ def test_playing_history_is_found_with_the_names_of_people_clubs_and_divisions(e
             None,
         ),
     ]
+
+
+def test_seasons_say_which_of_the_editors_boxes_and_extras_they_have(editor, tmp_path):
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            "SELECT item, on_loan, youth_team, tribunal_fee, extras FROM playing_history"
+            " ORDER BY person_uid, item"
+        ).fetchall()
+
+    assert rows == [(0, 0, 0, 0, None), (1, 0, 0, 0, None), (2, 1, 0, 0, 12)]
+
+
+def test_days_at_clubs_say_which_of_the_editors_boxes_are_ticked(editor, tmp_path):
+    boxes = ", ".join(DAYS_BOXES)
+    with open_database(editor, tmp_path / "cache.sqlite") as db:
+        rows = db.execute(
+            f"SELECT item, {boxes} FROM days_at_club_or_nation ORDER BY person_uid, item"
+        ).fetchall()
+
+    assert rows == [(0, 0, 0, 0, 0, 0, 0), (1, 0, 0, 0, 1, 0, 0)]
 
 
 def test_a_history_file_that_changes_rebuilds_the_lookup(editor, tmp_path):
