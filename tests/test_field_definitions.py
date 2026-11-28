@@ -34,6 +34,36 @@ def test_a_note_to_translators_is_not_part_of_the_name(tmp_path):
     assert field.name == "Jump"
 
 
+def numbers(*values):
+    """The numbers that the Editor puts in a name where it says [%number#1] and so on."""
+    records = "".join(
+        f'<record number="{place}"><integer id="valu" value="{value}" /></record>'
+        for place, value in enumerate(values, start=1)
+    )
+    return f'<list id="translation_variables">{records}</list>'
+
+
+def test_the_numbers_of_a_name_are_filled_in(tmp_path):
+    name = "Between Age Of [%number#1] And [%number#2] Only[COMMENT: days]"
+
+    field = read_one(tmp_path, "0t19", name, "boolean", numbers(0, 19))
+
+    assert field.name == "Between Age Of 0 And 19 Only"
+
+
+def test_the_numbers_of_a_choice_are_filled_in_and_others_are_left(tmp_path):
+    listed = (
+        '<list id="enum_values"><record enum="4">'
+        '<translation id="name" value="[%number#1] Years Between [%number#2] and [%number#3]" />'
+        f"{numbers(4, 0, 19)}</record>"
+        '<record enum="5"><translation id="name" value="[%string#type] Only" /></record></list>'
+    )
+
+    field = read_one(tmp_path, "hgty", "Type", "enum", listed)
+
+    assert field.choices == {4: "4 Years Between 0 and 19", 5: "[%string#type] Only"}
+
+
 def test_choices_listed_in_the_field_are_read_by_number(tmp_path):
     listed = (
         '<list id="enum_values">'

@@ -1,5 +1,6 @@
 """Reading the XML files in which the Editor defines its fields and rules."""
 
+import re
 import xml.etree.ElementTree as ElementTree
 from dataclasses import dataclass
 from pathlib import Path
@@ -9,6 +10,9 @@ from fm27_editor.binary import FormatError
 from fm27_editor.container import ContainerError, Folder, read_container
 
 TRANSLATOR_NOTE = "[COMMENT"
+# Where a name says [%number#1], the Editor puts the first of the numbers the definition lists.
+NUMBER_IN_NAME = re.compile(r"\[%number#(\d+)\]")
+NAME_NUMBERS = "list[@id='translation_variables']/record"
 DEFINITION_ENDING = ".xml"
 
 
@@ -70,7 +74,12 @@ def value_of(element: Element, name: str) -> str | None:
 
 
 def name_of(element: Element) -> str:
-    return (value_of(element, "name") or "").split(TRANSLATOR_NOTE)[0].strip()
+    """The name as the Editor shows it, with its numbers filled in."""
+    name = (value_of(element, "name") or "").split(TRANSLATOR_NOTE)[0].strip()
+    numbers = {
+        record.get("number"): value_of(record, "valu") for record in element.findall(NAME_NUMBERS)
+    }
+    return NUMBER_IN_NAME.sub(lambda found: numbers.get(found[1]) or found[0], name)
 
 
 def whole_number(element: Element, name: str) -> int | None:
