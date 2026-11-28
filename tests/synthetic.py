@@ -296,6 +296,21 @@ def city_record(nation: int = NO_INDEX) -> bytes:
     return b"\x00" * 2 + b"\x42" * 9 + struct.pack("<I", nation) + bytes(range(1, 17))
 
 
+def local_region_record(
+    nation: int = NO_INDEX,
+    population: int = 0,
+    *,
+    languages: tuple[tuple[int, int], ...] = (),
+    weather: int = NO_INDEX,
+) -> bytes:
+    """A zero byte, the nation and population, 14 other bytes, the languages spoken as a count and
+    each language with its share, and the weather."""
+    record = b"\x00" + struct.pack("<II", nation, population) + bytes(range(1, 15))
+    record += struct.pack("<H", len(languages))
+    record += b"".join(struct.pack("<IB", *language) for language in languages)
+    return record + struct.pack("<I", weather)
+
+
 def stadium_record(city: int = NO_INDEX) -> bytes:
     return b"\x00\x02\x00\x00" + struct.pack("<I", city) + bytes(range(1, 19))
 
@@ -389,6 +404,16 @@ def injury_names(injuries: dict[int, str]) -> bytes:
         [
             struct.pack("<I", uid) + text(name) + b"\xff" + text(f"a {name}") + b"\xff\x00"
             for uid, name in injuries.items()
+        ]
+    )
+
+
+def local_region_names(regions: dict[int, str]) -> bytes:
+    """Name and an empty short name."""
+    return name_table(
+        [
+            struct.pack("<I", uid) + text(name) + b"\xff" + text("") + b"\xff\x00"
+            for uid, name in regions.items()
         ]
     )
 
