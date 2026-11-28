@@ -9,7 +9,7 @@ only a name.
 
 import datetime
 import struct
-from collections.abc import Iterator
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from enum import IntEnum
 from typing import NamedTuple
@@ -67,6 +67,10 @@ DAYS_FLAGS = 0x01 | sum(DAYS_BOXES.values())
 # reason, the kind of that record, the kind of relation, a level, a value, a zero byte, and ff.
 # Placed so, 690,045 of the 692,329 people with days have relations that can be read one way only.
 RELATIONS_MARK, RELATION_END, BETWEEN_ITEM_SIZE = 0x01, 0xFF, 7
+# The most seven-byte items looked for; the database has at most 17. Their count is a four-byte
+# number, so its three high bytes are 0; checking bytes, not numbers, halves the time of the search.
+MOST_BETWEEN = 63
+ZERO_HIGH_BYTES = bytes(3)
 RELATION_ITEM = struct.Struct("<IIHBBBBBB")
 # A contract without an end follows these bytes instead. Only staff have one, and in the save they
 # have no expiry date; its wage is the save's for 807 of the 808 staff whose wage both set.
@@ -119,26 +123,63 @@ class RelationKind(IntEnum):
     TRAINED_AT_CLUB = 72
 
 
-CLUB_RECORD, PERSON_RECORD, NATION_RECORD = 1, 3, 8
-RELATED_RECORDS = {
-    RelationKind.FAVOURITE_PERSON: PERSON_RECORD,
-    RelationKind.FAVOURITE_CLUB: CLUB_RECORD,
-    RelationKind.SECOND_NATION: NATION_RECORD,
-    RelationKind.TRAINED_IN_NATION: NATION_RECORD,
-    RelationKind.TRAINED_AT_CLUB: CLUB_RECORD,
-}
+class SecondNation(NamedTuple):
+    nation_uid: int | None
+    nationality_info: int
+    """The Editor's choice, such as 85 for born in the nation."""
 
 
-class Relation(NamedTuple):
-    """A person's relation to a club, a person, or a nation; what its level and value mean depends
-    on its kind."""
+class TrainedInNation(NamedTuple):
+    nation_uid: int | None
+    type: int
+    """The Editor's choice, such as 1 for three years between 15 and 21."""
 
-    relation: int
-    uid: int | None
-    """None for a person who is not in the database."""
-    reason: int
+
+class TrainedAtClub(NamedTuple):
+    club_uid: int | None
+    type: int
+
+
+class FavouritePerson(NamedTuple):
+    favourite_uid: int | None
+    """None for a person whom the database does not hold."""
     level: int
-    value: int
+    reason: int
+    permanent: bool
+
+
+class FavouriteClub(NamedTuple):
+    club_uid: int | None
+    level: int
+    reason: int
+
+
+type Relation = SecondNation | TrainedInNation | TrainedAtClub | FavouritePerson | FavouriteClub
+type Facts = Callable[[int | None, int, int, int], Relation]
+"""A relation's facts from its uid, reason, level, and value."""
+
+CLUB_RECORD, PERSON_RECORD, NATION_RECORD = 1, 3, 8
+# By kind of relation: the kind of record it is with, and its facts. A favourite person is
+# permanent when the value is not 0; it is then 79.
+RELATIONS: dict[int, tuple[int, Facts]] = {
+    RelationKind.SECOND_NATION: (NATION_RECORD, lambda uid, _, __, value: SecondNation(uid, value)),
+    RelationKind.TRAINED_IN_NATION: (
+        NATION_RECORD,
+        lambda uid, _, level, __: TrainedInNation(uid, level),
+    ),
+    RelationKind.TRAINED_AT_CLUB: (
+        CLUB_RECORD,
+        lambda uid, _, level, __: TrainedAtClub(uid, level),
+    ),
+    RelationKind.FAVOURITE_PERSON: (
+        PERSON_RECORD,
+        lambda uid, reason, level, value: FavouritePerson(uid, level, reason, value != 0),
+    ),
+    RelationKind.FAVOURITE_CLUB: (
+        CLUB_RECORD,
+        lambda uid, reason, level, _: FavouriteClub(uid, level, reason),
+    ),
+}
 
 
 class ClubOrNationDays(NamedTuple):
@@ -172,7 +213,8 @@ class Person:
     club_or_nation_days: tuple[ClubOrNationDays, ...] | None = None
     """None when the record does not hold them in the known layout."""
     relations: tuple[Relation, ...] | None = None
-    """None when the record does not hold them in the known layout."""
+    """The relations of the kinds above; None when the record does not hold them in the known
+    layout."""
 
 
 def parse_basic_people(content: bytes) -> list[BasicPerson]:
@@ -358,8 +400,8 @@ def _read_club_or_nation_days(record: bytes, start: int) -> tuple[ClubOrNationDa
 
 
 def _read_relations(record: bytes, end: int) -> tuple[Relation, ...] | None:
-    """The relations that stand before `end`, if they can be read one way only, each with the
-    kind of record its kind of relation is with."""
+    """The relations of known kinds that stand before `end`, if they can be read one way only,
+    each with the kind of record its kind of relation is with."""
     found = [
         (start, stop)
         for stop in _relations_stops(record, end)
@@ -371,19 +413,22 @@ def _read_relations(record: bytes, end: int) -> tuple[Relation, ...] | None:
     for _, uid, reason, kind, relation, level, value, _, _ in RELATION_ITEM.iter_unpack(
         record[start:stop]
     ):
-        if RELATED_RECORDS.get(relation, kind) != kind:
+        if relation not in RELATIONS:
+            continue
+        record_kind, facts = RELATIONS[relation]
+        if record_kind != kind:
             return None
-        relations.append(Relation(relation, None if uid == NO_ID else uid, reason, level, value))
+        relations.append(facts(None if uid == NO_ID else uid, reason, level, value))
     return tuple(relations)
 
 
 def _relations_stops(record: bytes, end: int) -> Iterator[int]:
     """Where the relations could stop: before a count of the seven-byte items up to `end`."""
-    for between in range(256):
+    for between in range(MOST_BETWEEN + 1):
         stop = end - 4 - BETWEEN_ITEM_SIZE * between
         if stop < 2:
             return
-        if struct.unpack_from("<I", record, stop)[0] == between:
+        if record[stop] == between and record[stop + 1 : stop + 4] == ZERO_HIGH_BYTES:
             yield stop
 
 

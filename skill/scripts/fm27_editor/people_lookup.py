@@ -2,7 +2,7 @@
 their playing histories."""
 
 import sqlite3
-from collections.abc import Callable, Iterable, Iterator, Sequence
+from collections.abc import Iterable, Iterator, Sequence
 from itertools import batched
 
 from fm27_editor.dat_tables import read_string_table
@@ -10,9 +10,13 @@ from fm27_editor.people import (
     DAYS_BOXES,
     BasicPerson,
     ClubOrNationDays,
+    FavouriteClub,
+    FavouritePerson,
     Person,
     Relation,
-    RelationKind,
+    SecondNation,
+    TrainedAtClub,
+    TrainedInNation,
     iter_people,
 )
 from fm27_editor.person_fields import FIELD_NAMES
@@ -87,17 +91,13 @@ CREATE INDEX person_birth ON person(birth_date);
 CREATE INDEX person_name ON person(name);
 """
 _DAYS_PLACEHOLDERS = ", ".join("?" * (2 + len(ClubOrNationDays._fields)))
-# The relations the lookup holds, by kind: their table, and the columns after the person and the
-# item, from what the relation holds. A favourite person is permanent when the value is not 0.
-RELATION_TABLES: dict[RelationKind, tuple[str, Callable[[Relation], tuple]]] = {
-    RelationKind.SECOND_NATION: ("second_nation", lambda r: (r.uid, r.value)),
-    RelationKind.TRAINED_IN_NATION: ("trained_in_nation", lambda r: (r.uid, r.level)),
-    RelationKind.TRAINED_AT_CLUB: ("trained_at_club", lambda r: (r.uid, r.level)),
-    RelationKind.FAVOURITE_PERSON: (
-        "favourite_person",
-        lambda r: (r.uid, r.level, r.reason, int(r.value != 0)),
-    ),
-    RelationKind.FAVOURITE_CLUB: ("favourite_club", lambda r: (r.uid, r.level, r.reason)),
+# The table of each kind of relation, whose columns after the person and the item are its facts.
+RELATION_TABLES: dict[type[Relation], str] = {
+    SecondNation: "second_nation",
+    TrainedInNation: "trained_in_nation",
+    TrainedAtClub: "trained_at_club",
+    FavouritePerson: "favourite_person",
+    FavouriteClub: "favourite_club",
 }
 # People are inserted in batches, each with their days at clubs and in nations: both come from one
 # reading of people_db, and the 3.5 million days held at once would take hundreds of megabytes.
@@ -144,8 +144,8 @@ def _insert(cache: sqlite3.Connection, people: Iterable[Person]) -> None:
         cache.executemany(
             f"INSERT INTO club_or_nation_days VALUES ({_DAYS_PLACEHOLDERS})", _days(batch)
         )
-        for kind, (table, columns) in RELATION_TABLES.items():
-            rows = list(_relations(batch, kind, columns))
+        for kind, table in RELATION_TABLES.items():
+            rows = list(_relations(batch, kind))
             if rows:
                 marks = ", ".join("?" * len(rows[0]))
                 cache.executemany(f"INSERT INTO {table} VALUES ({marks})", rows)
@@ -157,14 +157,12 @@ def _days(people: Sequence[Person]) -> Iterator[tuple[int, ...]]:
             yield (person.uid, item, *days)
 
 
-def _relations(
-    people: Sequence[Person], kind: RelationKind, columns: Callable[[Relation], tuple]
-) -> Iterator[tuple]:
+def _relations(people: Sequence[Person], kind: type[Relation]) -> Iterator[tuple]:
     """The rows of one kind of relation, numbered from 0 for each person."""
     for person in people:
-        of_kind = (relation for relation in person.relations or () if relation.relation == kind)
+        of_kind = (relation for relation in person.relations or () if type(relation) is kind)
         for item, relation in enumerate(of_kind):
-            yield (person.uid, item, *columns(relation))
+            yield (person.uid, item, *relation)
 
 
 def _row(person: Person) -> tuple:

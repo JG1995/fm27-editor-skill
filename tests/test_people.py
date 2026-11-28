@@ -3,7 +3,14 @@ import datetime
 import pytest
 
 import synthetic
-from fm27_editor.people import PeopleError, PersonKind, Relation, iter_people, parse_basic_people
+from fm27_editor.people import (
+    FavouritePerson,
+    PeopleError,
+    PersonKind,
+    SecondNation,
+    iter_people,
+    parse_basic_people,
+)
 from fm27_editor.person_names import Names
 
 NAMES = Names({1: "Testy"}, {2: "McTestface"}, {5: "Testo"})
@@ -367,14 +374,15 @@ FAVOURITE = (1, 3, 101, 5, 80, 0x4F)
 @pytest.mark.parametrize("between", [0, 2])
 def test_relations_are_read_before_the_days_at_clubs(between):
     nobody = (1, 3, synthetic.NO_INDEX, 7, 50, 0)
-    ends = synthetic.relations(SECOND_NATION, FAVOURITE, nobody, between=between)
+    not_held = (18, 7, 11, 0, 32, 40)
+    ends = synthetic.relations(SECOND_NATION, FAVOURITE, nobody, not_held, between=between)
     record = synthetic.person_record(0, 100, days_at=ends + synthetic.days_at((9101, 365)))
     (person,) = read_all([synthetic.basic_person(2, 0, 100)], [record])
 
     assert person.relations == (
-        Relation(9, 9002, 0, 100, 85),
-        Relation(1, 101, 5, 80, 0x4F),
-        Relation(1, None, 7, 50, 0),
+        SecondNation(9002, 85),
+        FavouritePerson(101, 80, 5, True),
+        FavouritePerson(None, 50, 7, False),
     )
 
 

@@ -22,7 +22,7 @@ Run every command as `python3 "${CLAUDE_SKILL_DIR}/scripts/fm27.py" COMMAND`. Be
 
 | Table | Columns |
 | --- | --- |
-| `people` | `uid`, `kind`, `name`, `full_name`, `birth_date`, `nation`, `nation_uid`, `club`, `club_uid`, `club_gender`, `division`, `division_uid`, `ca`, `pa`, `wage`, `contract_expires`, `clubs_and_nations` (how many items `days_at_club_or_nation` has for them, `NULL` when not known), `relations` (how many relations of any kind the record holds, `NULL` when the five tables of relations do not know theirs), attributes, positions, personality, staff attributes |
+| `people` | `uid`, `kind`, `name`, `full_name`, `birth_date`, `nation`, `nation_uid`, `club`, `club_uid`, `club_gender`, `division`, `division_uid`, `ca`, `pa`, `wage`, `contract_expires`, `clubs_and_nations` (how many items `days_at_club_or_nation` has for them, `NULL` when not known), `relations` (how many items the five tables of relations below have for them, `NULL` when not known), attributes, positions, personality, staff attributes |
 | `clubs` | `uid`, `name`, `short_name`, `gender`, `is_extinct`, `nation`, `nation_uid`, `based_nation_uid`, `city`, `city_uid`, `stadium`, `stadium_uid`, `reputation`, `division`, `division_uid`, `last_division_uid`, `last_position` |
 | `competitions` | `uid`, `name`, `short_name`, `gender`, `level`, `nation`, `nation_uid`, `parent`, `parent_uid`, `clubs` (how many have it as their division) |
 | `awards` | `uid`, `name`, `short_name`, `gender`, `nation`, `nation_uid`, `competition`, `competition_uid`, `previous_winner`, `years` (how many are in its history) |
